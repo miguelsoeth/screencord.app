@@ -18,11 +18,11 @@ public class CentralFriendsServiceTests
     private readonly FakeSessionManager _session = new() { HasSession = true, AccessToken = "discord-access" };
 
     private CentralFriendsService Create(string baseUrl = BaseUrl) =>
-        new(
+        new(new CentralApiClient(
             new StubHttpClientFactory(_handler),
             _session,
             Options.Create(new ApiOptions { BaseUrl = baseUrl }),
-            NullLogger<CentralFriendsService>.Instance);
+            NullLogger<CentralApiClient>.Instance));
 
     private static string LoginJson(string token = "api-token-1") => $$$"""
         {"token":"{{{token}}}","expiresAtUtc":"2026-11-12T12:00:00+00:00","user":{"id":"22222222-2222-2222-2222-222222222222","discordId":"1001","username":"ana.silva","globalName":"Ana","discriminator":"0","avatarHash":null,"relationship":"None"}}

@@ -42,9 +42,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDiscordApiClient, DiscordApiClient>();
         services.AddSingleton<IProfileService, ProfileService>();
 
-        // API central do ScreenCord: usuários do sistema e as amizades entre eles.
+        // API central do ScreenCord: usuários do sistema, amizades, grupos e a conexão em tempo real.
         services.Configure<ApiOptions>(configuration.GetSection(ApiOptions.SectionName));
-        services.AddHttpClient(CentralFriendsService.ClientName, client =>
+        services.AddHttpClient(CentralApiClient.ClientName, client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(20);
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -55,9 +55,13 @@ public static class ServiceCollectionExtensions
                 UseCookies = false,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             });
+        services.AddSingleton<CentralApiClient>();
         services.AddSingleton<IFriendsService, CentralFriendsService>();
+        services.AddSingleton<IGroupsService, CentralGroupsService>();
+        services.AddSingleton<IGroupsRealtime, GroupsRealtimeClient>();
 
         services.AddSingleton<FriendsViewModel>();
+        services.AddSingleton<GroupsViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
 

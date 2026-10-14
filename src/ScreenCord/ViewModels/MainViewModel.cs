@@ -21,12 +21,18 @@ public sealed class MainViewModel : ObservableObject
     private UserProfile? _profile;
     private string? _errorMessage;
 
-    public MainViewModel(ISessionManager session, IProfileService profileService, FriendsViewModel friends, ILogger<MainViewModel> logger)
+    public MainViewModel(
+        ISessionManager session,
+        IProfileService profileService,
+        FriendsViewModel friends,
+        GroupsViewModel groups,
+        ILogger<MainViewModel> logger)
     {
         _session = session;
         _profileService = profileService;
         _logger = logger;
         Friends = friends;
+        Groups = groups;
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);
@@ -37,6 +43,9 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public FriendsViewModel Friends { get; }
+
+    /// <summary>Grupos de presença em tempo real, na lateral direita.</summary>
+    public GroupsViewModel Groups { get; }
 
     public AsyncRelayCommand ConnectCommand { get; }
 
@@ -210,7 +219,8 @@ public sealed class MainViewModel : ObservableObject
     {
         IsConfirmingDisconnect = false;
 
-        // A sessão da API central é encerrada primeiro, enquanto ainda há um token para identificá-la.
+        // A conexão em tempo real fecha antes, e a sessão da API central é encerrada enquanto ainda há um token para identificá-la.
+        await Groups.SignOutAsync();
         await Friends.SignOutAsync();
 
         try
@@ -245,7 +255,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (IsConnected)
         {
-            await Friends.LoadAsync();
+            await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
         }
     }
 
@@ -271,6 +281,7 @@ public sealed class MainViewModel : ObservableObject
     private void ResetToSignedOut()
     {
         Profile = null;
+        _ = Groups.SignOutAsync();
         Friends.Clear();
         IsConfirmingDisconnect = false;
         IsConnected = false;

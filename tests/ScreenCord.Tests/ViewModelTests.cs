@@ -215,9 +215,16 @@ public class MainViewModelTests
     private readonly FakeSessionManager _session = new();
     private readonly FakeProfileService _profile = new();
     private readonly FakeFriendsService _friends = new();
+    private readonly FakeGroupsService _groups = new();
+    private readonly FakeGroupsRealtime _realtime = new();
 
     private MainViewModel Create() =>
-        new(_session, _profile, new FriendsViewModel(_friends), NullLogger<MainViewModel>.Instance);
+        new(
+            _session,
+            _profile,
+            new FriendsViewModel(_friends),
+            new GroupsViewModel(_groups, _realtime, _friends),
+            NullLogger<MainViewModel>.Instance);
 
     [Fact]
     public async Task SemSessao_MostraTelaDeLogin()
@@ -358,6 +365,21 @@ public class MainViewModelTests
         Assert.Null(vm.Profile);
         Assert.True(vm.ShowLogin);
         Assert.Empty(vm.Friends.Friends);
+        Assert.True(_realtime.StopCount >= 1);
+        Assert.Empty(vm.Groups.Groups);
+    }
+
+    [Fact]
+    public async Task ComSessaoSalva_CarregaGruposEAbreATempoReal()
+    {
+        _session.HasSession = true;
+        _groups.Add("Amigos");
+        var vm = Create();
+
+        await vm.InitializeAsync();
+
+        Assert.Equal(1, _realtime.StartCount);
+        Assert.Equal("Amigos", Assert.Single(vm.Groups.Groups).Name);
     }
 
     [Fact]

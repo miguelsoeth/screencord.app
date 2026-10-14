@@ -223,3 +223,123 @@ public sealed class FakeFriendsService : IFriendsService
         return Task.CompletedTask;
     }
 }
+
+/// <summary>Grupos em memória: o usuário atual é <see cref="Me"/>; as ações alteram os dados como o servidor faria.</summary>
+public sealed class FakeGroupsService : IGroupsService
+{
+    public static readonly Person Me = FakeFriendsService.Create("eu", "Eu");
+
+    public Dictionary<Guid, (string Name, List<Person> Members)> Groups { get; } = [];
+
+    /// <summary>Quem está conectado em cada grupo e a versão da presença, como o servidor informaria.</summary>
+    public Dictionary<Guid, List<Person>> Connected { get; } = [];
+
+    public long PresenceVersion { get; set; } = 1;
+
+    public Exception? Failure { get; set; }
+
+    public List<string> Calls { get; } = [];
+
+    public Guid Add(string name, params Person[] others)
+    {
+        var id = Guid.NewGuid();
+        Groups[id] = (name, [Me, .. others]);
+        return id;
+    }
+
+    public GroupDto Dto(Guid id) =>
+        new(id, Groups[id].Name, Groups[id].Members.Count, Connected.GetValueOrDefault(id, []).Select(ToDto).ToList(), PresenceVersion);
+
+    public static PresenceUserDto ToDto(Person person) =>
+        new(person.UserId, person.DiscordId, person.Username, person.GlobalName, "0", null);
+
+    public static GroupPresenceDto Presence(Guid groupId, long version, params Person[] connected) =>
+        new(groupId, connected.Select(ToDto).ToList(), version);
+
+    public Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default) =>
+        Run<IReadOnlyList<GroupDto>>("list", () => Groups.Keys.Select(Dto).ToList());
+
+    public Task<GroupDetails> GetGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        Run("get:" + Groups[groupId].Name, () =>
+        {
+            var connected = Connected.GetValueOrDefault(groupId, []);
+            var members = Groups[groupId].Members.Select(p => new GroupMember(p, connected.Any(c => c.UserId == p.UserId))).ToList();
+            return new GroupDetails(groupId, Groups[groupId].Name, members, PresenceVersion);
+        });
+
+    public Task<GroupDto> CreateGroupAsync(string name, CancellationToken cancellationToken = default) =>
+        Run("create:" + name, () => Dto(Add(name)));
+
+    public Task AddMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default) =>
+        Run<object?>($"add:{userId}", () =>
+        {
+            Groups[groupId].Members.Add(FakeFriendsService.Create("x") with { UserId = userId });
+            return null;
+        });
+
+    public Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        Run<object?>("leave:" + Groups[groupId].Name, () => Groups.Remove(groupId));
+
+    private Task<T> Run<T>(string call, Func<T> action)
+    {
+        Calls.Add(call);
+        return Failure is null ? Task.FromResult(action()) : Task.FromException<T>(Failure);
+    }
+}
+
+/// <summary>Hub simulado: os testes disparam os eventos do servidor diretamente.</summary>
+public sealed class FakeGroupsRealtime : IGroupsRealtime
+{
+    public RealtimeState State { get; private set; }
+
+    public int StartCount { get; private set; }
+
+    public int StopCount { get; private set; }
+
+    public List<string> Calls { get; } = [];
+
+    public Func<Guid, GroupPresenceDto?> OnJoin { get; set; } = id => FakeGroupsService.Presence(id, 100, FakeGroupsService.Me);
+
+    public event EventHandler<RealtimeState>? StateChanged;
+
+    public event EventHandler<GroupPresenceDto>? PresenceChanged;
+
+    public event EventHandler<GroupDto>? GroupChanged;
+
+    public event EventHandler<Guid>? GroupRemoved;
+
+    public void Start() => StartCount++;
+
+    public Task<GroupPresenceDto> JoinAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add($"join:{groupId}");
+        return OnJoin(groupId) is { } presence
+            ? Task.FromResult(presence)
+            : Task.FromException<GroupPresenceDto>(new DiscordException(DiscordErrorKind.Network, "offline") { Source = ErrorSource.CentralApi });
+    }
+
+    public Task LeaveAsync(CancellationToken cancellationToken = default)
+    {
+        Calls.Add("leave");
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync()
+    {
+        StopCount++;
+        SetState(RealtimeState.Disconnected);
+        return Task.CompletedTask;
+    }
+
+    public void SetState(RealtimeState state)
+    {
+        State = state;
+        StateChanged?.Invoke(this, state);
+    }
+
+    public void RaisePresence(GroupPresenceDto presence) => PresenceChanged?.Invoke(this, presence);
+
+    public void RaiseGroupChanged(GroupDto group) => GroupChanged?.Invoke(this, group);
+
+    public void RaiseGroupRemoved(Guid groupId) => GroupRemoved?.Invoke(this, groupId);
+}
