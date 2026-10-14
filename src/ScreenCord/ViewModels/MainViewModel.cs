@@ -17,6 +17,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isConnected;
     private bool _isSigningIn;
     private bool _isLoadingProfile;
+    private bool _isConfirmingDisconnect;
     private UserProfile? _profile;
     private string? _errorMessage;
 
@@ -30,7 +31,9 @@ public sealed class MainViewModel : ObservableObject
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);
         RefreshProfileCommand = new AsyncRelayCommand(RefreshProfileAsync, () => IsConnected && !IsLoadingProfile);
-        DisconnectCommand = new AsyncRelayCommand(DisconnectAsync, () => IsConnected);
+        DisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = true, () => IsConnected && !IsConfirmingDisconnect);
+        ConfirmDisconnectCommand = new AsyncRelayCommand(ConfirmDisconnectAsync, () => IsConnected);
+        CancelDisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = false, () => IsConfirmingDisconnect);
     }
 
     public FriendsViewModel Friends { get; }
@@ -41,7 +44,29 @@ public sealed class MainViewModel : ObservableObject
 
     public AsyncRelayCommand RefreshProfileCommand { get; }
 
-    public AsyncRelayCommand DisconnectCommand { get; }
+    /// <summary>Abre a confirmação de desconexão.</summary>
+    public RelayCommand DisconnectCommand { get; }
+
+    /// <summary>Desconecta de fato, depois da confirmação.</summary>
+    public AsyncRelayCommand ConfirmDisconnectCommand { get; }
+
+    public RelayCommand CancelDisconnectCommand { get; }
+
+    /// <summary>Verdadeiro enquanto a janela de confirmação de desconexão está aberta.</summary>
+    public bool IsConfirmingDisconnect
+    {
+        get => _isConfirmingDisconnect;
+        private set
+        {
+            if (SetProperty(ref _isConfirmingDisconnect, value))
+            {
+                OnPropertyChanged(nameof(IsMainInteractive));
+                OnStateChanged();
+            }
+        }
+    }
+
+    public bool IsMainInteractive => !IsConfirmingDisconnect;
 
     /// <summary>Verdadeiro enquanto a sessão salva é verificada na abertura do aplicativo.</summary>
     public bool IsInitializing
@@ -181,8 +206,10 @@ public sealed class MainViewModel : ObservableObject
 
     private Task RefreshProfileAsync() => LoadConnectedDataAsync();
 
-    private async Task DisconnectAsync()
+    private async Task ConfirmDisconnectAsync()
     {
+        IsConfirmingDisconnect = false;
+
         // A sessão da API central é encerrada primeiro, enquanto ainda há um token para identificá-la.
         await Friends.SignOutAsync();
 
@@ -245,6 +272,7 @@ public sealed class MainViewModel : ObservableObject
     {
         Profile = null;
         Friends.Clear();
+        IsConfirmingDisconnect = false;
         IsConnected = false;
     }
 
@@ -256,5 +284,7 @@ public sealed class MainViewModel : ObservableObject
         CancelConnectCommand.NotifyCanExecuteChanged();
         RefreshProfileCommand.NotifyCanExecuteChanged();
         DisconnectCommand.NotifyCanExecuteChanged();
+        ConfirmDisconnectCommand.NotifyCanExecuteChanged();
+        CancelDisconnectCommand.NotifyCanExecuteChanged();
     }
 }

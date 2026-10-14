@@ -348,13 +348,65 @@ public class MainViewModelTests
         var vm = Create();
         await vm.InitializeAsync();
 
-        await vm.DisconnectCommand.ExecuteAsync();
+        vm.DisconnectCommand.Execute(null);
+        await vm.ConfirmDisconnectCommand.ExecuteAsync();
 
         Assert.Equal(1, _session.SignOutCount);
         Assert.Equal(1, _friends.SignOutCount);
         Assert.False(vm.IsConnected);
+        Assert.False(vm.IsConfirmingDisconnect);
         Assert.Null(vm.Profile);
         Assert.True(vm.ShowLogin);
         Assert.Empty(vm.Friends.Friends);
+    }
+
+    [Fact]
+    public async Task Desconectar_SoAbreAConfirmacao()
+    {
+        _session.HasSession = true;
+        var vm = Create();
+        await vm.InitializeAsync();
+
+        vm.DisconnectCommand.Execute(null);
+
+        Assert.True(vm.IsConfirmingDisconnect);
+        Assert.False(vm.IsMainInteractive);
+        Assert.False(vm.DisconnectCommand.CanExecute(null));
+        Assert.True(vm.IsConnected);
+        Assert.Equal(0, _session.SignOutCount);
+        Assert.Equal(0, _friends.SignOutCount);
+    }
+
+    [Fact]
+    public async Task CancelarDesconexao_MantemAContaConectada()
+    {
+        _session.HasSession = true;
+        var vm = Create();
+        await vm.InitializeAsync();
+        vm.DisconnectCommand.Execute(null);
+
+        vm.CancelDisconnectCommand.Execute(null);
+
+        Assert.False(vm.IsConfirmingDisconnect);
+        Assert.True(vm.IsMainInteractive);
+        Assert.False(vm.CancelDisconnectCommand.CanExecute(null));
+        Assert.True(vm.IsConnected);
+        Assert.NotNull(vm.Profile);
+        Assert.Equal(0, _session.SignOutCount);
+    }
+
+    [Fact]
+    public async Task SessaoExpiradaComConfirmacaoAberta_FechaAConfirmacao()
+    {
+        _session.HasSession = true;
+        var vm = Create();
+        await vm.InitializeAsync();
+        vm.DisconnectCommand.Execute(null);
+        _profile.OnGet = () => Task.FromException<UserProfile>(new DiscordException(DiscordErrorKind.Unauthorized, "401"));
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.False(vm.IsConfirmingDisconnect);
+        Assert.True(vm.ShowLogin);
     }
 }
