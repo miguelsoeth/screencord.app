@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
+using ScreenCord.Media;
 using ScreenCord.Models;
 using ScreenCord.Services;
 
@@ -9,13 +10,17 @@ namespace ScreenCord.ViewModels;
 /// <summary>
 /// Lista de grupos (salas de presença) na lateral. Mantém a conexão em tempo real aberta enquanto a conta
 /// está conectada: entradas e saídas de qualquer integrante chegam pelo hub e atualizam a lista na hora.
+/// Também controla o compartilhamento de tela na sala atual e as janelas de quem você está assistindo.
 /// </summary>
 public sealed class GroupsViewModel : ObservableObject
 {
     private readonly IGroupsService _groupsService;
     private readonly IGroupsRealtime _realtime;
     private readonly IFriendsService _friendsService;
+    private readonly IScreenShareService _screenShare;
+    private readonly IScreenShareUi _shareUi;
     private readonly SynchronizationContext? _ui;
+    private readonly List<StreamViewerViewModel> _viewers = [];
 
     private GroupItemViewModel? _currentGroup;
     private Guid? _desiredGroupId;
@@ -26,12 +31,24 @@ public sealed class GroupsViewModel : ObservableObject
     private bool _isCreating;
     private string _newGroupName = "";
     private string? _errorMessage;
+    private IActiveScreenShare? _activeShare;
+    private Guid? _shareGroupId;
+    private bool _isStartingShare;
+    private string? _shareMessage;
+    private ShareSettings _lastShareSettings = ShareSettings.Default;
 
-    public GroupsViewModel(IGroupsService groupsService, IGroupsRealtime realtime, IFriendsService friendsService)
+    public GroupsViewModel(
+        IGroupsService groupsService,
+        IGroupsRealtime realtime,
+        IFriendsService friendsService,
+        IScreenShareService screenShare,
+        IScreenShareUi shareUi)
     {
         _groupsService = groupsService;
         _realtime = realtime;
         _friendsService = friendsService;
+        _screenShare = screenShare;
+        _shareUi = shareUi;
 
         // Criado na thread da interface; os eventos do hub chegam de outras threads e são trazidos para cá.
         _ui = SynchronizationContext.Current;
@@ -46,6 +63,8 @@ public sealed class GroupsViewModel : ObservableObject
         CancelCreateCommand = new RelayCommand(CancelCreate);
         CreateCommand = new AsyncRelayCommand(CreateAsync);
         ReloadCommand = new AsyncRelayCommand(() => LoadAsync());
+        StartShareCommand = new AsyncRelayCommand(StartShareAsync, () => CanStartShare);
+        StopShareCommand = new AsyncRelayCommand(StopShareAsync, () => IsSharing);
     }
 
     public ObservableCollection<GroupItemViewModel> Groups { get; } = [];
@@ -62,6 +81,55 @@ public sealed class GroupsViewModel : ObservableObject
     public AsyncRelayCommand CreateCommand { get; }
 
     public AsyncRelayCommand ReloadCommand { get; }
+
+    /// <summary>Abre a escolha de tela ou janela e começa a compartilhar na sala atual.</summary>
+    public AsyncRelayCommand StartShareCommand { get; }
+
+    public AsyncRelayCommand StopShareCommand { get; }
+
+    /// <summary>Você está compartilhando a tela na sala atual.</summary>
+    public bool IsSharing => _activeShare is not null;
+
+    public bool IsStartingShare
+    {
+        get => _isStartingShare;
+        private set
+        {
+            if (SetProperty(ref _isStartingShare, value))
+            {
+                OnShareStateChanged();
+            }
+        }
+    }
+
+    public bool CanStartShare => IsInGroup && !IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
+
+    /// <summary>O que está sendo compartilhado: "Tela 1 (principal)" ou o título da janela.</summary>
+    public string? ShareSourceText => _activeShare?.Request.Source.Title;
+
+    /// <summary>"1280 × 720 · 30 fps · Médio (4000 kbps) · com áudio".</summary>
+    public string? ShareDetailText => _activeShare is { } active
+        ? $"{active.Share.Width} × {active.Share.Height} · {active.Share.FrameRate} fps · {ShareSettings.LabelOf(active.Request.Settings.Quality)} ({active.Share.BitrateKbps} kbps)" +
+          (active.Share.HasAudio ? " · com áudio" : "")
+        : null;
+
+    /// <summary>Aviso sobre o compartilhamento (ex.: a janela compartilhada foi fechada).</summary>
+    public string? ShareMessage
+    {
+        get => _shareMessage;
+        private set
+        {
+            if (SetProperty(ref _shareMessage, value))
+            {
+                OnPropertyChanged(nameof(HasShareMessage));
+            }
+        }
+    }
+
+    public bool HasShareMessage => !string.IsNullOrEmpty(ShareMessage);
+
+    /// <summary>Janelas de compartilhamentos que você está assistindo.</summary>
+    public IReadOnlyList<StreamViewerViewModel> Viewers => _viewers;
 
     /// <summary>Grupo em que este aplicativo está conectado.</summary>
     public GroupItemViewModel? CurrentGroup
@@ -82,8 +150,15 @@ public sealed class GroupsViewModel : ObservableObject
                     value.IsCurrent = true;
                 }
 
+                // Saiu da sala (ou trocou de sala): o compartilhamento e as janelas de quem assistia terminam.
+                if (previous is not null)
+                {
+                    LeftRoom(previous.Id);
+                }
+
                 OnPropertyChanged(nameof(IsInGroup));
                 LeaveCurrentCommand.NotifyCanExecuteChanged();
+                OnShareStateChanged();
             }
         }
     }
@@ -99,6 +174,7 @@ public sealed class GroupsViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(RealtimeStatusText));
                 OnPropertyChanged(nameof(HasRealtimeStatus));
+                OnShareStateChanged();
             }
         }
     }
@@ -201,6 +277,9 @@ public sealed class GroupsViewModel : ObservableObject
 
     public void Clear()
     {
+        _ = EndShareAsync(null);
+        CloseViewers(null);
+        ShareMessage = null;
         _isActive = false;
         _desiredGroupId = null;
         CurrentGroup = null;
@@ -291,7 +370,7 @@ public sealed class GroupsViewModel : ObservableObject
             var presence = await _realtime.JoinAsync(group.Id);
             _desiredGroupId = group.Id;
             CurrentGroup = Groups.Contains(group) ? group : null;
-            group.ApplyPresence(CentralApiClient.ToPeople(presence.ConnectedUsers), presence.Version);
+            ApplyPresence(group, presence);
         }
         catch (Exception ex)
         {
@@ -363,6 +442,12 @@ public sealed class GroupsViewModel : ObservableObject
         RealtimeState = state;
         if (state != RealtimeState.Connected)
         {
+            // A conexão caiu: o servidor já encerrou o compartilhamento junto com ela.
+            if (IsSharing)
+            {
+                await EndShareAsync("O compartilhamento de tela parou porque a conexão com o servidor caiu.");
+            }
+
             return;
         }
 
@@ -375,7 +460,7 @@ public sealed class GroupsViewModel : ObservableObject
             {
                 var presence = await _realtime.JoinAsync(groupId);
                 CurrentGroup = group;
-                group.ApplyPresence(CentralApiClient.ToPeople(presence.ConnectedUsers), presence.Version);
+                ApplyPresence(group, presence);
             }
         }
         catch (Exception ex)
@@ -388,7 +473,7 @@ public sealed class GroupsViewModel : ObservableObject
     {
         if (_isActive && Groups.FirstOrDefault(g => g.Id == presence.GroupId) is { } group)
         {
-            group.ApplyPresence(CentralApiClient.ToPeople(presence.ConnectedUsers), presence.Version);
+            ApplyPresence(group, presence);
         }
     }
 
@@ -452,7 +537,11 @@ public sealed class GroupsViewModel : ObservableObject
 
         item.Name = group.Name;
         item.MemberCount = group.MemberCount;
-        item.ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion);
+        if (item.ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares))
+        {
+            SyncViewers(item);
+        }
+
         return item;
     }
 
@@ -472,6 +561,172 @@ public sealed class GroupsViewModel : ObservableObject
         group.IsMembersOpen = false;
         Groups.Remove(group);
         OnPropertyChanged(nameof(ShowNoGroups));
+    }
+
+    private void ApplyPresence(GroupItemViewModel group, GroupPresenceDto presence)
+    {
+        if (group.ApplyPresence(CentralApiClient.ToPeople(presence.ConnectedUsers), presence.Version, presence.ScreenShares))
+        {
+            SyncViewers(group);
+        }
+    }
+
+    internal async Task WatchAsync(GroupItemViewModel group, Person sharer)
+    {
+        if (sharer.UserId == _screenShare.CurrentUserId)
+        {
+            return;
+        }
+
+        if (_viewers.FirstOrDefault(v => v.GroupId == group.Id && v.SharerId == sharer.UserId && !v.IsEnded) is { } open)
+        {
+            _shareUi.ActivateViewer(open);
+            return;
+        }
+
+        // Só quem está na sala pode assistir: clicar em "AO VIVO" de outro grupo entra nele.
+        if (group != CurrentGroup || RealtimeState != RealtimeState.Connected)
+        {
+            await JoinAsync(group);
+            if (group != CurrentGroup)
+            {
+                return;
+            }
+        }
+
+        if (!group.Shares.TryGetValue(sharer.UserId, out var share))
+        {
+            ErrorMessage = $"{sharer.DisplayName} não está mais compartilhando a tela.";
+            return;
+        }
+
+        // Uma janela que já terminou é substituída pela nova.
+        foreach (var ended in _viewers.Where(v => v.GroupId == group.Id && v.SharerId == sharer.UserId).ToList())
+        {
+            ended.RequestClose();
+        }
+
+        var viewer = new StreamViewerViewModel(_screenShare, group.Id, group.Name, sharer, share);
+        _viewers.Add(viewer);
+        _shareUi.ShowViewer(viewer, () =>
+        {
+            _viewers.Remove(viewer);
+            _ = viewer.DisposeAsync().AsTask();
+        });
+        await viewer.StartAsync();
+    }
+
+    private async Task StartShareAsync()
+    {
+        if (CurrentGroup is not { } group || !CanStartShare)
+        {
+            return;
+        }
+
+        var request = _shareUi.PickShare(_lastShareSettings);
+        if (request is null || CurrentGroup != group)
+        {
+            return;
+        }
+
+        _lastShareSettings = request.Settings;
+        ShareMessage = null;
+        IsStartingShare = true;
+        try
+        {
+            var active = await _screenShare.StartAsync(group.Id, request);
+            if (CurrentGroup != group || !_isActive)
+            {
+                // Saiu da sala enquanto o compartilhamento começava.
+                await active.StopAsync();
+                return;
+            }
+
+            active.Ended += (_, reason) => Post(() => OnShareEnded(active, reason));
+            _activeShare = active;
+            _shareGroupId = group.Id;
+        }
+        catch (Exception ex)
+        {
+            ShareMessage = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            IsStartingShare = false;
+        }
+    }
+
+    private Task StopShareAsync() => EndShareAsync(null);
+
+    private async Task EndShareAsync(string? message)
+    {
+        if (_activeShare is not { } active)
+        {
+            return;
+        }
+
+        _activeShare = null;
+        _shareGroupId = null;
+        ShareMessage = message;
+        OnShareStateChanged();
+        try
+        {
+            await active.StopAsync();
+        }
+        catch (Exception)
+        {
+            // Melhor esforço: o servidor encerra o compartilhamento quando a conexão de mídia cai.
+        }
+    }
+
+    private void OnShareEnded(IActiveScreenShare active, string reason)
+    {
+        if (_activeShare != active)
+        {
+            return;
+        }
+
+        _activeShare = null;
+        _shareGroupId = null;
+        ShareMessage = reason;
+        OnShareStateChanged();
+    }
+
+    private void LeftRoom(Guid groupId)
+    {
+        if (_shareGroupId == groupId)
+        {
+            _ = EndShareAsync(null);
+        }
+
+        CloseViewers(groupId);
+    }
+
+    private void CloseViewers(Guid? groupId)
+    {
+        foreach (var viewer in _viewers.Where(v => groupId is null || v.GroupId == groupId).ToList())
+        {
+            viewer.RequestClose();
+        }
+    }
+
+    /// <summary>Repassa às janelas abertas o fim (ou a mudança) dos compartilhamentos que elas mostram.</summary>
+    private void SyncViewers(GroupItemViewModel group)
+    {
+        foreach (var viewer in _viewers.Where(v => v.GroupId == group.Id).ToList())
+        {
+            viewer.UpdateShare(group.Shares.GetValueOrDefault(viewer.SharerId));
+        }
+    }
+
+    private void OnShareStateChanged()
+    {
+        OnPropertyChanged(nameof(IsSharing));
+        OnPropertyChanged(nameof(CanStartShare));
+        OnPropertyChanged(nameof(ShareSourceText));
+        OnPropertyChanged(nameof(ShareDetailText));
+        StartShareCommand?.NotifyCanExecuteChanged();
+        StopShareCommand?.NotifyCanExecuteChanged();
     }
 
     private void Post(Action action) => Post(() =>

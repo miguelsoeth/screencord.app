@@ -223,7 +223,7 @@ public class MainViewModelTests
             _session,
             _profile,
             new FriendsViewModel(_friends),
-            new GroupsViewModel(_groups, _realtime, _friends),
+            new GroupsViewModel(_groups, _realtime, _friends, new FakeScreenShareService(), new FakeScreenShareUi()),
             NullLogger<MainViewModel>.Instance);
 
     [Fact]

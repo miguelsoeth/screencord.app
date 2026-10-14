@@ -40,6 +40,11 @@ public interface IGroupsRealtime
 
     Task LeaveAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Anuncia o compartilhamento de tela na sala atual. A mídia vai depois pelo canal de mídia.</summary>
+    Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default);
+
+    Task StopScreenShareAsync(CancellationToken cancellationToken = default);
+
     Task StopAsync();
 }
 
@@ -145,6 +150,23 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
             async connection =>
             {
                 await connection.InvokeAsync(GroupsHubContract.LeaveGroup, cancellationToken).ConfigureAwait(false);
+                return null;
+            },
+            cancellationToken);
+
+    public async Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default)
+    {
+        var share = await InvokeAsync(
+            connection => connection.InvokeAsync<ScreenShareDto?>(GroupsHubContract.StartScreenShare, start, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        return share ?? throw new DiscordException(DiscordErrorKind.Rejected, "Entre na sala de um grupo para compartilhar a tela.") { Source = ErrorSource.CentralApi };
+    }
+
+    public Task StopScreenShareAsync(CancellationToken cancellationToken = default) =>
+        InvokeAsync<object?>(
+            async connection =>
+            {
+                await connection.InvokeAsync(GroupsHubContract.StopScreenShare, cancellationToken).ConfigureAwait(false);
                 return null;
             },
             cancellationToken);

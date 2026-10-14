@@ -14,7 +14,7 @@ public class GroupsViewModelTests
     private readonly Person _bruno = FakeFriendsService.Create("bruno", "Bruno", RelationshipStatus.Friend);
     private readonly Person _carla = FakeFriendsService.Create("carla", "Carla", RelationshipStatus.Friend);
 
-    private GroupsViewModel Create() => new(_groups, _realtime, _friends);
+    private GroupsViewModel Create() => new(_groups, _realtime, _friends, new FakeScreenShareService(), new FakeScreenShareUi());
 
     private async Task<GroupsViewModel> LoadedAsync()
     {

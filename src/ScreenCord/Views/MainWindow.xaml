@@ -21,6 +21,7 @@
     <Window.Resources>
         <views:InverseBooleanConverter x:Key="InverseBool" />
         <views:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <views:IsSharingToVisibilityConverter x:Key="IsSharingToVisibility" />
     </Window.Resources>
 
     <Grid>
@@ -498,6 +499,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <Grid Width="22" Height="22">
                                             <Ellipse Fill="{StaticResource SurfaceRaisedBrush}" />
@@ -510,6 +512,20 @@
                                         <TextBlock Grid.Column="1" Text="{Binding DisplayName}" ToolTip="{Binding Handle}" FontSize="13" Margin="8,0,0,0"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                    Foreground="{StaticResource MutedTextBrush}" />
+                                        <!-- Compartilhando a tela: clicar abre a transmissão. -->
+                                        <Button Grid.Column="2" Style="{StaticResource LivePill}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                Content="AO VIVO"
+                                                Command="{Binding DataContext.WatchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding DisplayName, StringFormat=Assistir à tela de {0}}"
+                                                AutomationProperties.Name="{Binding DisplayName, StringFormat=Assistir à tela de {0}}">
+                                            <Button.Visibility>
+                                                <MultiBinding Converter="{StaticResource IsSharingToVisibility}">
+                                                    <Binding Path="UserId" />
+                                                    <Binding Path="DataContext.SharingUserIds" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                </MultiBinding>
+                                            </Button.Visibility>
+                                        </Button>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -638,9 +654,43 @@
                     <!-- Sala atual -->
                     <Border Grid.Row="4" Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="10,8" Margin="0,8,0,0"
                             Visibility="{Binding IsInGroup, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                        <!-- Compartilhamento da sua tela -->
+                        <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="8,6" Margin="0,0,0,8"
+                                Visibility="{Binding IsSharing, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
+                                            <TextBlock Text="AO VIVO" FontSize="9" FontWeight="Bold" Foreground="White" />
+                                        </Border>
+                                        <TextBlock Text="{Binding ShareSourceText}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="140" ToolTip="{Binding ShareSourceText}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ShareDetailText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
+                                               TextWrapping="Wrap" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="6,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding StopShareCommand}"
+                                        ToolTip="Parar de compartilhar" AutomationProperties.Name="Parar de compartilhar">
+                                    <Path Data="{StaticResource StopShareIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="Iniciando o compartilhamento…" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
+                                   Visibility="{Binding IsStartingShare, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{Binding ShareMessage}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
+                                   Foreground="{StaticResource DangerBrush}"
+                                   Visibility="{Binding HasShareMessage, Converter={StaticResource BoolToVisibility}}" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
@@ -652,12 +702,19 @@
                                 <TextBlock Text="{Binding CurrentGroup.Name}" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
                                            Margin="14,1,0,0" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <Button Grid.Column="1" Style="{StaticResource DangerIconButton}" Width="30" Height="30"
+                            <Button Grid.Column="1" Style="{StaticResource PrimaryIconButton}" Width="30" Height="30" Margin="0,0,6,0"
+                                    Command="{Binding StartShareCommand}"
+                                    Visibility="{Binding IsSharing, Converter={StaticResource InverseBoolToVisibility}}"
+                                    ToolTip="Compartilhar tela" AutomationProperties.Name="Compartilhar tela">
+                                <Path Data="{StaticResource ScreenShareIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30"
                                     Command="{Binding LeaveCurrentCommand}"
                                     ToolTip="Sair da sala" AutomationProperties.Name="Sair da sala">
                                 <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
                             </Button>
                         </Grid>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Border>

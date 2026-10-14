@@ -324,6 +324,18 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
         return Task.CompletedTask;
     }
 
+    public Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("share");
+        return Task.FromResult(new ScreenShareDto(FakeGroupsService.Me.UserId, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio));
+    }
+
+    public Task StopScreenShareAsync(CancellationToken cancellationToken = default)
+    {
+        Calls.Add("unshare");
+        return Task.CompletedTask;
+    }
+
     public Task StopAsync()
     {
         StopCount++;

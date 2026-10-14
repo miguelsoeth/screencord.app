@@ -43,6 +43,9 @@ public sealed class CentralApiClient
 
     public Uri BaseUri => _options.Value.GetBaseUri();
 
+    /// <summary>Id do usuário na API central, conhecido depois do primeiro login na sessão.</summary>
+    public Guid? CurrentUserId { get; private set; }
+
     public async Task<T> SendAsync<T>(
         HttpMethod method,
         string path,
@@ -123,6 +126,7 @@ public sealed class CentralApiClient
 
             _logger.LogInformation("Sessão iniciada na API central; válida até {ExpiresAtUtc:O}.", login.ExpiresAtUtc);
             _apiToken = login.Token;
+            CurrentUserId = login.User?.Id;
             return login.Token;
         }
         finally
@@ -155,7 +159,11 @@ public sealed class CentralApiClient
         }
     }
 
-    public void ForgetSession() => _apiToken = null;
+    public void ForgetSession()
+    {
+        _apiToken = null;
+        CurrentUserId = null;
+    }
 
     public static List<Person> ToPeople(IEnumerable<UserDto>? users)
     {

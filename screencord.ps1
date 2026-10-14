@@ -47,8 +47,8 @@ $Components = [ordered]@{
     }
     app = @{
         Name     = 'App'
-        WorkDir  = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows'
-        Output   = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows\ScreenCord.exe'
+        WorkDir  = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows10.0.22621.0'
+        Output   = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows10.0.22621.0\ScreenCord.exe'
         PidFile  = Join-Path $StateDir 'app.pid'
         OutLog   = Join-Path $LogDir 'app.log'
         ErrLog   = Join-Path $LogDir 'app.err.log'

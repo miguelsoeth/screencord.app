@@ -60,6 +60,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGroupsService, CentralGroupsService>();
         services.AddSingleton<IGroupsRealtime, GroupsRealtimeClient>();
 
+        // Compartilhamento de tela: captura, encoder e canal de mídia; as janelas ficam na camada de interface.
+        services.AddSingleton<IScreenShareService, ScreenShareService>();
+        services.AddSingleton<IScreenShareUi, ScreenShareUi>();
+
         services.AddSingleton<FriendsViewModel>();
         services.AddSingleton<GroupsViewModel>();
         services.AddSingleton<MainViewModel>();

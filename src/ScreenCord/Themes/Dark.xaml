@@ -94,6 +94,13 @@
 
     <Geometry x:Key="PlusIcon">M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z</Geometry>
     <Geometry x:Key="ChevronDownIcon">M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z</Geometry>
+    <Geometry x:Key="MonitorIcon">M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z</Geometry>
+    <Geometry x:Key="WindowIcon">M4,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M4,8V18H20V8H4Z</Geometry>
+    <Geometry x:Key="ScreenShareIcon">M20,18C21.1,18 22,17.1 22,16V6C22,4.89 21.1,4 20,4H4C2.89,4 2,4.89 2,6V16A2,2 0 0,0 4,18H0V20H24V18H20M13,14.47V12.28C10.22,12.28 8.39,13.13 7,15C7.56,12.33 9.11,9.67 13,9.13V7L17,10.73L13,14.47Z</Geometry>
+    <Geometry x:Key="StopShareIcon">M21.22,18.02L23.22,20.02H24V18.02H21.22M21.99,16.02L22,6.02C22,4.91 21.1,4.02 20,4.02H7.22L12.32,9.12C12.54,9.09 12.76,9.06 13,9.02V6.89L17,10.62L15.88,11.67L21.48,17.27C21.79,16.93 21.99,16.5 21.99,16.02M2.39,1.73L1.11,3L2.65,4.54C2.25,4.9 2,5.43 2,6.02V16.02C2,17.11 2.89,18.02 4,18.02H0V20.02H18.13L20.84,22.73L22.11,21.46L2.39,1.73M7,15.02C7.31,13.59 7.86,12.17 8.97,11.11L10.55,12.69C9.03,13.06 7.89,13.83 7,15.02Z</Geometry>
+    <Geometry x:Key="VolumeIcon">M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z</Geometry>
+    <Geometry x:Key="MuteIcon">M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z</Geometry>
+    <Geometry x:Key="FullscreenIcon">M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z</Geometry>
     <Geometry x:Key="AccountIcon">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</Geometry>
 
     <Style x:Key="IconPath" TargetType="Path">
@@ -155,6 +162,37 @@
     </Style>
 
     <SolidColorBrush x:Key="IdleDotBrush" Color="#5C606A" />
+    <SolidColorBrush x:Key="LiveBrush" Color="#E5484D" />
+
+    <!-- Selo "AO VIVO" ao lado de quem compartilha a tela; clicável para assistir. -->
+    <Style x:Key="LivePill" TargetType="Button">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="{StaticResource LiveBrush}" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                            CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.85" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <!-- Botão só com ícone, sem fundo; usado nos cabeçalhos compactos (ex.: "+" dos grupos). -->
     <Style x:Key="GhostIconButton" TargetType="Button">

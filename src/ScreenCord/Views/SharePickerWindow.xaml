@@ -1,0 +1,240 @@
+<Window x:Class="ScreenCord.Views.SharePickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ScreenCord.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:SharePickerViewModel}"
+        Title="Compartilhar tela"
+        Icon="/ScreenCord;component/Assets/screencord.ico"
+        Width="560" Height="600" MinWidth="460" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <!-- Escolha segmentada: uma pílula por opção, a marcada em destaque. -->
+        <Style x:Key="SegmentRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6" Padding="12,7"
+                                BorderThickness="1" BorderBrush="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,14,0,6" />
+        </Style>
+
+        <Style x:Key="SourceItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Root" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,1"
+                                BorderThickness="1" BorderBrush="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource InfoSurfaceBrush}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Compartilhar tela" FontSize="18" FontWeight="Bold" />
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0"
+                       Text="Quem está conectado na sala poderá assistir." />
+        </StackPanel>
+
+        <!-- Tela inteira ou uma janela -->
+        <Grid Grid.Row="1" Margin="0,16,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Content="Tela" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="Compartilhar uma tela" />
+                <RadioButton Content="Janela" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="Compartilhar uma janela" />
+            </StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
+                    Command="{Binding RefreshCommand}" ToolTip="Atualizar lista" AutomationProperties.Name="Atualizar lista">
+                <Path Data="{StaticResource RefreshIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+            </Button>
+        </Grid>
+
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="6">
+            <Grid>
+                <ListBox x:Name="SourceList" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}"
+                         Background="Transparent" BorderThickness="0"
+                         ItemContainerStyle="{StaticResource SourceItem}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         AutomationProperties.Name="O que compartilhar"
+                         MouseDoubleClick="OnSourceDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="34" Height="34" CornerRadius="6" Background="{StaticResource SurfaceRaisedBrush}">
+                                    <Path Data="{StaticResource MonitorIcon}" Width="18" Height="18" Stretch="Uniform"
+                                          Fill="{StaticResource MutedTextBrush}" x:Name="KindIcon" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsScreen}" Value="False">
+                                    <Setter TargetName="KindIcon" Property="Data" Value="{StaticResource WindowIcon}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Text="{Binding EmptyText}" Style="{StaticResource MutedText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding HasNoSources, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </Border>
+
+        <!-- Qualidade da transmissão -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Margin="0,0,24,0">
+                <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Resolution" Content="{Binding Label}"
+                                         IsChecked="{Binding IsSelected}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="TAXA DE QUADROS" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding FrameRates.Options}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="FrameRate" Content="{Binding Label}"
+                                         IsChecked="{Binding IsSelected}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
+                <TextBlock Text="QUALIDADE (TAXA DE BITS)" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding Qualities.Options}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Quality"
+                                         IsChecked="{Binding IsSelected}">
+                                <TextBlock>
+                                    <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding Detail, Mode=OneWay}" FontWeight="Normal" FontSize="11" />
+                                </TextBlock>
+                            </RadioButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
+                      Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
+                <StackPanel Margin="4,0,0,0">
+                    <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding AudioDescription}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                </StackPanel>
+            </CheckBox>
+        </Grid>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Cancelar" Style="{StaticResource SecondaryButton}" IsCancel="True" />
+            <Button Content="Compartilhar" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" IsDefault="True"
+                    IsEnabled="{Binding CanShare}" Click="OnShareClick" />
+        </StackPanel>
+    </Grid>
+</Window>
