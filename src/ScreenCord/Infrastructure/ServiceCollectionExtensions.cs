@@ -1,0 +1,66 @@
+using System.Net.Http;
+using System.Net.Http.Headers;
+using ScreenCord.Security;
+using ScreenCord.Services;
+using ScreenCord.ViewModels;
+using ScreenCord.Views;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace ScreenCord.Infrastructure;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddScreenCord(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<DiscordOptions>(configuration.GetSection(DiscordOptions.SectionName));
+        services.AddSingleton(TimeProvider.System);
+
+        services.AddTransient<RateLimitHandler>(_ => new RateLimitHandler());
+        services.AddHttpClient(DiscordHttp.ClientName, client =>
+            {
+                client.BaseAddress = DiscordHttp.BaseAddress;
+                client.Timeout = TimeSpan.FromSeconds(20);
+                // Formato exigido pela referência da API: "DiscordBot ($url, $versionNumber)".
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://localhost/screencord, 1.0.0)");
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            })
+            // Tokens trafegam somente para discord.com: redirecionamentos não são seguidos.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            })
+            .AddHttpMessageHandler<RateLimitHandler>();
+
+        services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
+        services.AddSingleton<IAuthorizationCallbackListener, LoopbackCallbackListener>();
+        services.AddSingleton<ITokenStore>(_ => new DpapiTokenStore());
+        services.AddSingleton<IDiscordOAuthService, DiscordOAuthService>();
+        services.AddSingleton<ISessionManager, SessionManager>();
+        services.AddSingleton<IDiscordApiClient, DiscordApiClient>();
+        services.AddSingleton<IProfileService, ProfileService>();
+
+        // API central do ScreenCord: usuários do sistema e as amizades entre eles.
+        services.Configure<ApiOptions>(configuration.GetSection(ApiOptions.SectionName));
+        services.AddHttpClient(CentralFriendsService.ClientName, client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(20);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            });
+        services.AddSingleton<IFriendsService, CentralFriendsService>();
+
+        services.AddSingleton<FriendsViewModel>();
+        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<MainWindow>();
+
+        return services;
+    }
+}
