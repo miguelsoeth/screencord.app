@@ -161,6 +161,8 @@ public sealed class ScreenShareService : IScreenShareService
         private readonly CancellationTokenSource _stop = new();
         private readonly Thread _videoThread;
         private readonly Stopwatch _clock = new();
+        private readonly BitrateController _bitrate;
+        private bool _adaptiveBitrate = true;
         private AudioCapture? _audio;
         private int _stopped;
 
@@ -180,6 +182,7 @@ public sealed class ScreenShareService : IScreenShareService
             _socket = socket;
             _realtime = realtime;
             _logger = logger;
+            _bitrate = new BitrateController(request.Settings.BitrateKbps, TimeSpan.Zero);
 
             _encoder.FrameEncoded += frame =>
             {
@@ -305,6 +308,8 @@ public sealed class ScreenShareService : IScreenShareService
                         _encoder.Encode(frame, _clock.Elapsed.Ticks);
                     }
 
+                    AdaptBitrate();
+
                     next += interval;
                     var wait = next - _clock.Elapsed;
                     if (wait < -interval)
@@ -326,6 +331,25 @@ public sealed class ScreenShareService : IScreenShareService
             finally
             {
                 _ = TimeEndPeriod(1);
+            }
+        }
+
+        /// <summary>Ajusta a taxa do encoder à fila de envio. Roda na thread de vídeo, a mesma do <see cref="H264Encoder.Encode"/>.</summary>
+        private void AdaptBitrate()
+        {
+            if (!_adaptiveBitrate || _bitrate.Update(_clock.Elapsed, _socket.QueuedBytes, _socket.VideoOverflows) is not { } kbps)
+            {
+                return;
+            }
+
+            if (_encoder.SetBitrate(kbps))
+            {
+                _logger.LogDebug("Taxa de bits ajustada para {Kbps} kbps (escolhida: {Target} kbps).", kbps, _bitrate.TargetKbps);
+            }
+            else
+            {
+                _adaptiveBitrate = false;
+                _logger.LogInformation("O encoder {Encoder} não aceita mudar a taxa de bits; ela fica fixa em {Target} kbps.", _encoder.Name, _bitrate.TargetKbps);
             }
         }
 

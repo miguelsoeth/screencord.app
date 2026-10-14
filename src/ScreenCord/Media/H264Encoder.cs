@@ -189,6 +189,16 @@ public sealed class H264Encoder : IDisposable
     public void RequestKeyframe() => _keyframeRequested = true;
 
     /// <summary>
+    /// Muda a taxa de bits durante a transmissão. Deve ser chamado pela mesma thread de <see cref="Encode"/>.
+    /// Retorna falso se o encoder não aceita a mudança.
+    /// </summary>
+    public bool SetBitrate(int kbps)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _codecApi?.Set(CodecApi.MeanBitRate, (uint)kbps * 1000) ?? false;
+    }
+
+    /// <summary>
     /// Envia um quadro NV12 (<see cref="Width"/> × <see cref="Height"/>, contíguo). Se o encoder de hardware
     /// ainda estiver ocupado com o anterior, o quadro é descartado em vez de acumular atraso.
     /// </summary>

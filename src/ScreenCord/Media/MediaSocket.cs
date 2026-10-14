@@ -21,6 +21,7 @@ public sealed class MediaSocket : IAsyncDisposable
     private Task _sendLoop = Task.CompletedTask;
     private Task _receiveLoop = Task.CompletedTask;
     private long _queuedBytes;
+    private long _videoOverflows;
     private volatile bool _waitingForKeyframe;
     private int _closedRaised;
     private volatile bool _disposing;
@@ -41,6 +42,12 @@ public sealed class MediaSocket : IAsyncDisposable
 
     /// <summary>A conexão terminou; o argumento é o motivo quando não foi um encerramento normal.</summary>
     public event Action<string?>? Closed;
+
+    /// <summary>Bytes na fila de saída, ainda não entregues ao socket.</summary>
+    public long QueuedBytes => Interlocked.Read(ref _queuedBytes);
+
+    /// <summary>Quantas vezes a fila encheu e o vídeo passou a ser descartado até o próximo quadro-chave.</summary>
+    public long VideoOverflows => Interlocked.Read(ref _videoOverflows);
 
     public static async Task<MediaSocket> ConnectAsync(CentralApiClient api, Guid groupId, Guid sharerId, int bitrateKbps, CancellationToken cancellationToken)
     {
@@ -114,6 +121,7 @@ public sealed class MediaSocket : IAsyncDisposable
         if (Interlocked.Read(ref _queuedBytes) + frame.Data.Length > _queueLimitBytes)
         {
             _waitingForKeyframe = true;
+            Interlocked.Increment(ref _videoOverflows);
             KeyframeRequested?.Invoke();
             return;
         }
