@@ -220,6 +220,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}"
+                                             Tag="Buscar usuário para adicionar (ex.: @fulano)"
                                              Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="Buscar usuários">
                                         <TextBox.InputBindings>
@@ -227,19 +228,6 @@
                                             <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
                                         </TextBox.InputBindings>
                                     </TextBox>
-                                    <TextBlock Text="Buscar usuário para adicionar (ex.: @fulano)" Margin="12,0,0,0" VerticalAlignment="Center"
-                                               IsHitTestVisible="False" Foreground="{StaticResource MutedTextBrush}" FontSize="14">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
                                     <Button Grid.Column="1" Content="Buscar" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
                                             Command="{Binding SearchCommand}" />
                                     <Button Grid.Column="2" Content="Voltar aos amigos" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
@@ -662,6 +650,7 @@
                                 Visibility="{Binding IsCreating, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
                             <TextBox x:Name="NewGroupBox" Style="{StaticResource SearchBox}" FontSize="13" Padding="8,6"
+                                     Tag="Nome do grupo"
                                      MaxLength="{Binding MaxNameLength, Mode=OneTime}"
                                      Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.Name="Nome do grupo">
@@ -670,19 +659,6 @@
                                     <KeyBinding Key="Escape" Command="{Binding CancelCreateCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
-                            <TextBlock Text="Nome do grupo" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"
-                                       IsHitTestVisible="False" Foreground="{StaticResource MutedTextBrush}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=NewGroupBox}" Value="">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
                         </Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
                             <Button Content="Cancelar" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
