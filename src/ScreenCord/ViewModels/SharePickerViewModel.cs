@@ -63,9 +63,8 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public string ConfirmText => IsChange ? "Aplicar" : "Compartilhar";
 
-    public string HintText => IsChange
-        ? "Quem está assistindo continua vendo, já com as novas configurações."
-        : "Quem está conectado na sala poderá assistir.";
+    /// <summary>Dica abaixo do título; só aparece ao alterar um compartilhamento em andamento.</summary>
+    public string HintText => "Quem está assistindo continua vendo, já com as novas configurações.";
 
     public RelayCommand ShowScreensCommand { get; }
 

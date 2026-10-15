@@ -16,7 +16,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isInitializing = true;
     private bool _isConnected;
     private bool _isSigningIn;
-    private bool _isLoadingProfile;
+    private bool _isRefreshing;
     private bool _isConfirmingDisconnect;
     private UserProfile? _profile;
     private string? _errorMessage;
@@ -36,7 +36,7 @@ public sealed class MainViewModel : ObservableObject
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);
-        RefreshProfileCommand = new AsyncRelayCommand(RefreshProfileAsync, () => IsConnected && !IsLoadingProfile);
+        RefreshProfileCommand = new AsyncRelayCommand(RefreshProfileAsync, () => IsConnected && !IsRefreshing);
         DisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = true, () => IsConnected && !IsConfirmingDisconnect);
         ConfirmDisconnectCommand = new AsyncRelayCommand(ConfirmDisconnectAsync, () => IsConnected);
         CancelDisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = false, () => IsConfirmingDisconnect);
@@ -115,12 +115,13 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public bool IsLoadingProfile
+    /// <summary>Verdadeiro enquanto perfil, amigos e grupos são carregados (o ícone de atualizar gira).</summary>
+    public bool IsRefreshing
     {
-        get => _isLoadingProfile;
+        get => _isRefreshing;
         private set
         {
-            if (SetProperty(ref _isLoadingProfile, value))
+            if (SetProperty(ref _isRefreshing, value))
             {
                 OnStateChanged();
             }
@@ -239,23 +240,26 @@ public sealed class MainViewModel : ObservableObject
     private async Task LoadConnectedDataAsync()
     {
         ErrorMessage = null;
-        IsLoadingProfile = true;
+        IsRefreshing = true;
         try
         {
-            Profile = await _profileService.GetProfileAsync();
-        }
-        catch (Exception ex)
-        {
-            HandleError(ex);
+            try
+            {
+                Profile = await _profileService.GetProfileAsync();
+            }
+            catch (Exception ex)
+            {
+                HandleError(ex);
+            }
+
+            if (IsConnected)
+            {
+                await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
+            }
         }
         finally
         {
-            IsLoadingProfile = false;
-        }
-
-        if (IsConnected)
-        {
-            await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
+            IsRefreshing = false;
         }
     }
 

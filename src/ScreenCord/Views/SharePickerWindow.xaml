@@ -105,7 +105,8 @@
             <StackPanel>
                 <TextBlock Text="{Binding HeaderText}" FontSize="18" FontWeight="Bold" />
                 <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0"
-                           Text="{Binding HintText}" />
+                           Text="{Binding HintText}"
+                           Visibility="{Binding IsChange, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32" Margin="0,-6,-8,0"
                     VerticalAlignment="Top" Click="OnCloseClick" ToolTip="Fechar" AutomationProperties.Name="Fechar">
@@ -236,9 +237,17 @@
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
-                    <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
+                        <!-- Na tela inteira o áudio é o do sistema todo: o asterisco remete à nota abaixo. -->
+                        <TextBlock Text="*" FontSize="10" Margin="1,-2,0,0" VerticalAlignment="Top" Foreground="{StaticResource MutedTextBrush}"
+                                   Visibility="{Binding IsScreenKind, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
                     <TextBlock Text="Só o áudio do programa da janela." FontSize="11" Foreground="{StaticResource MutedTextBrush}"
                                Visibility="{Binding IsWindowKind, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"
+                               Text="* Compartilha o áudio do computador inteiro, incluindo aplicativos de chamada. Para isolar o áudio, compartilhe a janela de origem."
+                               Visibility="{Binding IsScreenKind, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </CheckBox>
         </Grid>

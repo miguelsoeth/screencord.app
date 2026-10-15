@@ -224,6 +224,12 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
             viewer.FrameReady -= OnFrame;
             _ = viewer.DisposeAsync().AsTask();
         }
+
+        // Quem compartilhava parou: a tela sai sozinha. Com erro, fica aberta mostrando o motivo.
+        if (reason is null)
+        {
+            RequestClose();
+        }
     }
 
     private void Post(Action action)
