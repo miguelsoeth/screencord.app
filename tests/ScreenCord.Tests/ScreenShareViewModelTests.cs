@@ -314,7 +314,7 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
-    public async Task FimDoCompartilhamento_AJanelaMostraQueTerminou()
+    public async Task FimDoCompartilhamento_FechaATelaDeQuemAssistia()
     {
         var (vm, group) = await InRoomAsync();
         RaisePresence(group, 200, ShareOf(_bruno));
@@ -325,7 +325,35 @@ public class ScreenShareViewModelTests
 
         Assert.Equal(StreamViewerState.Ended, viewer.State);
         Assert.True(_share.Watching[0].IsDisposed);
-        Assert.Equal("Compartilhamento encerrado.", viewer.StatusText);
+        Assert.Empty(_ui.Open);
+        Assert.Empty(vm.Viewers);
+    }
+
+    [Fact]
+    public async Task CanalFechadoNormalmente_FechaATelaDeQuemAssistia()
+    {
+        var (_, group) = await InRoomAsync();
+        RaisePresence(group, 200, ShareOf(_bruno));
+        await group.WatchCommand.ExecuteAsync(_bruno);
+
+        _share.Watching[0].RaiseEnded(null);
+
+        Assert.Empty(_ui.Open);
+    }
+
+    [Fact]
+    public async Task CanalCaiu_ATelaFicaAbertaComOMotivo()
+    {
+        var (_, group) = await InRoomAsync();
+        RaisePresence(group, 200, ShareOf(_bruno));
+        await group.WatchCommand.ExecuteAsync(_bruno);
+        var viewer = _ui.Open[0];
+
+        _share.Watching[0].RaiseEnded("A conexão de vídeo com a API central caiu.");
+
+        Assert.Same(viewer, Assert.Single(_ui.Open));
+        Assert.Equal(StreamViewerState.Ended, viewer.State);
+        Assert.Equal("A conexão de vídeo com a API central caiu.", viewer.StatusText);
     }
 
     [Fact]
