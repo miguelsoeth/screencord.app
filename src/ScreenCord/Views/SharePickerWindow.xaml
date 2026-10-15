@@ -237,7 +237,8 @@
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
                     <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding AudioDescription}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                    <TextBlock Text="Só o áudio do programa da janela." FontSize="11" Foreground="{StaticResource MutedTextBrush}"
+                               Visibility="{Binding IsWindowKind, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </CheckBox>
         </Grid>
