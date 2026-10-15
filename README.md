@@ -131,6 +131,22 @@ dotnet publish src/ScreenCord -c Release -r win-x64 --self-contained true -p:Pub
 
 Distribua `ScreenCord.exe` com o `appsettings.json` que sai na pasta: ele já aponta para a API de produção (`https://154.16.50.20`). `appsettings.Development.json` e `appsettings.Local.json` não são copiados para a publicação.
 
+### Instalador (MSI)
+
+O jeito recomendado de distribuir é o instalador. Ele publica o app e empacota tudo num único MSI (~55 MB, com o runtime do .NET embutido: quem instala não precisa ter o .NET):
+
+```bash
+dotnet build installer/ScreenCord.Installer -c Release
+```
+
+O arquivo sai em `installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.msi`. O projeto usa o WiX Toolset 6 (baixado pelo NuGet; não precisa instalar nada) e fica fora do `ScreenCord.sln`, para o `dotnet test` não publicar o app a cada execução.
+
+- Instala só para o usuário atual, em `%LocalAppData%\Programs\ScreenCord`, **sem pedir administrador**. Cria atalhos no Menu Iniciar e na Área de Trabalho e oferece abrir o app no fim.
+- A versão do MSI é a `<Version>` do `src/ScreenCord/ScreenCord.csproj`. Para lançar uma atualização, aumente essa versão: o MSI novo substitui o anterior (o `UpgradeCode` em `Package.wxs` nunca deve mudar). A sessão do Discord, em `%LocalAppData%\ScreenCord`, é preservada.
+- Desinstala em Configurações → Aplicativos. Instalação silenciosa: `msiexec /i ScreenCord-Setup.msi /qn`.
+- O MSI não é assinado: o Windows SmartScreen mostra "O Windows protegeu o computador" na primeira vez. O usuário clica em **Mais informações → Executar assim mesmo**. Para remover o aviso, é preciso um certificado de assinatura de código.
+- Os termos mostrados na instalação ficam em `installer/ScreenCord.Installer/License.rtf`.
+
 API:
 
 ```bash

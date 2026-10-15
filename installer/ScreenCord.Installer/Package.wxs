@@ -1,0 +1,79 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!--
+    Instalação por usuário em %LocalAppData%\Programs\ScreenCord: não pede administrador.
+    O UpgradeCode nunca muda; é ele que faz uma versão nova substituir a anterior.
+    Em perfil de usuário o Windows Installer exige chave de registro (HKCU) como KeyPath de cada componente.
+  -->
+  <Package Name="ScreenCord"
+           Manufacturer="Miguel Soeth"
+           Version="$(var.AppVersion)"
+           UpgradeCode="7ACBC1F4-008B-40B1-8D9D-5C7D5EF1A822"
+           Scope="perUser"
+           Language="1046"
+           Codepage="1252">
+
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Uma versão mais nova do ScreenCord já está instalada." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="ScreenCordIcon" SourceFile="..\..\src\ScreenCord\Assets\screencord.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ScreenCordIcon" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="ScreenCord" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="34D767EE-787D-4F1B-BCA8-636E6FA742ED">
+        <File Id="ScreenCordExe" Source="$(var.AppPublishDir)ScreenCord.exe" />
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="App" Type="integer" Value="1" KeyPath="yes" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveUserProgramsFolder" Directory="UserProgramsFolder" On="uninstall" />
+      </Component>
+      <Component Id="AppSettings" Guid="F02E0D4F-AED4-4C11-9A7B-40853EF150D2">
+        <File Id="AppSettingsJson" Source="$(var.AppPublishDir)appsettings.json" />
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="Settings" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuShortcut" Name="ScreenCord" Description="Compartilhamento de tela com amigos do Discord"
+                  Target="[INSTALLFOLDER]ScreenCord.exe" WorkingDirectory="INSTALLFOLDER" Icon="ScreenCordIcon" />
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopShortcut" Name="ScreenCord" Description="Compartilhamento de tela com amigos do Discord"
+                  Target="[INSTALLFOLDER]ScreenCord.exe" WorkingDirectory="INSTALLFOLDER" Icon="ScreenCordIcon" />
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- Telas: termos e progresso; no fim, caixa "Abrir o ScreenCord" já marcada. -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Abrir o ScreenCord" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#ScreenCordExe]" />
+    <CustomAction Id="LaunchApplication" DllEntry="WixShellExec" Impersonate="yes" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
+
+    <UI>
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+
+  </Package>
+</Wix>
