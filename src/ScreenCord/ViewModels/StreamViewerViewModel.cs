@@ -28,6 +28,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     private string? _message;
     private double _volume = 1.0;
     private bool _isMuted;
+    private bool _isVideoPaused;
     private bool _hasFrame;
     private bool _disposed;
 
@@ -119,6 +120,19 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    /// <summary>A janela foi minimizada: só o áudio continua chegando.</summary>
+    public bool IsVideoPaused
+    {
+        get => _isVideoPaused;
+        set
+        {
+            if (SetProperty(ref _isVideoPaused, value) && _viewer is { } viewer)
+            {
+                viewer.IsVideoPaused = value;
+            }
+        }
+    }
+
     public async Task StartAsync()
     {
         State = StreamViewerState.Connecting;
@@ -133,6 +147,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 
             viewer.Volume = (float)Volume;
             viewer.IsMuted = IsMuted;
+            viewer.IsVideoPaused = IsVideoPaused;
             viewer.FrameReady += OnFrame;
             viewer.Ended += (_, reason) => Post(() => End(reason));
             _viewer = viewer;

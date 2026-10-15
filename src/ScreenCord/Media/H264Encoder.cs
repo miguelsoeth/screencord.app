@@ -188,6 +188,9 @@ public sealed class H264Encoder : IDisposable
     /// <summary>O próximo quadro sai como quadro-chave (alguém começou a assistir ou perdeu pacotes).</summary>
     public void RequestKeyframe() => _keyframeRequested = true;
 
+    /// <summary>Há um quadro-chave pedido que ainda não saiu.</summary>
+    public bool IsKeyframePending => _keyframeRequested;
+
     /// <summary>
     /// Muda a taxa de bits durante a transmissão. Deve ser chamado pela mesma thread de <see cref="Encode"/>.
     /// Retorna falso se o encoder não aceita a mudança.

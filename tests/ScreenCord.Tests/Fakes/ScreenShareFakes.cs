@@ -79,6 +79,8 @@ public sealed class FakeStreamViewer(bool hasAudio) : IStreamViewer
 
     public bool IsMuted { get; set; }
 
+    public bool IsVideoPaused { get; set; }
+
     public bool IsDisposed { get; private set; }
 
     public void RaiseFrame() => FrameReady?.Invoke(new byte[16], 2, 2, 0);

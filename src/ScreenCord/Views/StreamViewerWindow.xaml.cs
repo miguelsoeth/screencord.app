@@ -56,6 +56,9 @@ public partial class StreamViewerWindow : Window
 
         viewModel.FrameReady += OnFrameReady;
         viewModel.CloseRequested += (_, _) => Dispatcher.BeginInvoke(Close);
+
+        // Minimizada, ninguém vê o vídeo: só o áudio continua, poupando a banda do servidor.
+        StateChanged += (_, _) => viewModel.IsVideoPaused = WindowState == WindowState.Minimized;
         Closed += (_, _) =>
         {
             viewModel.FrameReady -= OnFrameReady;

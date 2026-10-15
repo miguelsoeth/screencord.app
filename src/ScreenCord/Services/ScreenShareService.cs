@@ -46,6 +46,9 @@ public interface IStreamViewer : IAsyncDisposable
     float Volume { get; set; }
 
     bool IsMuted { get; set; }
+
+    /// <summary>Para de receber o vídeo, mantendo o áudio (ex.: janela minimizada), para economizar banda.</summary>
+    bool IsVideoPaused { get; set; }
 }
 
 public sealed class ScreenShareService : IScreenShareService
@@ -149,7 +152,7 @@ public sealed class ScreenShareService : IScreenShareService
 
     /// <summary>
     /// Laço de vídeo numa thread própria: a cada 1/fps pega o quadro mais recente da captura, codifica e
-    /// enfileira para envio. Quando a tela não muda, o último quadro é reenviado (o encoder o comprime a quase nada).
+    /// enfileira para envio. Com a tela parada, o ritmo cai para poucos quadros por segundo (<see cref="FramePacer"/>).
     /// </summary>
     private sealed class ActiveScreenShare : IActiveScreenShare
     {
@@ -162,6 +165,7 @@ public sealed class ScreenShareService : IScreenShareService
         private readonly Thread _videoThread;
         private readonly Stopwatch _clock = new();
         private readonly BitrateController _bitrate;
+        private readonly FramePacer _pacer = new();
         private bool _adaptiveBitrate = true;
         private AudioCapture? _audio;
         private int _stopped;
@@ -301,9 +305,13 @@ public sealed class ScreenShareService : IScreenShareService
             {
                 while (!_stop.IsCancellationRequested)
                 {
-                    _capture.Update();
-                    hasFrame |= _capture.ReadNv12(frame);
-                    if (hasFrame)
+                    var changed = _capture.Update();
+                    if (changed)
+                    {
+                        hasFrame |= _capture.ReadNv12(frame);
+                    }
+
+                    if (hasFrame && _pacer.ShouldEncode(_clock.Elapsed, changed, _encoder.IsKeyframePending))
                     {
                         _encoder.Encode(frame, _clock.Elapsed.Ticks);
                     }
@@ -372,6 +380,7 @@ public sealed class ScreenShareService : IScreenShareService
         private readonly Lock _decodeLock = new();
         private readonly Timer _keyframeWatchdog;
         private long _lastFrameTicks = Environment.TickCount64;
+        private volatile bool _videoPaused;
         private bool _disposed;
 
         public StreamViewer(MediaSocket socket, H264Decoder decoder, bool hasAudio, ILogger logger)
@@ -428,6 +437,23 @@ public sealed class ScreenShareService : IScreenShareService
                 {
                     _audio.IsMuted = value;
                 }
+            }
+        }
+
+        public bool IsVideoPaused
+        {
+            get => _videoPaused;
+            set
+            {
+                if (_videoPaused == value || _disposed)
+                {
+                    return;
+                }
+
+                // Ao voltar, o vigia de quadro-chave conta do zero: o primeiro quadro leva um instante para chegar.
+                Interlocked.Exchange(ref _lastFrameTicks, Environment.TickCount64);
+                _videoPaused = value;
+                _socket.SetVideoPaused(value);
             }
         }
 
@@ -493,7 +519,7 @@ public sealed class ScreenShareService : IScreenShareService
 
         private void RequestKeyframeIfStuck()
         {
-            if (!_disposed && Environment.TickCount64 - Interlocked.Read(ref _lastFrameTicks) > KeyframeWait.TotalMilliseconds)
+            if (!_disposed && !_videoPaused && Environment.TickCount64 - Interlocked.Read(ref _lastFrameTicks) > KeyframeWait.TotalMilliseconds)
             {
                 _socket.RequestKeyframe();
             }

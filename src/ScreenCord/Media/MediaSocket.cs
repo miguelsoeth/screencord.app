@@ -96,10 +96,15 @@ public sealed class MediaSocket : IAsyncDisposable
     }
 
     /// <summary>Quem assiste pede um quadro-chave (ex.: não conseguiu decodificar a imagem).</summary>
-    public void RequestKeyframe()
+    public void RequestKeyframe() => SendControl(MediaContract.KeyframeRequest);
+
+    /// <summary>Quem assiste para (ou volta a receber) o vídeo, mantendo o áudio, ex.: ao minimizar a janela.</summary>
+    public void SetVideoPaused(bool paused) => SendControl(paused ? MediaContract.PauseVideo : MediaContract.ResumeVideo);
+
+    private void SendControl(byte type)
     {
         var packet = new byte[MediaContract.HeaderSize];
-        MediaContract.WriteHeader(packet, MediaContract.KeyframeRequest, 0, 0);
+        MediaContract.WriteHeader(packet, type, 0, 0);
         if (_outgoing.Writer.TryWrite(packet))
         {
             Interlocked.Add(ref _queuedBytes, packet.Length);
