@@ -89,11 +89,9 @@
                     <StackPanel>
                         <Image Source="/ScreenCord;component/Assets/screencord.png" Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,12"
                                RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Style="{StaticResource Wordmark}" FontSize="30" HorizontalAlignment="Center">
+                        <TextBlock Style="{StaticResource Wordmark}" FontSize="30" HorizontalAlignment="Center" Margin="0,0,0,24">
                             <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
                         </TextBlock>
-                        <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,10,0,24"
-                                   Text="Conecte sua conta para ver seu perfil. O login acontece no seu navegador, direto no Discord: este aplicativo nunca vê a sua senha." />
 
                         <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11"
                                 Command="{Binding ConnectCommand}"
@@ -779,35 +777,43 @@
                             <!-- Compartilhamento da sua tela -->
                             <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="8,6" Margin="0,0,0,8"
                                     Visibility="{Binding IsSharing, Converter={StaticResource BoolToVisibility}}">
+                                <!-- Título na largura toda; abaixo, a configuração à esquerda e as ações à direita. -->
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
-                                                <TextBlock Text="AO VIVO" FontSize="9" FontWeight="Bold" Foreground="White" />
-                                            </Border>
-                                            <TextBlock Text="{Binding ShareSourceText}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
-                                                       TextTrimming="CharacterEllipsis" MaxWidth="110" ToolTip="{Binding ShareSourceText}" />
-                                        </StackPanel>
+                                    <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
+                                        <TextBlock Text="AO VIVO" FontSize="9" FontWeight="Bold" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="{Binding ShareSourceText}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShareSourceText}" />
+
+                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding ShareDetailText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
-                                                   TextWrapping="Wrap" Margin="0,3,0,0" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="30" Height="30" Margin="6,0,0,0"
-                                            VerticalAlignment="Center"
-                                            Command="{Binding ChangeShareCommand}"
-                                            ToolTip="Alterar configurações" AutomationProperties.Name="Alterar configurações do compartilhamento">
-                                        <Path Data="{StaticResource SettingsIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
-                                    </Button>
-                                    <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="4,0,0,0"
-                                            VerticalAlignment="Center"
-                                            Command="{Binding StopShareCommand}"
-                                            ToolTip="Parar de compartilhar" AutomationProperties.Name="Parar de compartilhar">
-                                        <Path Data="{StaticResource StopShareIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
-                                    </Button>
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="30" Height="30" Margin="6,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding ChangeShareCommand}"
+                                                ToolTip="Alterar configurações" AutomationProperties.Name="Alterar configurações do compartilhamento">
+                                            <Path Data="{StaticResource SettingsIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="4,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding StopShareCommand}"
+                                                ToolTip="Parar de compartilhar" AutomationProperties.Name="Parar de compartilhar">
+                                            <Path Data="{StaticResource StopShareIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
+                                        </Button>
+                                    </Grid>
                                 </Grid>
                             </Border>
                             <TextBlock Text="{Binding ShareProgressText}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
@@ -863,10 +869,6 @@
                             <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource DangerBrush}" />
                             <TextBlock Text="Desconectar conta?" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                        <TextBlock Style="{StaticResource MutedText}" FontSize="14" Margin="0,12,0,0">
-                            <Run Text="Você vai sair da conta" />
-                            <Run Text="{Binding Profile.DisplayName, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" /><Run Text=" neste computador e precisará entrar com o Discord de novo. Seus amigos no ScreenCord continuam salvos." />
-                        </TextBlock>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
                             <Button x:Name="CancelDisconnectButton" Content="Cancelar" Style="{StaticResource SecondaryButton}"
                                     Command="{Binding CancelDisconnectCommand}" IsCancel="True" />
