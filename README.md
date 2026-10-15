@@ -54,8 +54,10 @@ A API usa o Client ID para recusar tokens do Discord emitidos para outros aplica
 | Arquivo | Quando vale | `Api:BaseUrl` |
 |---|---|---|
 | `appsettings.json` | sempre (é o único que vai para a publicação) | `https://154.16.50.20` (produção) |
-| `appsettings.Development.json` | com `DOTNET_ENVIRONMENT=Development`: `dotnet run` (via `Properties/launchSettings.json`) e o `screencord.ps1` | `http://localhost:5080` |
+| `appsettings.Development.json` | com `DOTNET_ENVIRONMENT=Development`: `dotnet run` (via `Properties/launchSettings.json`) | `http://localhost:5080` |
 | `appsettings.Local.json` | se existir; ignorado pelo Git, sobrepõe os outros e nunca é publicado | o que você quiser (ex.: um túnel) |
+
+Argumentos de linha de comando (ex.: `--Api:BaseUrl=https://...`) valem acima de todos esses arquivos; é assim que o `screencord.ps1` escolhe a API do app.
 
 A API de produção roda num VPS sem domínio: o HTTPS é direto no IP, com certificado da Let's Encrypt emitido para o IP (perfil *shortlived*, renovado automaticamente pelo Caddy). O app valida o certificado normalmente; nada de TLS é desativado. Para conferir se ela está no ar: `GET https://154.16.50.20/health` devolve `{"status":"ok","version":"..."}`.
 
@@ -89,7 +91,9 @@ powershell -ExecutionPolicy Bypass -File .\screencord.ps1
 
 Menu navegável com as setas (↑/↓, Enter, Esc) para subir, parar e recompilar a API e o app, acompanhar os logs ao vivo e rodar os testes. Os processos rodam em segundo plano e continuam vivos ao fechar o menu; PIDs e logs ficam em `.screencord/`. A API é procurada no clone do **screencord.api** ao lado deste (`..\screencord.api`); para outro lugar, defina `SCREENCORD_API_ROOT`.
 
-Também aceita ações diretas: `status`, `start-api`, `stop-api`, `start-app`, `stop-app`, `start-all`, `stop-all`, `build`, `rebuild`, `test`, `logs-api`, `logs-app`. Exemplo: `.\screencord.ps1 start-all`.
+O app pode usar a **API local** (`http://localhost:5080`, padrão) ou a **API de produção** oficial (o `Api:BaseUrl` do `appsettings.json`): troque na opção "API do app" do menu. A escolha fica salva em `.screencord/` e vale a partir da próxima vez que o app subir (use "Reiniciar app"). Com a produção, "Subir tudo" abre só o app, sem subir a API local.
+
+Também aceita ações diretas: `status`, `start-api`, `stop-api`, `start-app`, `stop-app`, `restart-app`, `start-all`, `stop-all`, `build`, `rebuild`, `test`, `logs-api`, `logs-app`, e `-Api local|prod` para escolher (e salvar) a API do app. Exemplos: `.\screencord.ps1 start-all`, `.\screencord.ps1 restart-app -Api prod`.
 
 ### Manualmente
 

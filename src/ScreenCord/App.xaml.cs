@@ -23,6 +23,8 @@ public partial class App : Application
             ContentRootPath = AppContext.BaseDirectory,
         });
         builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+        // A linha de comando volta a valer por último, acima do appsettings.Local.json (o screencord.ps1 escolhe a API assim).
+        builder.Configuration.AddCommandLine(e.Args);
         builder.Services.AddScreenCord(builder.Configuration);
 
         _host = builder.Build();
