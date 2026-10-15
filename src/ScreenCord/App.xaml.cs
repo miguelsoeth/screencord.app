@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using ScreenCord.Infrastructure;
+using ScreenCord.Mockup;
 using ScreenCord.Views;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,11 @@ public partial class App : Application
         // A linha de comando volta a valer por último, acima do appsettings.Local.json (o screencord.ps1 escolhe a API assim).
         builder.Configuration.AddCommandLine(e.Args);
         builder.Services.AddScreenCord(builder.Configuration);
+        // Ambiente de mockup (DOTNET_ENVIRONMENT=Mockup, escolhido no screencord.ps1): dados falsos, sem Discord e sem API.
+        if (builder.Environment.IsEnvironment("Mockup"))
+        {
+            builder.Services.AddScreenCordMockup();
+        }
 
         _host = builder.Build();
 

@@ -6,9 +6,13 @@
     Sem parâmetros abre um menu interativo (setas para navegar, Enter para executar, Esc para sair).
     Com -Action executa uma ação direta e termina, útil em scripts.
 
-    O app pode usar a API local (http://localhost:5080) ou a API de produção oficial (Api:BaseUrl do
-    appsettings.json). A escolha fica salva em .screencord\ e vale a partir da próxima vez que o app subir;
-    no menu, troque pela opção "API do app"; na linha de comando, use -Api local|prod.
+    O app roda em um de três ambientes:
+      local    a API local (http://localhost:5080), do repositório screencord.api;
+      prod     a API de produção oficial (Api:BaseUrl do appsettings.json);
+      mockup   sem Discord e sem API: login, amigos, solicitações, grupos e telas compartilhadas são falsos,
+               em memória (src\ScreenCord\Mockup), para testar a interface. Voltam ao início quando o app fecha.
+    A escolha fica salva em .screencord\ e vale a partir da próxima vez que o app subir; no menu, troque
+    pela opção "Ambiente do app"; na linha de comando, use -Environment local|prod|mockup.
 
     Os processos rodam em segundo plano e continuam vivos depois que o menu fecha.
     PIDs e logs ficam em .screencord\ (ignorada pelo Git).
@@ -20,7 +24,10 @@
     .\screencord.ps1 start-all
 
 .EXAMPLE
-    .\screencord.ps1 start-app -Api prod
+    .\screencord.ps1 start-app -Environment prod
+
+.EXAMPLE
+    .\screencord.ps1 start-app -Environment mockup
 #>
 [CmdletBinding()]
 param(
@@ -29,9 +36,11 @@ param(
                  'build', 'rebuild', 'test', 'logs-api', 'logs-app')]
     [string]$Action = 'menu',
 
-    # API usada pelo app: 'local' (a do screencord.api rodando aqui) ou 'prod' (a oficial). Fica salva para as próximas vezes.
-    [ValidateSet('local', 'prod')]
-    [string]$Api
+    # Ambiente do app: 'local' (a API do screencord.api rodando aqui), 'prod' (a API oficial) ou 'mockup' (dados falsos,
+    # sem API). Fica salvo para as próximas vezes. -Api é o nome antigo da opção.
+    [Alias('Api')]
+    [ValidateSet('local', 'prod', 'mockup')]
+    [string]$Environment
 )
 
 Set-StrictMode -Version 2.0
@@ -50,11 +59,12 @@ $ApiUrl = "http://localhost:$ApiPort"
 # A URL de produção vem do appsettings.json do app, a mesma que vai para a publicação.
 $ProdApiUrl = (Get-Content (Join-Path $Root 'src\ScreenCord\appsettings.json') -Raw -Encoding UTF8 | ConvertFrom-Json).Api.BaseUrl
 
-# Cada destino define o ambiente do app e a URL passada por linha de comando (que prevalece sobre os appsettings,
-# inclusive o appsettings.Local.json).
+# Cada ambiente define o DOTNET_ENVIRONMENT do app e a URL da API passada por linha de comando (que prevalece sobre
+# os appsettings, inclusive o appsettings.Local.json). O mockup não usa API: os serviços são trocados por simulados.
 $ApiTargets = [ordered]@{
-    local = @{ Key = 'local'; Name = 'local';    Phrase = 'a API local';       Url = $ApiUrl;     Environment = 'Development' }
-    prod  = @{ Key = 'prod';  Name = 'produção'; Phrase = 'a API de produção'; Url = $ProdApiUrl; Environment = 'Production' }
+    local  = @{ Key = 'local';  Name = 'local';    Phrase = "a API local ($ApiUrl)";            Url = $ApiUrl;     Environment = 'Development' }
+    prod   = @{ Key = 'prod';   Name = 'produção'; Phrase = "a API de produção ($ProdApiUrl)";  Url = $ProdApiUrl; Environment = 'Production' }
+    mockup = @{ Key = 'mockup'; Name = 'mockup';   Phrase = 'dados falsos (mockup, sem API)';   Url = $null;       Environment = 'Mockup' }
 }
 $ApiTargetFile = Join-Path $StateDir 'api-target'
 # Destino com que o app em execução foi aberto (a escolha salva pode ter mudado depois).
@@ -117,13 +127,16 @@ function Set-ApiTarget([string]$Key) {
     Initialize-StateDir
     Set-Content -Path $ApiTargetFile -Value $Key -Encoding ASCII
     $target = $ApiTargets[$Key]
-    $text = "O app vai usar $($target.Phrase) ($($target.Url))."
+    $text = "O app vai usar $($target.Phrase)."
     if (Get-TrackedProcess 'app') { $text += " Reinicie o app para aplicar." }
     Set-Message $text 'Green'
 }
 
+# Passa para o próximo ambiente da lista (local -> produção -> mockup -> local).
 function Switch-ApiTarget {
-    if ((Get-ApiTarget).Key -eq 'local') { Set-ApiTarget 'prod' } else { Set-ApiTarget 'local' }
+    $keys = @($ApiTargets.Keys)
+    $index = [array]::IndexOf($keys, (Get-ApiTarget).Key)
+    Set-ApiTarget $keys[($index + 1) % $keys.Count]
 }
 
 # ---------------------------------------------------------------------------
@@ -238,11 +251,15 @@ function Start-Component([string]$Key) {
         $previousEnv = $env:DOTNET_ENVIRONMENT
         $env:DOTNET_ENVIRONMENT = $target.Environment
         try {
-            $proc = Start-Process -FilePath $c.Output `
-                -ArgumentList @("--Api:BaseUrl=$($target.Url)") `
-                -WorkingDirectory $c.WorkDir `
-                -RedirectStandardOutput $c.OutLog -RedirectStandardError $c.ErrLog `
-                -PassThru
+            $startArgs = @{
+                FilePath               = $c.Output
+                WorkingDirectory       = $c.WorkDir
+                RedirectStandardOutput = $c.OutLog
+                RedirectStandardError  = $c.ErrLog
+                PassThru               = $true
+            }
+            if ($target.Url) { $startArgs.ArgumentList = @("--Api:BaseUrl=$($target.Url)") }
+            $proc = Start-Process @startArgs
         } finally {
             $env:DOTNET_ENVIRONMENT = $previousEnv
         }
@@ -280,7 +297,7 @@ function Start-Component([string]$Key) {
     if ($target.Key -eq 'local' -and -not (Test-ApiHealthy)) {
         Set-Message "App aberto (PID $($proc.Id)) com a API local, mas ela não está respondendo em $ApiUrl. Suba a API." 'Yellow'
     } else {
-        Set-Message "App aberto (PID $($proc.Id)) com $($target.Phrase) ($($target.Url))." 'Green'
+        Set-Message "App aberto (PID $($proc.Id)) com $($target.Phrase)." 'Green'
     }
     return $true
 }
@@ -465,11 +482,11 @@ function Get-StatusSegments([string]$Key) {
             $extra += "  $ApiUrl"
         } else {
             $running = Read-TargetFile $RunningAppTargetFile
-            if ($running) { $extra += "  usando $($running.Phrase) ($($running.Url))" }
+            if ($running) { $extra += "  usando $($running.Phrase)" }
         }
         $segments += New-Segment $extra 'DarkGray'
         if ($Key -eq 'app' -and $running -and $running.Key -ne (Get-ApiTarget).Key) {
-            $segments += New-Segment '  reinicie para trocar de API' 'Yellow'
+            $segments += New-Segment '  reinicie para trocar de ambiente' 'Yellow'
         }
     } else {
         $segments += New-Segment ([string][char]0x25CB + ' parado') 'DarkGray'
@@ -478,7 +495,7 @@ function Get-StatusSegments([string]$Key) {
             if ($owner) { $segments += New-Segment "  (porta $ApiPort ocupada por '$($owner.ProcessName)', PID $($owner.Id))" 'Yellow' }
         } else {
             $target = Get-ApiTarget
-            $segments += New-Segment "  vai usar $($target.Phrase) ($($target.Url))" 'DarkGray'
+            $segments += New-Segment "  vai usar $($target.Phrase)" 'DarkGray'
         }
     }
     return ,$segments
@@ -509,7 +526,7 @@ $MenuItems = @(
     @{ Label = 'Subir app';                  Run = { Start-Component 'app' | Out-Null } }
     @{ Label = 'Parar app';                  Run = { Stop-Component 'app' } }
     @{ Label = 'Reiniciar app';              Run = { Restart-App | Out-Null } }
-    @{ Label = { "API do app: $((Get-ApiTarget).Name)  (Enter alterna)" }; Run = { Switch-ApiTarget }; Inline = $true }
+    @{ Label = { "Ambiente do app: $((Get-ApiTarget).Name)  (Enter alterna: local/produção/mockup)" }; Run = { Switch-ApiTarget }; Inline = $true }
     @{ Label = 'Recompilar tudo';            Run = { Invoke-Rebuild | Out-Null }; Pause = $true }
     @{ Label = 'Logs da API (ao vivo)';      Run = { Show-Logs 'api' } }
     @{ Label = 'Logs do app (ao vivo)';      Run = { Show-Logs 'app' } }
@@ -690,7 +707,7 @@ $previousEncoding = [Console]::OutputEncoding
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     Initialize-StateDir
-    if ($Api) { Set-ApiTarget $Api }
+    if ($Environment) { Set-ApiTarget $Environment }
 
     $exitCode = 0
     switch ($Action) {
