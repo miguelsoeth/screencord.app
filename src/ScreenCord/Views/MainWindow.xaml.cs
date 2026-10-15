@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using ScreenCord.ViewModels;
 
@@ -26,11 +26,25 @@ public partial class MainWindow : Window
         DataContext = viewModel;
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        Loaded += async (_, _) => await viewModel.InitializeAsync();
 
-        // Menu de amigos: abaixo do cabeçalho, com a borda direita alinhada à dele.
-        FriendsPopup.CustomPopupPlacementCallback = (popupSize, targetSize, _) =>
-            [new CustomPopupPlacement(new Point(targetSize.Width - popupSize.Width - 13, targetSize.Height - 6), PopupPrimaryAxis.Horizontal)];
+        // Confirmação de sair/excluir grupo: foco no "Cancelar", para Enter não confirmar por acidente e Esc fechar.
+        viewModel.Groups.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GroupsViewModel.IsConfirming) && viewModel.Groups.IsConfirming)
+            {
+                Dispatcher.BeginInvoke(() => CancelGroupConfirmButton.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        };
+
+        // Janela de amigos: foco na busca ao abrir, para digitar direto e o Esc fechar.
+        viewModel.Friends.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(FriendsViewModel.IsOpen) && viewModel.Friends.IsOpen)
+            {
+                Dispatcher.BeginInvoke(() => SearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        };
+        Loaded += async (_, _) => await viewModel.InitializeAsync();
 
         RootGrid.SizeChanged += (_, _) => UpdateStageSize();
         HeaderCard.SizeChanged += (_, _) => UpdateStageSize();
@@ -62,6 +76,15 @@ public partial class MainWindow : Window
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    /// <summary>Clique na área esmaecida (fora do cartão) fecha a janela de amigos.</summary>
+    private void OnFriendsOverlayMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource == sender)
+        {
+            _viewModel.Friends.IsOpen = false;
+        }
+    }
 
     /// <summary>
     /// Com a barra de título própria, a janela maximizada passa da tela pela espessura da borda redimensionável;

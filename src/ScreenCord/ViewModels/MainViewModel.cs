@@ -33,6 +33,7 @@ public sealed class MainViewModel : ObservableObject
         _logger = logger;
         Friends = friends;
         Groups = groups;
+        groups.InviteRequested += friends.OpenInvite;
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);

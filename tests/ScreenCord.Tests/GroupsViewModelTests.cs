@@ -14,7 +14,7 @@ public class GroupsViewModelTests
     private readonly Person _bruno = FakeFriendsService.Create("bruno", "Bruno", RelationshipStatus.Friend);
     private readonly Person _carla = FakeFriendsService.Create("carla", "Carla", RelationshipStatus.Friend);
 
-    private GroupsViewModel Create() => new(_groups, _realtime, _friends, new FakeScreenShareService(), new FakeScreenShareUi());
+    private GroupsViewModel Create() => new(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi());
 
     private async Task<GroupsViewModel> LoadedAsync()
     {
@@ -175,7 +175,7 @@ public class GroupsViewModelTests
     }
 
     [Fact]
-    public async Task PopupDeIntegrantes_MostraIntegrantesConectadosPrimeiroEAmigosQueFaltam()
+    public async Task PopupDeIntegrantes_MostraIntegrantesConectadosPrimeiro()
     {
         var id = _groups.Add("Amigos", _bruno);
         _groups.Connected[id] = [_bruno];
@@ -189,8 +189,8 @@ public class GroupsViewModelTests
         Assert.Equal(["Bruno", "Eu"], group.Members.Select(m => m.Person.DisplayName));
         Assert.True(group.Members[0].IsConnected);
         Assert.False(group.Members[1].IsConnected);
-        Assert.Equal(_carla.UserId, Assert.Single(group.AddableFriends).UserId);
-        Assert.False(group.ShowNoAddableFriends);
+        Assert.Contains(_bruno.UserId, group.MemberIds);
+        Assert.DoesNotContain(_carla.UserId, group.MemberIds);
     }
 
     [Fact]
@@ -233,12 +233,11 @@ public class GroupsViewModelTests
         var group = vm.Groups[0];
         group.IsMembersOpen = true;
 
-        await group.AddMemberCommand.ExecuteAsync(group.AddableFriends[0]);
+        await group.AddMemberCommand.ExecuteAsync(_carla);
 
         Assert.Contains($"add:{_carla.UserId}", _groups.Calls);
         Assert.Equal(2, group.MemberCount);
-        Assert.Empty(group.AddableFriends);
-        Assert.True(group.ShowNoAddableFriends);
+        Assert.Contains(_carla.UserId, group.MemberIds);
     }
 
     [Fact]
@@ -279,6 +278,61 @@ public class GroupsViewModelTests
     }
 
     [Fact]
+    public async Task Convidar_FechaOMenuEPedeAJanelaDeAmigos()
+    {
+        _groups.Add("Amigos");
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        GroupItemViewModel? requested = null;
+        vm.InviteRequested += g => requested = g;
+        group.IsMembersOpen = true;
+
+        group.InviteCommand.Execute(null);
+
+        Assert.Same(group, requested);
+        Assert.False(group.IsMembersOpen);
+    }
+
+    [Fact]
+    public async Task JanelaDeAmigosNoConvite_ConvidaEMarcaComoConvidado()
+    {
+        _groups.Add("Amigos");
+        _friends.Friends.Add(_carla);
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        var friends = new FriendsViewModel(_friends);
+        vm.InviteRequested += friends.OpenInvite;
+        group.IsMembersOpen = true;
+
+        group.InviteCommand.Execute(null);
+        Assert.True(friends.IsOpen);
+        Assert.Same(group, friends.InviteGroup);
+
+        await friends.InviteCommand.ExecuteAsync(_carla);
+        Assert.Contains($"add:{_carla.UserId}", _groups.Calls);
+        Assert.Contains(_carla.UserId, group.MemberIds);
+
+        friends.CloseCommand.Execute(null);
+        Assert.Null(friends.InviteGroup);
+        Assert.False(friends.IsInviting);
+    }
+
+    [Fact]
+    public async Task CancelarConfirmacao_FechaAJanela()
+    {
+        _groups.Add("Amigos");
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+
+        group.ConfirmLeaveCommand.Execute(null);
+        Assert.True(vm.IsConfirming);
+
+        group.CancelConfirmationCommand.Execute(null);
+        Assert.False(group.IsConfirmingLeave);
+        Assert.False(vm.IsConfirming);
+    }
+
+    [Fact]
     public async Task SairDoGrupo_PeloPopup_RemoveDaLista()
     {
         _groups.Add("Amigos");
@@ -287,12 +341,15 @@ public class GroupsViewModelTests
         group.IsMembersOpen = true;
         group.ConfirmLeaveCommand.Execute(null);
         Assert.True(group.IsConfirmingLeave);
+        Assert.False(group.IsMembersOpen);
+        Assert.Same(group, vm.ConfirmingGroup);
 
         await group.LeaveGroupCommand.ExecuteAsync();
 
         Assert.Contains("leave:Amigos", _groups.Calls);
         Assert.Empty(vm.Groups);
         Assert.False(group.IsMembersOpen);
+        Assert.Null(vm.ConfirmingGroup);
     }
 
     [Fact]
@@ -312,7 +369,7 @@ public class GroupsViewModelTests
 
         group.ConfirmDeleteCommand.Execute(null);
         Assert.True(group.IsConfirmingDelete);
-        Assert.False(group.ShowGroupActions);
+        Assert.Same(group, vm.ConfirmingGroup);
 
         // Abrir uma confirmação fecha a outra.
         group.ConfirmLeaveCommand.Execute(null);
@@ -325,6 +382,7 @@ public class GroupsViewModelTests
         Assert.Contains("delete:Amigos", _groups.Calls);
         Assert.Empty(vm.Groups);
         Assert.False(group.IsMembersOpen);
+        Assert.Null(vm.ConfirmingGroup);
     }
 
     [Fact]

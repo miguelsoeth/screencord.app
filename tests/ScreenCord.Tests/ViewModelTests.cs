@@ -55,6 +55,59 @@ public class FriendsViewModelTests
     }
 
     [Fact]
+    public async Task Abas_SoMostramOConteudoDaAbaMarcada()
+    {
+        _service.Friends.Add(_ana with { Relationship = RelationshipStatus.Friend });
+        var vm = new FriendsViewModel(_service);
+        await vm.LoadAsync();
+        vm.IsOpen = true;
+
+        Assert.True(vm.ShowTabs);
+        Assert.True(vm.IsFriendsTab);
+        Assert.True(vm.ShowFriendsTab);
+        Assert.False(vm.ShowIncomingTab);
+
+        vm.IsOutgoingTab = true;
+        Assert.Equal(FriendsTab.Outgoing, vm.SelectedTab);
+        Assert.True(vm.ShowOutgoingTab);
+        Assert.False(vm.ShowFriendsTab);
+        Assert.True(vm.ShowNoOutgoingRequests);
+
+        // Desmarcar um RadioButton não troca a aba; só marcar outro.
+        vm.IsOutgoingTab = false;
+        Assert.Equal(FriendsTab.Outgoing, vm.SelectedTab);
+    }
+
+    [Fact]
+    public async Task Abrir_ComSolicitacaoRecebida_AbreNaAbaRecebidas()
+    {
+        _service.Incoming.Add(_bruno with { Relationship = RelationshipStatus.PendingIncoming });
+        var vm = new FriendsViewModel(_service);
+        await vm.LoadAsync();
+
+        vm.IsOpen = true;
+
+        Assert.Equal(FriendsTab.Incoming, vm.SelectedTab);
+        Assert.True(vm.ShowIncomingTab);
+        Assert.False(vm.ShowNoIncomingRequests);
+    }
+
+    [Fact]
+    public async Task Busca_EscondeAsAbas()
+    {
+        var vm = new FriendsViewModel(_service);
+        await vm.LoadAsync();
+        vm.IsOpen = true;
+
+        vm.SearchText = "ana";
+        await vm.SearchCommand.ExecuteAsync();
+
+        Assert.True(vm.ShowSearchResults);
+        Assert.False(vm.ShowTabs);
+        Assert.False(vm.ShowFriendsTab);
+    }
+
+    [Fact]
     public async Task Load_ApiForaDoAr_MostraErroSemAfirmarQueNaoHaAmigos()
     {
         _service.Failure = CentralError(DiscordErrorKind.Network);
@@ -250,7 +303,7 @@ public class MainViewModelTests
             _session,
             _profile,
             new FriendsViewModel(_friends),
-            new GroupsViewModel(_groups, _realtime, _friends, new FakeScreenShareService(), new FakeScreenShareUi()),
+            new GroupsViewModel(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi()),
             NullLogger<MainViewModel>.Instance);
 
     [Fact]

@@ -36,3 +36,24 @@ public sealed class IsSharingToVisibilityConverter : IMultiValueConverter
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// [pessoa, ids dos integrantes do grupo do convite] → Visible para o botão indicado no parâmetro: "Invite" se o amigo
+/// ainda não está no grupo, "Invited" se já está. Fora do convite (sem ids) ou para quem não é amigo, Collapsed.
+/// </summary>
+public sealed class InviteStateToVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values.Length != 2 || values[0] is not Models.Person { IsFriend: true } person || values[1] is not IReadOnlySet<Guid> members)
+        {
+            return Visibility.Collapsed;
+        }
+
+        var invited = members.Contains(person.UserId);
+        return invited == (parameter as string == "Invited") ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

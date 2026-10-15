@@ -19,7 +19,7 @@ public class ScreenShareViewModelTests
     private async Task<(GroupsViewModel Vm, GroupItemViewModel Group)> InRoomAsync()
     {
         var id = _groups.Add("Amigos", _bruno);
-        var vm = new GroupsViewModel(_groups, _realtime, _friends, _share, _ui);
+        var vm = new GroupsViewModel(_groups, _realtime, _share, _ui);
         await vm.LoadAsync();
         _realtime.SetState(RealtimeState.Connected);
         var group = vm.Groups.Single(g => g.Id == id);
@@ -104,7 +104,7 @@ public class ScreenShareViewModelTests
     [Fact]
     public async Task Compartilhar_SoNaSalaEConectado()
     {
-        var vm = new GroupsViewModel(_groups, _realtime, _friends, _share, _ui);
+        var vm = new GroupsViewModel(_groups, _realtime, _share, _ui);
         _groups.Add("Amigos");
         await vm.LoadAsync();
         _realtime.SetState(RealtimeState.Connected);
