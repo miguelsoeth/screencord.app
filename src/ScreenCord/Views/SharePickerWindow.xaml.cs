@@ -21,6 +21,8 @@ public partial class SharePickerWindow : Window
 
     private void OnShareClick(object sender, RoutedEventArgs e) => Confirm();
 
+    private void OnCloseClick(object sender, RoutedEventArgs e) => DialogResult = false;
+
     private void OnSourceDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.CanShare)
