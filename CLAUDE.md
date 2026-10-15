@@ -47,15 +47,16 @@ git push origin v0.2.0
 O `release.yml` então:
 1. roda os testes;
 2. gera o instalador MSI (`dotnet build installer/ScreenCord.Installer -p:AppVersion=<versão>`, que publica o app como exe único autocontido com a versão da tag);
-3. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-win64.msi` anexado para download.
+3. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-win64.msi` anexado;
+4. cria a mesma release (mesmas notas e MSI) no repo público `miguelsoeth/screencord`, usando o secret `PUBLIC_RELEASES_TOKEN` (fine-grained PAT com `Contents: read and write` só nesse repo).
 
 Um MSI de versão maior substitui a instalação anterior (mesmo `UpgradeCode`), preservando a sessão do Discord.
 
-O repositório é privado: o download da release exige acesso ao repo (`gh release download v0.2.0 --repo miguelsoeth/screencord.app`).
+Este repositório é privado, então o download público vem do `miguelsoeth/screencord`: ele guarda só a landing page (`index.html`, no GitHub Pages em https://miguelsoeth.github.io/screencord/) e as releases. A página lista as releases desse repo pela API do GitHub e aponta o botão para o MSI da mais recente. Não crie releases lá à mão.
 
-Não crie tags para testar o pipeline: cada tag gera uma release visível para quem tem acesso ao repo. Para refazer uma release com falha, apague a release e a tag (`gh release delete v0.2.0 --cleanup-tag`) e crie a tag de novo.
+Não crie tags para testar o pipeline: cada tag gera uma release visível para quem tem acesso ao repo. Para refazer uma release com falha, apague a release e a tag nos dois repos (`gh release delete v0.2.0 --cleanup-tag`, e o mesmo com `--repo miguelsoeth/screencord` se ela chegou a ser criada lá) e crie a tag de novo.
 
-O instalador é distribuído só pela GitHub Release (o VPS não serve mais downloads).
+O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais downloads).
 
 ## Cuidados
 

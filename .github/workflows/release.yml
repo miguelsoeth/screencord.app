@@ -41,3 +41,11 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" dist/*.msi --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # O repo do app é privado: o download público (e a landing page) vem do repo miguelsoeth/screencord.
+      - name: Publicar no repo público de downloads
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/*.msi --repo miguelsoeth/screencord --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
