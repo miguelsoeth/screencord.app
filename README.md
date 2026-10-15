@@ -1,4 +1,6 @@
-# ScreenCord
+# ScreenCord — aplicativo desktop
+
+> Este repositório contém o **aplicativo desktop** (`src/ScreenCord`), seus testes e os contratos compartilhados (`src/ScreenCord.Contracts`). A API central fica no repositório **screencord.api**. Os contratos existem nos dois repositórios: ao mudar um DTO, atualize os dois.
 
 Sistema com dois componentes:
 
@@ -83,7 +85,7 @@ Opções da API:
 powershell -ExecutionPolicy Bypass -File .\screencord.ps1
 ```
 
-Menu navegável com as setas (↑/↓, Enter, Esc) para subir, parar e recompilar a API e o app, acompanhar os logs ao vivo e rodar os testes. Os processos rodam em segundo plano e continuam vivos ao fechar o menu; PIDs e logs ficam em `.screencord/`.
+Menu navegável com as setas (↑/↓, Enter, Esc) para subir, parar e recompilar a API e o app, acompanhar os logs ao vivo e rodar os testes. Os processos rodam em segundo plano e continuam vivos ao fechar o menu; PIDs e logs ficam em `.screencord/`. A API é procurada no clone do **screencord.api** ao lado deste (`..\screencord.api`); para outro lugar, defina `SCREENCORD_API_ROOT`.
 
 Também aceita ações diretas: `status`, `start-api`, `stop-api`, `start-app`, `stop-app`, `start-all`, `stop-all`, `build`, `rebuild`, `test`, `logs-api`, `logs-app`. Exemplo: `.\screencord.ps1 start-all`.
 

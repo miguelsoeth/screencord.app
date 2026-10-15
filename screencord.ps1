@@ -29,7 +29,10 @@ $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 $StateDir = Join-Path $Root '.screencord'
 $LogDir = Join-Path $StateDir 'logs'
-$Solution = Join-Path $Root 'ScreenCord.sln'
+# A API fica no repositório screencord.api, clonado ao lado deste (ou em $env:SCREENCORD_API_ROOT).
+$ApiRoot = if ($env:SCREENCORD_API_ROOT) { $env:SCREENCORD_API_ROOT } else { Join-Path (Split-Path $Root -Parent) 'screencord.api' }
+$Solutions = @(Join-Path $Root 'ScreenCord.sln')
+if (Test-Path (Join-Path $ApiRoot 'ScreenCord.Api.sln')) { $Solutions += Join-Path $ApiRoot 'ScreenCord.Api.sln' }
 $ApiPort = 5080
 $ApiUrl = "http://localhost:$ApiPort"
 
@@ -39,8 +42,8 @@ $LogEncoding = New-Object System.Text.UTF8Encoding($false)
 $Components = [ordered]@{
     api = @{
         Name     = 'API'
-        WorkDir  = Join-Path $Root 'src\ScreenCord.Api'
-        Output   = Join-Path $Root 'src\ScreenCord.Api\bin\Debug\net10.0\ScreenCord.Api.dll'
+        WorkDir  = Join-Path $ApiRoot 'src\ScreenCord.Api'
+        Output   = Join-Path $ApiRoot 'src\ScreenCord.Api\bin\Debug\net10.0\ScreenCord.Api.dll'
         PidFile  = Join-Path $StateDir 'api.pid'
         OutLog   = Join-Path $LogDir 'api.log'
         ErrLog   = Join-Path $LogDir 'api.err.log'
@@ -249,8 +252,11 @@ function Invoke-Dotnet([string[]]$Arguments) {
 }
 
 function Invoke-Build {
-    Write-Host "Compilando a solução..." -ForegroundColor Cyan
-    $ok = Invoke-Dotnet @('build', $Solution, '--nologo', '-v', 'q')
+    $ok = $true
+    foreach ($solution in $Solutions) {
+        Write-Host "Compilando $(Split-Path $solution -Leaf)..." -ForegroundColor Cyan
+        if (-not (Invoke-Dotnet @('build', $solution, '--nologo', '-v', 'q'))) { $ok = $false }
+    }
     if ($ok) { Set-Message 'Compilação concluída.' 'Green' } else { Set-Message 'A compilação falhou. Veja os erros acima.' 'Red' }
     return $ok
 }
@@ -282,8 +288,11 @@ function Invoke-Tests {
     if ($running.Count -gt 0) {
         Write-Host "Aviso: com API/app rodando, a compilação dos testes pode falhar por arquivos em uso. Use 'Recompilar tudo' antes, se precisar." -ForegroundColor Yellow
     }
-    Write-Host "Rodando os testes..." -ForegroundColor Cyan
-    $ok = Invoke-Dotnet @('test', $Solution, '--nologo', '-v', 'q')
+    $ok = $true
+    foreach ($solution in $Solutions) {
+        Write-Host "Rodando os testes de $(Split-Path $solution -Leaf)..." -ForegroundColor Cyan
+        if (-not (Invoke-Dotnet @('test', $solution, '--nologo', '-v', 'q'))) { $ok = $false }
+    }
     if ($ok) { Set-Message 'Todos os testes passaram.' 'Green' } else { Set-Message 'Há testes falhando (ou a compilação falhou). Veja acima.' 'Red' }
     return $ok
 }
