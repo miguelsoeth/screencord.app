@@ -11,7 +11,8 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>ScreenCord</RootNamespace>
     <AssemblyName>ScreenCord</AssemblyName>
-    <Version>1.0.0</Version>
+    <!-- Versão de desenvolvimento. A versão real vem da tag git (vX.Y.Z): o CI passa -p:Version=. -->
+    <Version>0.0.0-dev</Version>
     <Product>ScreenCord</Product>
     <ApplicationIcon>Assets\screencord.ico</ApplicationIcon>
   </PropertyGroup>
