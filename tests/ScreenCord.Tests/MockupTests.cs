@@ -72,6 +72,17 @@ public class MockupTests
     }
 
     [Fact]
+    public async Task DetalhesDoGrupo_MarcamQuemCriou()
+    {
+        await StartConnectedAsync();
+        foreach (var group in await _groups.GetGroupsAsync())
+        {
+            var owner = Assert.Single((await _groups.GetGroupAsync(group.Id)).Members, m => m.IsOwner);
+            Assert.Equal(_world.GetGroup(group.Id).OwnerId, owner.Person.UserId);
+        }
+    }
+
+    [Fact]
     public async Task Assistir_GeraQuadros()
     {
         var share = new ScreenShareDto(Guid.NewGuid(), 960, 540, 30, 3500, HasAudio: false);
