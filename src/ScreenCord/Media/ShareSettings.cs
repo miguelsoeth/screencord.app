@@ -1,3 +1,5 @@
+using ScreenCord.Contracts;
+
 namespace ScreenCord.Media;
 
 public enum ShareResolution
@@ -13,49 +15,35 @@ public enum ShareFrameRate
     Fps60 = 60,
 }
 
-public enum ShareQuality
-{
-    /// <summary>2000 kbps.</summary>
-    Low,
-
-    /// <summary>4000 kbps.</summary>
-    Medium,
-
-    /// <summary>5000 kbps.</summary>
-    High,
-}
-
-/// <summary>Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, qualidade média, com áudio.</summary>
+/// <summary>
+/// Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, 4000 kbps, com áudio. A taxa de bits vai
+/// de <see cref="ScreenShareLimits.MinBitrateKbps"/> a <see cref="ScreenShareLimits.MaxBitrateKbps"/>, de
+/// <see cref="ScreenShareLimits.BitrateStepKbps"/> em <see cref="ScreenShareLimits.BitrateStepKbps"/>.
+/// </summary>
 public sealed record ShareSettings(
     ShareResolution Resolution = ShareResolution.P720,
     ShareFrameRate FrameRate = ShareFrameRate.Fps30,
-    ShareQuality Quality = ShareQuality.Medium,
+    int BitrateKbps = ShareSettings.DefaultBitrateKbps,
     bool ShareAudio = true)
 {
+    public const int DefaultBitrateKbps = 4000;
+
     public static ShareSettings Default { get; } = new();
 
     public int Height => (int)Resolution;
 
     public int Fps => (int)FrameRate;
 
-    public int BitrateKbps => BitrateOf(Quality);
-
-    public static int BitrateOf(ShareQuality quality) => quality switch
+    /// <summary>Leva um valor qualquer (ex.: do slide) para a taxa válida mais próxima.</summary>
+    public static int SnapBitrate(double kbps)
     {
-        ShareQuality.Low => 2000,
-        ShareQuality.High => 5000,
-        _ => 4000,
-    };
+        var steps = Math.Round((kbps - ScreenShareLimits.MinBitrateKbps) / ScreenShareLimits.BitrateStepKbps, MidpointRounding.AwayFromZero);
+        var snapped = ScreenShareLimits.MinBitrateKbps + (int)steps * ScreenShareLimits.BitrateStepKbps;
+        return Math.Clamp(snapped, ScreenShareLimits.MinBitrateKbps, ScreenShareLimits.MaxBitrateKbps);
+    }
 
-    public static string LabelOf(ShareQuality quality) => quality switch
-    {
-        ShareQuality.Low => "Baixo",
-        ShareQuality.High => "Alto",
-        _ => "Médio",
-    };
-
-    /// <summary>Resumo para a interface: "720p · 30 fps · Médio (4000 kbps)".</summary>
-    public string Summary => $"{Height}p · {Fps} fps · {LabelOf(Quality)} ({BitrateKbps} kbps)";
+    /// <summary>Resumo para a interface: "720p · 30 fps · 4000 kbps".</summary>
+    public string Summary => $"{Height}p · {Fps} fps · {BitrateKbps} kbps";
 }
 
 /// <summary>O que compartilhar e como, escolhido na janela de compartilhamento.</summary>

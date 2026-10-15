@@ -25,8 +25,13 @@ public interface IScreenShareService
     /// <summary>Id do usuário conectado na API central (para não oferecer "assistir" à própria tela).</summary>
     Guid? CurrentUserId { get; }
 
-    /// <summary>Começa a compartilhar na sala do grupo em que a conexão em tempo real está.</summary>
-    Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Começa a compartilhar na sala do grupo em que a conexão em tempo real está. Com <paramref name="replacing"/>,
+    /// troca o compartilhamento atual pelo novo (ex.: outra resolução) sem que ele termine para quem assiste:
+    /// o novo assume o anúncio e o canal, e o antigo para em seguida. Se a troca falhar antes do anúncio, o
+    /// antigo continua; depois dele, o antigo termina (<see cref="IActiveScreenShare.Ended"/>).
+    /// </summary>
+    Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default);
 
     /// <summary>Conecta ao compartilhamento de outra pessoa da sala.</summary>
     Task<IStreamViewer> WatchAsync(Guid groupId, ScreenShareDto share, CancellationToken cancellationToken = default);
@@ -68,8 +73,9 @@ public sealed class ScreenShareService : IScreenShareService
 
     public Guid? CurrentUserId => _api.CurrentUserId;
 
-    public async Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, CancellationToken cancellationToken = default)
+    public async Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default)
     {
+        var previous = replacing as ActiveScreenShare;
         if (!ScreenCapture.IsSupported)
         {
             throw new InvalidOperationException("Este Windows não permite capturar a tela (é preciso o Windows 10 versão 1903 ou mais recente).");
@@ -95,6 +101,9 @@ public sealed class ScreenShareService : IScreenShareService
                 "Compartilhando {Kind} em {Width}x{Height}, {Fps} fps, {Kbps} kbps, encoder {Encoder}.",
                 request.Source.Kind, capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, encoder.Name);
 
+            // O novo anúncio substitui o do compartilhamento atual; a partir daqui, quando o canal antigo fechar
+            // (o servidor o troca pelo novo), ele não pode avisar o fim do compartilhamento.
+            previous?.PrepareReplacement();
             var share = await _realtime.StartScreenShareAsync(
                 new ScreenShareStart(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio),
                 cancellationToken);
@@ -108,6 +117,11 @@ public sealed class ScreenShareService : IScreenShareService
             }
 
             active.Start();
+            if (previous is not null)
+            {
+                await previous.StopAsync();
+            }
+
             return active;
         }
         catch
@@ -129,6 +143,12 @@ public sealed class ScreenShareService : IScreenShareService
                 {
                     _logger.LogDebug("Falha ao desfazer o anúncio do compartilhamento ({ExceptionType}).", ex.GetType().Name);
                 }
+
+                previous?.Fail("Não foi possível aplicar as novas configurações, e o compartilhamento parou.");
+            }
+            else
+            {
+                previous?.CancelReplacement();
             }
 
             throw;
@@ -169,6 +189,7 @@ public sealed class ScreenShareService : IScreenShareService
         private bool _adaptiveBitrate = true;
         private AudioCapture? _audio;
         private int _stopped;
+        private volatile bool _replaced;
 
         public ActiveScreenShare(
             ScreenShareDto share,
@@ -233,6 +254,26 @@ public sealed class ScreenShareService : IScreenShareService
             _videoThread.Start();
         }
 
+        /// <summary>Outro compartilhamento vai assumir o anúncio na sala: ao parar, este não avisa o servidor nem dispara <see cref="Ended"/>.</summary>
+        public void PrepareReplacement() => _replaced = true;
+
+        /// <summary>A troca falhou antes do anúncio: este continua sendo o compartilhamento da sala.</summary>
+        public void CancelReplacement() => _replaced = false;
+
+        /// <summary>A troca falhou depois do anúncio: este termina com <paramref name="reason"/>.</summary>
+        public void Fail(string reason)
+        {
+            _replaced = false;
+            if (_stopped != 0)
+            {
+                // Já parou sem avisar (o canal foi trocado pelo novo, que falhou em seguida).
+                Ended?.Invoke(this, reason);
+                return;
+            }
+
+            End(reason);
+        }
+
         public async Task StopAsync()
         {
             if (Interlocked.Exchange(ref _stopped, 1) != 0)
@@ -241,6 +282,11 @@ public sealed class ScreenShareService : IScreenShareService
             }
 
             await ShutdownAsync();
+            if (_replaced)
+            {
+                return;
+            }
+
             try
             {
                 await _realtime.StopScreenShareAsync();
@@ -262,6 +308,11 @@ public sealed class ScreenShareService : IScreenShareService
             _ = Task.Run(async () =>
             {
                 await ShutdownAsync();
+                if (_replaced)
+                {
+                    return;
+                }
+
                 try
                 {
                     await _realtime.StopScreenShareAsync();

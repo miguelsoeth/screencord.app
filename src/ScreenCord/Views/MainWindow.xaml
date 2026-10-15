@@ -731,6 +731,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
@@ -738,12 +739,18 @@
                                             <TextBlock Text="AO VIVO" FontSize="9" FontWeight="Bold" Foreground="White" />
                                         </Border>
                                         <TextBlock Text="{Binding ShareSourceText}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
-                                                   TextTrimming="CharacterEllipsis" MaxWidth="140" ToolTip="{Binding ShareSourceText}" />
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="110" ToolTip="{Binding ShareSourceText}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding ShareDetailText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
                                                TextWrapping="Wrap" Margin="0,3,0,0" />
                                 </StackPanel>
-                                <Button Grid.Column="1" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="6,0,0,0"
+                                <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="30" Height="30" Margin="6,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding ChangeShareCommand}"
+                                        ToolTip="Alterar configurações" AutomationProperties.Name="Alterar configurações do compartilhamento">
+                                    <Path Data="{StaticResource SettingsIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                                </Button>
+                                <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="4,0,0,0"
                                         VerticalAlignment="Center"
                                         Command="{Binding StopShareCommand}"
                                         ToolTip="Parar de compartilhar" AutomationProperties.Name="Parar de compartilhar">
@@ -751,7 +758,7 @@
                                 </Button>
                             </Grid>
                         </Border>
-                        <TextBlock Text="Iniciando o compartilhamento…" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
+                        <TextBlock Text="{Binding ShareProgressText}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
                                    Visibility="{Binding IsStartingShare, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding ShareMessage}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
                                    Foreground="{StaticResource DangerBrush}"

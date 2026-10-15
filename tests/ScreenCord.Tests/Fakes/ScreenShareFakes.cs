@@ -18,12 +18,18 @@ public sealed class FakeScreenShareService : IScreenShareService
 
     public Exception? StartFailure { get; set; }
 
-    public Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, CancellationToken cancellationToken = default)
+    public Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default)
     {
-        Calls.Add($"start:{groupId}:{request.Settings.Height}p{request.Settings.Fps}:{request.Settings.BitrateKbps}");
+        Calls.Add($"{(replacing is null ? "start" : "change")}:{groupId}:{request.Settings.Height}p{request.Settings.Fps}:{request.Settings.BitrateKbps}");
         if (StartFailure is { } failure)
         {
             return Task.FromException<IActiveScreenShare>(failure);
+        }
+
+        // Como o serviço real: o compartilhamento substituído para sem disparar Ended.
+        if (replacing is FakeActiveShare previous)
+        {
+            previous.Replace();
         }
 
         var settings = request.Settings;
@@ -53,10 +59,19 @@ public sealed class FakeActiveShare(ScreenShareDto share, ShareRequest request) 
 
     public event EventHandler<string>? Ended;
 
+    /// <summary>Parou por ter sido substituído por um compartilhamento com outras configurações.</summary>
+    public bool IsReplaced { get; private set; }
+
     public Task StopAsync()
     {
         IsStopped = true;
         return Task.CompletedTask;
+    }
+
+    public void Replace()
+    {
+        IsReplaced = true;
+        IsStopped = true;
     }
 
     /// <summary>Simula o fim espontâneo (ex.: a janela compartilhada fechou).</summary>
@@ -107,9 +122,13 @@ public sealed class FakeScreenShareUi : IScreenShareUi
 
     public List<StreamViewerViewModel> Activated { get; } = [];
 
-    public ShareRequest? PickShare(ShareSettings initial)
+    /// <summary>Origem atual recebida em cada escolha (null ao começar um compartilhamento novo).</summary>
+    public List<CaptureSource?> PickCurrents { get; } = [];
+
+    public ShareRequest? PickShare(ShareSettings initial, CaptureSource? current = null)
     {
         Picks.Add(initial);
+        PickCurrents.Add(current);
         return OnPick(initial);
     }
 

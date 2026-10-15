@@ -6,7 +6,7 @@
         xmlns:vm="clr-namespace:ScreenCord.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:SharePickerViewModel}"
-        Title="Compartilhar tela"
+        Title="{Binding HeaderText}"
         Icon="/ScreenCord;component/Assets/screencord.ico"
         Width="560" Height="600" MinWidth="460" MinHeight="480"
         WindowStartupLocation="CenterOwner"
@@ -94,9 +94,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="Compartilhar tela" FontSize="18" FontWeight="Bold" />
+            <TextBlock Text="{Binding HeaderText}" FontSize="18" FontWeight="Bold" />
             <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0"
-                       Text="Quem está conectado na sala poderá assistir." />
+                       Text="{Binding HintText}" />
         </StackPanel>
 
         <!-- Tela inteira ou uma janela -->
@@ -158,7 +158,7 @@
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -201,25 +201,22 @@
                 </ItemsControl>
             </StackPanel>
 
+            <!-- Taxa de bits: slide de 500 em 500 kbps, de 2000 a 7000 (10 passos). -->
             <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
-                <TextBlock Text="QUALIDADE (TAXA DE BITS)" Style="{StaticResource FieldLabel}" />
-                <ItemsControl ItemsSource="{Binding Qualities.Options}" Focusable="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Quality"
-                                         IsChecked="{Binding IsSelected}">
-                                <TextBlock>
-                                    <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding Detail, Mode=OneWay}" FontWeight="Normal" FontSize="11" />
-                                </TextBlock>
-                            </RadioButton>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <Grid>
+                    <TextBlock Text="QUALIDADE (TAXA DE BITS)" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="{Binding BitrateText}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                               FontSize="13" FontWeight="SemiBold" />
+                </Grid>
+                <Slider Style="{StaticResource AccentSlider}" Margin="0,4,0,0"
+                        Minimum="{Binding MinBitrateKbps, Mode=OneTime}" Maximum="{Binding MaxBitrateKbps, Mode=OneTime}"
+                        TickFrequency="{Binding BitrateStepKbps, Mode=OneTime}" SmallChange="{Binding BitrateStepKbps, Mode=OneTime}"
+                        LargeChange="{Binding BitrateStepKbps, Mode=OneTime}" IsSnapToTickEnabled="True"
+                        Value="{Binding BitrateKbps}" AutomationProperties.Name="Taxa de bits" />
+                <Grid Margin="0,2,0,0">
+                    <TextBlock Text="{Binding MinBitrateKbps, StringFormat={}{0} kbps}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                    <TextBlock Text="{Binding MaxBitrateKbps, StringFormat={}{0} kbps}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                </Grid>
             </StackPanel>
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
@@ -233,7 +230,7 @@
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="Cancelar" Style="{StaticResource SecondaryButton}" IsCancel="True" />
-            <Button Content="Compartilhar" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" IsDefault="True"
+            <Button Content="{Binding ConfirmText}" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" IsDefault="True"
                     IsEnabled="{Binding CanShare}" Click="OnShareClick" />
         </StackPanel>
     </Grid>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using ScreenCord.Contracts;
 using ScreenCord.Media;
 
 namespace ScreenCord.ViewModels;
@@ -14,12 +15,26 @@ public sealed class SharePickerViewModel : ObservableObject
     private CaptureSourceKind _kind = CaptureSourceKind.Screen;
     private CaptureSource? _selectedSource;
     private bool _shareAudio;
+    private int _bitrateKbps;
 
-    public SharePickerViewModel(ShareSettings initial, Func<IReadOnlyList<CaptureSource>>? screens = null, Func<IReadOnlyList<CaptureSource>>? windows = null)
+    /// <param name="current">Origem do compartilhamento em andamento, quando a escolha é para trocar as configurações dele.</param>
+    public SharePickerViewModel(
+        ShareSettings initial,
+        Func<IReadOnlyList<CaptureSource>>? screens = null,
+        Func<IReadOnlyList<CaptureSource>>? windows = null,
+        CaptureSource? current = null)
     {
         _screens = screens ?? CaptureSources.Screens;
         _windows = windows ?? CaptureSources.Windows;
         _shareAudio = initial.ShareAudio;
+        IsChange = current is not null;
+        if (current is not null)
+        {
+            // Abre na aba e com a origem que já está sendo compartilhada (o Refresh mantém a escolha).
+            _kind = current.Kind;
+            _selectedSource = current;
+        }
+
         Resolutions = new Choice<ShareResolution>(initial.Resolution,
         [
             new(ShareResolution.P540, "540p"),
@@ -31,12 +46,7 @@ public sealed class SharePickerViewModel : ObservableObject
             new(ShareFrameRate.Fps30, "30 fps"),
             new(ShareFrameRate.Fps60, "60 fps"),
         ]);
-        Qualities = new Choice<ShareQuality>(initial.Quality,
-        [
-            new(ShareQuality.Low, "Baixo", $"{ShareSettings.BitrateOf(ShareQuality.Low)} kbps"),
-            new(ShareQuality.Medium, "Médio", $"{ShareSettings.BitrateOf(ShareQuality.Medium)} kbps"),
-            new(ShareQuality.High, "Alto", $"{ShareSettings.BitrateOf(ShareQuality.High)} kbps"),
-        ]);
+        _bitrateKbps = ShareSettings.SnapBitrate(initial.BitrateKbps);
 
         ShowScreensCommand = new RelayCommand(() => Kind = CaptureSourceKind.Screen);
         ShowWindowsCommand = new RelayCommand(() => Kind = CaptureSourceKind.Window);
@@ -45,6 +55,17 @@ public sealed class SharePickerViewModel : ObservableObject
     }
 
     public ObservableCollection<CaptureSource> Sources { get; } = [];
+
+    /// <summary>Troca das configurações de um compartilhamento em andamento.</summary>
+    public bool IsChange { get; }
+
+    public string HeaderText => IsChange ? "Alterar compartilhamento" : "Compartilhar tela";
+
+    public string ConfirmText => IsChange ? "Aplicar" : "Compartilhar";
+
+    public string HintText => IsChange
+        ? "Quem está assistindo continua vendo, já com as novas configurações."
+        : "Quem está conectado na sala poderá assistir.";
 
     public RelayCommand ShowScreensCommand { get; }
 
@@ -113,7 +134,26 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public Choice<ShareFrameRate> FrameRates { get; }
 
-    public Choice<ShareQuality> Qualities { get; }
+    public int MinBitrateKbps => ScreenShareLimits.MinBitrateKbps;
+
+    public int MaxBitrateKbps => ScreenShareLimits.MaxBitrateKbps;
+
+    public int BitrateStepKbps => ScreenShareLimits.BitrateStepKbps;
+
+    /// <summary>Taxa de bits escolhida no slide (sempre um dos valores válidos).</summary>
+    public int BitrateKbps
+    {
+        get => _bitrateKbps;
+        set
+        {
+            if (SetProperty(ref _bitrateKbps, ShareSettings.SnapBitrate(value)))
+            {
+                OnPropertyChanged(nameof(BitrateText));
+            }
+        }
+    }
+
+    public string BitrateText => $"{BitrateKbps} kbps";
 
     public bool ShareAudio
     {
@@ -127,7 +167,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public ShareRequest? BuildRequest() =>
         SelectedSource is { } source
-            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, Qualities.Selected, ShareAudio))
+            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, BitrateKbps, ShareAudio))
             : null;
 
     private void Refresh()

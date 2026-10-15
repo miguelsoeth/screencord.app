@@ -13,9 +13,9 @@ public sealed class ScreenShareUi : IScreenShareUi
     // A janela principal depende (pelos view models) deste serviço, então é buscada na hora em vez de injetada.
     private static MainWindow Main => Application.Current.Windows.OfType<MainWindow>().First();
 
-    public ShareRequest? PickShare(ShareSettings initial)
+    public ShareRequest? PickShare(ShareSettings initial, CaptureSource? current = null)
     {
-        var picker = new SharePickerWindow(new SharePickerViewModel(initial)) { Owner = Application.Current.MainWindow };
+        var picker = new SharePickerWindow(new SharePickerViewModel(initial, current: current)) { Owner = Application.Current.MainWindow };
         return picker.ShowDialog() == true ? picker.Result : null;
     }
 

@@ -65,6 +65,7 @@ public sealed class GroupsViewModel : ObservableObject
         ReloadCommand = new AsyncRelayCommand(() => LoadAsync());
         StartShareCommand = new AsyncRelayCommand(StartShareAsync, () => CanStartShare);
         StopShareCommand = new AsyncRelayCommand(StopShareAsync, () => IsSharing);
+        ChangeShareCommand = new AsyncRelayCommand(ChangeShareAsync, () => CanChangeShare);
     }
 
     public ObservableCollection<GroupItemViewModel> Groups { get; } = [];
@@ -86,6 +87,14 @@ public sealed class GroupsViewModel : ObservableObject
     public AsyncRelayCommand StartShareCommand { get; }
 
     public AsyncRelayCommand StopShareCommand { get; }
+
+    /// <summary>Troca resolução, taxa de quadros, qualidade, áudio (ou a origem) sem encerrar para quem assiste.</summary>
+    public AsyncRelayCommand ChangeShareCommand { get; }
+
+    public bool CanChangeShare => IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
+
+    /// <summary>Aviso enquanto o compartilhamento começa ou recomeça com as novas configurações.</summary>
+    public string ShareProgressText => IsSharing ? "Aplicando as novas configurações…" : "Iniciando o compartilhamento…";
 
     /// <summary>Você está compartilhando a tela na sala atual.</summary>
     public bool IsSharing => _activeShare is not null;
@@ -109,7 +118,7 @@ public sealed class GroupsViewModel : ObservableObject
 
     /// <summary>"1280 × 720 · 30 fps · Médio (4000 kbps) · com áudio".</summary>
     public string? ShareDetailText => _activeShare is { } active
-        ? $"{active.Share.Width} × {active.Share.Height} · {active.Share.FrameRate} fps · {ShareSettings.LabelOf(active.Request.Settings.Quality)} ({active.Share.BitrateKbps} kbps)" +
+        ? $"{active.Share.Width} × {active.Share.Height} · {active.Share.FrameRate} fps · {active.Share.BitrateKbps} kbps" +
           (active.Share.HasAudio ? " · com áudio" : "")
         : null;
 
@@ -675,6 +684,46 @@ public sealed class GroupsViewModel : ObservableObject
         }
     }
 
+    private async Task ChangeShareAsync()
+    {
+        if (_activeShare is not { } current || CurrentGroup is not { } group || _shareGroupId != group.Id || !CanChangeShare)
+        {
+            return;
+        }
+
+        var request = _shareUi.PickShare(current.Request.Settings, current.Request.Source);
+        if (request is null || _activeShare != current)
+        {
+            return;
+        }
+
+        _lastShareSettings = request.Settings;
+        ShareMessage = null;
+        IsStartingShare = true;
+        try
+        {
+            var replacement = await _screenShare.StartAsync(group.Id, request, current);
+            if (_activeShare != current || CurrentGroup != group || !_isActive)
+            {
+                // O compartilhamento terminou (ou a sala mudou) enquanto as configurações eram aplicadas.
+                await replacement.StopAsync();
+                return;
+            }
+
+            replacement.Ended += (_, reason) => Post(() => OnShareEnded(replacement, reason));
+            _activeShare = replacement;
+        }
+        catch (Exception ex)
+        {
+            // Se a troca falhou antes de valer, o compartilhamento atual continua; senão, ele já avisou o fim.
+            ShareMessage = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            IsStartingShare = false;
+        }
+    }
+
     private Task StopShareAsync() => EndShareAsync(null);
 
     private async Task EndShareAsync(string? message)
@@ -746,6 +795,9 @@ public sealed class GroupsViewModel : ObservableObject
         OnPropertyChanged(nameof(ShareDetailText));
         StartShareCommand?.NotifyCanExecuteChanged();
         StopShareCommand?.NotifyCanExecuteChanged();
+        ChangeShareCommand?.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanChangeShare));
+        OnPropertyChanged(nameof(ShareProgressText));
     }
 
     private void Post(Action action) => Post(() =>
