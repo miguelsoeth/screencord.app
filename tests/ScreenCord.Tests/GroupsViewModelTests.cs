@@ -296,6 +296,54 @@ public class GroupsViewModelTests
     }
 
     [Fact]
+    public async Task ExcluirGrupo_SoAparecePraQuemCriou_ERemoveDaLista()
+    {
+        _groups.Add("Amigos");
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+
+        group.IsMembersOpen = true;
+        Assert.False(group.CanDelete);
+        group.IsMembersOpen = false;
+
+        _groups.CanDelete = true;
+        group.IsMembersOpen = true;
+        Assert.True(group.CanDelete);
+
+        group.ConfirmDeleteCommand.Execute(null);
+        Assert.True(group.IsConfirmingDelete);
+        Assert.False(group.ShowGroupActions);
+
+        // Abrir uma confirmação fecha a outra.
+        group.ConfirmLeaveCommand.Execute(null);
+        Assert.False(group.IsConfirmingDelete);
+        group.ConfirmDeleteCommand.Execute(null);
+        Assert.False(group.IsConfirmingLeave);
+
+        await group.DeleteGroupCommand.ExecuteAsync();
+
+        Assert.Contains("delete:Amigos", _groups.Calls);
+        Assert.Empty(vm.Groups);
+        Assert.False(group.IsMembersOpen);
+    }
+
+    [Fact]
+    public async Task ExcluirGrupo_Falha_MostraOErroEMantemOGrupo()
+    {
+        _groups.Add("Amigos");
+        _groups.CanDelete = true;
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        group.IsMembersOpen = true;
+
+        _groups.Failure = new InvalidOperationException("Só quem criou o grupo pode excluí-lo.");
+        await group.DeleteGroupCommand.ExecuteAsync();
+
+        Assert.Single(vm.Groups);
+        Assert.True(group.HasMembersError);
+    }
+
+    [Fact]
     public async Task Reconectado_RecarregaGruposEVoltaParaASala()
     {
         var id = _groups.Add("Amigos");

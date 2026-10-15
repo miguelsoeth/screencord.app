@@ -236,6 +236,9 @@ public sealed class FakeGroupsService : IGroupsService
 
     public long PresenceVersion { get; set; } = 1;
 
+    /// <summary>O que o servidor responde em <see cref="GroupDetails.CanDelete"/>.</summary>
+    public bool CanDelete { get; set; }
+
     public Exception? Failure { get; set; }
 
     public List<string> Calls { get; } = [];
@@ -264,7 +267,7 @@ public sealed class FakeGroupsService : IGroupsService
         {
             var connected = Connected.GetValueOrDefault(groupId, []);
             var members = Groups[groupId].Members.Select(p => new GroupMember(p, connected.Any(c => c.UserId == p.UserId))).ToList();
-            return new GroupDetails(groupId, Groups[groupId].Name, members, PresenceVersion);
+            return new GroupDetails(groupId, Groups[groupId].Name, members, PresenceVersion, CanDelete);
         });
 
     public Task<GroupDto> CreateGroupAsync(string name, CancellationToken cancellationToken = default) =>
@@ -279,6 +282,9 @@ public sealed class FakeGroupsService : IGroupsService
 
     public Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
         Run<object?>("leave:" + Groups[groupId].Name, () => Groups.Remove(groupId));
+
+    public Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        Run<object?>("delete:" + Groups[groupId].Name, () => Groups.Remove(groupId));
 
     private Task<T> Run<T>(string call, Func<T> action)
     {

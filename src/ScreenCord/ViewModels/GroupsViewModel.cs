@@ -304,6 +304,7 @@ public sealed class GroupsViewModel : ObservableObject
             var memberIds = details.Members.Select(m => m.Person.UserId).ToHashSet();
             group.Name = details.Name;
             group.MemberCount = details.Members.Count;
+            group.CanDelete = details.CanDelete;
             group.SetMembers(details.Members, friends.Where(f => !memberIds.Contains(f.UserId)));
 
             // Vale a presença mais nova: a dos detalhes, ou a que já chegou pelo hub enquanto eles eram buscados.
@@ -352,6 +353,24 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
+        group.IsMembersOpen = false;
+        RemoveGroup(group.Id);
+    }
+
+    internal async Task DeleteGroupAsync(GroupItemViewModel group)
+    {
+        group.MembersError = null;
+        try
+        {
+            await _groupsService.DeleteGroupAsync(group.Id);
+        }
+        catch (Exception ex)
+        {
+            group.MembersError = ErrorMessages.For(ex);
+            return;
+        }
+
+        // Os outros integrantes (e as outras janelas desta conta) recebem GroupRemoved pelo hub.
         group.IsMembersOpen = false;
         RemoveGroup(group.Id);
     }

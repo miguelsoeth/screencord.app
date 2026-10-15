@@ -17,6 +17,8 @@ public sealed class GroupItemViewModel : ObservableObject
     private bool _isLoadingMembers;
     private bool _hasLoadedMembers;
     private bool _isConfirmingLeave;
+    private bool _isConfirmingDelete;
+    private bool _canDelete;
     private bool _isExpanded = true;
     private string? _membersError;
 
@@ -33,6 +35,9 @@ public sealed class GroupItemViewModel : ObservableObject
         LeaveGroupCommand = new AsyncRelayCommand(() => _owner.LeaveGroupAsync(this));
         ConfirmLeaveCommand = new RelayCommand(() => IsConfirmingLeave = true);
         CancelLeaveCommand = new RelayCommand(() => IsConfirmingLeave = false);
+        DeleteGroupCommand = new AsyncRelayCommand(() => _owner.DeleteGroupAsync(this));
+        ConfirmDeleteCommand = new RelayCommand(() => IsConfirmingDelete = true);
+        CancelDeleteCommand = new RelayCommand(() => IsConfirmingDelete = false);
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
     }
 
@@ -125,6 +130,7 @@ public sealed class GroupItemViewModel : ObservableObject
             if (SetProperty(ref _isMembersOpen, value))
             {
                 IsConfirmingLeave = false;
+                IsConfirmingDelete = false;
                 if (value)
                 {
                     _ = _owner.LoadMembersAsync(this);
@@ -181,8 +187,46 @@ public sealed class GroupItemViewModel : ObservableObject
     public bool IsConfirmingLeave
     {
         get => _isConfirmingLeave;
-        set => SetProperty(ref _isConfirmingLeave, value);
+        set
+        {
+            if (SetProperty(ref _isConfirmingLeave, value))
+            {
+                if (value)
+                {
+                    IsConfirmingDelete = false;
+                }
+
+                OnPropertyChanged(nameof(ShowGroupActions));
+            }
+        }
     }
+
+    /// <summary>Quem está usando o aplicativo criou o grupo e pode excluí-lo (vem com os integrantes).</summary>
+    public bool CanDelete
+    {
+        get => _canDelete;
+        set => SetProperty(ref _canDelete, value);
+    }
+
+    public bool IsConfirmingDelete
+    {
+        get => _isConfirmingDelete;
+        set
+        {
+            if (SetProperty(ref _isConfirmingDelete, value))
+            {
+                if (value)
+                {
+                    IsConfirmingLeave = false;
+                }
+
+                OnPropertyChanged(nameof(ShowGroupActions));
+            }
+        }
+    }
+
+    /// <summary>Botões "Sair do grupo" e "Excluir grupo", escondidos enquanto uma das confirmações está aberta.</summary>
+    public bool ShowGroupActions => !IsConfirmingLeave && !IsConfirmingDelete;
 
     public AsyncRelayCommand<Person> AddMemberCommand { get; }
 
@@ -191,6 +235,12 @@ public sealed class GroupItemViewModel : ObservableObject
     public RelayCommand ConfirmLeaveCommand { get; }
 
     public RelayCommand CancelLeaveCommand { get; }
+
+    public AsyncRelayCommand DeleteGroupCommand { get; }
+
+    public RelayCommand ConfirmDeleteCommand { get; }
+
+    public RelayCommand CancelDeleteCommand { get; }
 
     public RelayCommand ToggleExpandCommand { get; }
 

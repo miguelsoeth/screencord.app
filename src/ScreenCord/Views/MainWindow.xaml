@@ -465,12 +465,16 @@
                                                 </ItemsControl>
                                             </ScrollViewer>
 
-                                            <!-- Sair do grupo, com confirmação na própria linha -->
+                                            <!-- Sair do grupo e excluir o grupo (só quem criou), com confirmação na própria linha -->
                                             <Grid Margin="0,12,0,0">
-                                                <Button Content="Sair do grupo" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12"
-                                                        HorizontalAlignment="Left"
-                                                        Command="{Binding ConfirmLeaveCommand}"
-                                                        Visibility="{Binding IsConfirmingLeave, Converter={StaticResource InverseBoolToVisibility}}" />
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
+                                                            Visibility="{Binding ShowGroupActions, Converter={StaticResource BoolToVisibility}}">
+                                                    <Button Content="Sair do grupo" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12"
+                                                            Command="{Binding ConfirmLeaveCommand}" />
+                                                    <Button Content="Excluir grupo" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                            Command="{Binding ConfirmDeleteCommand}"
+                                                            Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibility}}" />
+                                                </StackPanel>
                                                 <Grid Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -482,6 +486,19 @@
                                                             Command="{Binding CancelLeaveCommand}" />
                                                     <Button Grid.Column="2" Content="Sair" Style="{StaticResource DangerFilledButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                             Command="{Binding LeaveGroupCommand}" />
+                                                </Grid>
+                                                <Grid Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Excluir para todos os integrantes?" FontSize="12" VerticalAlignment="Center"
+                                                               TextWrapping="Wrap" Margin="0,0,8,0" />
+                                                    <Button Grid.Column="1" Content="Cancelar" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
+                                                            Command="{Binding CancelDeleteCommand}" />
+                                                    <Button Grid.Column="2" Content="Excluir" Style="{StaticResource DangerFilledButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                            Command="{Binding DeleteGroupCommand}" />
                                                 </Grid>
                                             </Grid>
                                         </StackPanel>

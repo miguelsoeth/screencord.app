@@ -18,6 +18,9 @@ public interface IGroupsService
     Task AddMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default);
 
     Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default);
+
+    /// <summary>Exclui o grupo para todos os integrantes (só quem o criou pode).</summary>
+    Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken = default);
 }
 
 public sealed class CentralGroupsService : IGroupsService
@@ -48,7 +51,7 @@ public sealed class CentralGroupsService : IGroupsService
             }
         }
 
-        return new GroupDetails(group.Id, group.Name ?? "", members, group.PresenceVersion);
+        return new GroupDetails(group.Id, group.Name ?? "", members, group.PresenceVersion, group.CanDelete);
     }
 
     public async Task<GroupDto> CreateGroupAsync(string name, CancellationToken cancellationToken = default)
@@ -64,6 +67,9 @@ public sealed class CentralGroupsService : IGroupsService
 
     public Task LeaveGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
         _api.SendAsync<object>(HttpMethod.Delete, $"groups/{groupId}/members/me", null, cancellationToken, readBody: false);
+
+    public Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        _api.SendAsync<object>(HttpMethod.Delete, $"groups/{groupId}", null, cancellationToken, readBody: false);
 
     internal static bool IsValid(GroupDto? group) =>
         group is not null && group.Id != Guid.Empty && !string.IsNullOrWhiteSpace(group.Name) && group.ConnectedUsers is not null;
