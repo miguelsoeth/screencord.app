@@ -3,7 +3,7 @@
   <!--
     Instalador MSI do ScreenCord: dotnet build installer/ScreenCord.Installer -c Release
     Publica o app (exe único, autocontido) e empacota em bin/x64/Release/pt-BR/ScreenCord-Setup.msi.
-    A versão do instalador é a <Version> do src/ScreenCord/ScreenCord.csproj.
+    A versão vem de -p:AppVersion=X.Y.Z (a da tag git); sem ela, 0.0.0 (build de desenvolvimento).
   -->
   <PropertyGroup>
     <OutputName>ScreenCord-Setup</OutputName>
@@ -11,6 +11,7 @@
     <Cultures>pt-BR</Cultures>
     <AppProject>$(MSBuildProjectDirectory)\..\..\src\ScreenCord\ScreenCord.csproj</AppProject>
     <AppPublishDir>$(MSBuildProjectDirectory)\obj\app\</AppPublishDir>
+    <AppVersion Condition="'$(AppVersion)' == ''">0.0.0</AppVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,11 +20,8 @@
   </ItemGroup>
 
   <Target Name="PublishApp" BeforeTargets="BeforeBuild">
-    <XmlPeek XmlInputPath="$(AppProject)" Query="/Project/PropertyGroup/Version/text()">
-      <Output TaskParameter="Result" PropertyName="AppVersion" />
-    </XmlPeek>
     <RemoveDir Directories="$(AppPublishDir)" />
-    <Exec Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o &quot;$(AppPublishDir)&quot;" />
+    <Exec Command="dotnet publish &quot;$(AppProject)&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:Version=$(AppVersion) -o &quot;$(AppPublishDir)&quot;" />
     <PropertyGroup>
       <DefineConstants>$(DefineConstants);AppVersion=$(AppVersion);AppPublishDir=$(AppPublishDir)</DefineConstants>
     </PropertyGroup>

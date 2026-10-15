@@ -1,0 +1,43 @@
+# Release: git tag v1.2.3 && git push origin v1.2.3
+# Testa, gera o instalador MSI (Windows x64) e cria a GitHub Release com ele para download.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test ScreenCord.sln
+
+  release:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Gerar o instalador
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet build installer/ScreenCord.Installer -c Release -p:AppVersion="$VERSION"
+          mkdir -p dist
+          cp installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.msi "dist/ScreenCord-Setup-$VERSION-win64.msi"
+
+      - name: Criar a GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" dist/*.msi --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
