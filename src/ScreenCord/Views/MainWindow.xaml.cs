@@ -7,6 +7,12 @@ namespace ScreenCord.Views;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Largura da lateral de grupos mais o espaço entre ela e a tela.</summary>
+    private const double SidebarSpace = 252 + 12;
+
+    /// <summary>Espaço entre o cabeçalho e a tela.</summary>
+    private const double StageGap = 12;
+
     private readonly MainViewModel _viewModel;
     private StreamViewerViewModel? _watching;
     private Action? _watchingClosed;
@@ -24,6 +30,11 @@ public partial class MainWindow : Window
         FriendsPopup.CustomPopupPlacementCallback = (popupSize, targetSize, _) =>
             [new CustomPopupPlacement(new Point(targetSize.Width - popupSize.Width - 13, targetSize.Height - 6), PopupPrimaryAxis.Horizontal)];
 
+        RootGrid.SizeChanged += (_, _) => UpdateStageSize();
+        HeaderCard.SizeChanged += (_, _) => UpdateStageSize();
+        ProfileError.SizeChanged += (_, _) => UpdateStageSize();
+        ProfileError.IsVisibleChanged += (_, _) => UpdateStageSize();
+
         // Minimizada, ninguém vê o vídeo: só o áudio continua, poupando a banda do servidor.
         StateChanged += (_, _) =>
         {
@@ -32,6 +43,26 @@ public partial class MainWindow : Window
                 viewer.IsVideoPaused = WindowState == WindowState.Minimized;
             }
         };
+    }
+
+    /// <summary>
+    /// Dimensiona a tela no maior 16:9 que cabe ao lado da lateral e abaixo do cabeçalho. O bloco todo fica
+    /// centralizado na janela, e a lateral de grupos tem a mesma altura que ele.
+    /// </summary>
+    private void UpdateStageSize()
+    {
+        var margin = MainGrid.Margin;
+        var width = RootGrid.ActualWidth - margin.Left - margin.Right - SidebarSpace;
+        var above = HeaderCard.ActualHeight + (ProfileError.IsVisible ? ProfileError.ActualHeight + ProfileError.Margin.Top : 0);
+        var height = RootGrid.ActualHeight - margin.Top - margin.Bottom - above - StageGap;
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        var stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
+        StageColumn.Width = new GridLength(stageWidth);
+        StageRow.Height = new GridLength(Math.Floor(stageWidth * 9 / 16) + StageGap);
     }
 
     /// <summary>

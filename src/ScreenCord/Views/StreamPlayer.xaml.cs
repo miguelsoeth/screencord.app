@@ -54,15 +54,7 @@ public partial class StreamPlayer : UserControl
         CommandBindings.Add(new CommandBinding(ViewerCommands.ExitFullScreen, (_, _) => ExitFullScreen()));
 
         _hideControls = new DispatcherTimer { Interval = ControlsHideDelay };
-        _hideControls.Tick += (_, _) =>
-        {
-            _hideControls.Stop();
-            if (IsFullScreen)
-            {
-                ControlBar.Visibility = Visibility.Collapsed;
-                Cursor = Cursors.None;
-            }
-        };
+        _hideControls.Tick += (_, _) => HideControls();
 
         DataContextChanged += (_, _) =>
         {
@@ -74,9 +66,9 @@ public partial class StreamPlayer : UserControl
         Loaded += (_, _) =>
         {
             Attach(DataContext as StreamViewerViewModel);
+            _hideControls.Start();
             if (IsFullScreen)
             {
-                _hideControls.Start();
                 Focus();
             }
         };
@@ -244,10 +236,28 @@ public partial class StreamPlayer : UserControl
         _lastMouse = position;
         ControlBar.Visibility = Visibility.Visible;
         Cursor = null;
+        _hideControls.Stop();
+
+        // Com o mouse sobre a barra, ela fica; no resto do vídeo, some depois de um tempo parado.
+        if (!ControlBar.IsMouseOver)
+        {
+            _hideControls.Start();
+        }
+    }
+
+    private void OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        _hideControls.Stop();
+        HideControls();
+    }
+
+    private void HideControls()
+    {
+        _hideControls.Stop();
+        ControlBar.Visibility = Visibility.Collapsed;
         if (IsFullScreen)
         {
-            _hideControls.Stop();
-            _hideControls.Start();
+            Cursor = Cursors.None;
         }
     }
 }

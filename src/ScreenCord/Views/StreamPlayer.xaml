@@ -22,18 +22,13 @@
         <KeyBinding Key="M" Command="{Binding ToggleMuteCommand}" />
     </UserControl.InputBindings>
 
-    <Grid MouseMove="OnMouseMove">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
+    <Grid MouseMove="OnMouseMove" MouseLeave="OnMouseLeave" Background="Transparent">
         <!-- Vídeo: mantém a proporção, com faixas pretas se a área tiver outro formato. -->
-        <Image x:Name="Video" Grid.RowSpan="2" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear"
+        <Image x:Name="Video" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear"
                MouseLeftButtonDown="OnVideoMouseDown" />
 
         <!-- Conectando / aguardando / terminou -->
-        <Border Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#CC1B1C20"
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#CC1B1C20"
                 CornerRadius="10" Padding="24,18" Visibility="{Binding ShowOverlay, Converter={StaticResource BoolToVisibility}}">
             <StackPanel>
                 <TextBlock Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"
@@ -44,8 +39,9 @@
             </StackPanel>
         </Border>
 
-        <!-- Barra inferior: quem, qualidade, áudio, tela cheia e fechar. Em tela cheia, some depois de alguns segundos sem mexer o mouse. -->
-        <Border x:Name="ControlBar" Grid.Row="1" Background="#E61B1C20" Padding="14,8">
+        <!-- Barra sobre a parte de baixo do vídeo: quem, qualidade, áudio, tela cheia e fechar.
+             Some depois de alguns segundos sem mexer o mouse (e logo que ele sai do vídeo). -->
+        <Border x:Name="ControlBar" VerticalAlignment="Bottom" Background="#D91B1C20" Padding="14,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

@@ -9,7 +9,7 @@
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="ScreenCord"
         Icon="/ScreenCord;component/Assets/screencord.ico"
-        Width="1180" Height="720"
+        Width="1180" Height="656"
         MinWidth="820" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBrush}"
@@ -24,7 +24,7 @@
         <views:IsSharingToVisibilityConverter x:Key="IsSharingToVisibility" />
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
 
         <!-- Verificação da sessão salva -->
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -71,20 +71,22 @@
 
         <!-- Tela principal -->
         <!-- Desabilitada enquanto a confirmação está aberta, para o teclado não alcançar os controles por trás. -->
-        <Grid Margin="20" Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}}"
+        <!-- A largura da coluna da esquerda e a altura da tela são calculadas no code-behind para a tela ficar em 16:9. -->
+        <Grid x:Name="MainGrid" Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+              Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}}"
               IsEnabled="{Binding IsMainInteractive}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition x:Name="StageRow" Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="StageColumn" Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Cabeçalho: conta conectada -->
-            <Border x:Name="HeaderCard" Grid.Row="0" Style="{StaticResource Card}">
+            <Border x:Name="HeaderCard" Grid.Row="0" Style="{StaticResource Card}" Padding="16,12">
                 <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -92,9 +94,9 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Grid Width="64" Height="64" VerticalAlignment="Top">
+                        <Grid Width="48" Height="48" VerticalAlignment="Center">
                             <Ellipse Fill="{StaticResource SurfaceRaisedBrush}" />
-                            <TextBlock Text="{Binding Profile.Initial}" FontSize="26" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding Profile.Initial}" FontSize="20" FontWeight="SemiBold"
                                        Foreground="{StaticResource MutedTextBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                             <Ellipse>
@@ -104,21 +106,21 @@
                             </Ellipse>
                         </Grid>
 
-                        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                             <StackPanel Visibility="{Binding HasProfile, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="{Binding Profile.DisplayName}" FontSize="20" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Profile.Handle}" Style="{StaticResource MutedText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Profile.DisplayName}" FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Profile.Handle}" Style="{StaticResource MutedText}" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <TextBlock Text="Carregando perfil…" Style="{StaticResource MutedText}"
                                        Visibility="{Binding IsLoadingProfile, Converter={StaticResource BoolToVisibility}}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="Conta conectada" Margin="6,0,0,0" FontSize="13" Foreground="{StaticResource SuccessBrush}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="Conta conectada" Margin="5,0,0,0" FontSize="12" Foreground="{StaticResource SuccessBrush}" />
                             </StackPanel>
                         </StackPanel>
 
                         <!-- Ações da conta, no canto superior direito do bloco -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                             <!-- Amigos no ScreenCord (API central), num menu que abre abaixo do botão. -->
                             <Grid>
                                 <ToggleButton x:Name="FriendsToggle" Style="{StaticResource IconToggleButton}"
@@ -337,13 +339,13 @@
             </Border>
 
             <!-- Erro do perfil -->
-            <Border Grid.Row="1" Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
+            <Border x:Name="ProfileError" Grid.Row="1" Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
                     Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
             </Border>
 
             <!-- Tela que você está assistindo: o espaço principal da janela -->
-            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
+            <Border x:Name="Stage" Grid.Row="2" Style="{StaticResource Card}" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
                 <Grid>
                     <StackPanel x:Name="NoStreamPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380" Margin="24">
                         <Path Data="{StaticResource MonitorIcon}" Fill="{StaticResource MutedTextBrush}" Width="44" Height="44" Stretch="Uniform" />
