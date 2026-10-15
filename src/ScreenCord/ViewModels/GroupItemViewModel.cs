@@ -33,11 +33,11 @@ public sealed class GroupItemViewModel : ObservableObject
         WatchCommand = new AsyncRelayCommand<Person>(person => _owner.WatchAsync(this, person));
         AddMemberCommand = new AsyncRelayCommand<Person>(person => _owner.AddMemberAsync(this, person));
         LeaveGroupCommand = new AsyncRelayCommand(() => _owner.LeaveGroupAsync(this));
-        ConfirmLeaveCommand = new RelayCommand(() => IsConfirmingLeave = true);
-        CancelLeaveCommand = new RelayCommand(() => IsConfirmingLeave = false);
+        ConfirmLeaveCommand = new RelayCommand(() => StartConfirmation(leave: true));
         DeleteGroupCommand = new AsyncRelayCommand(() => _owner.DeleteGroupAsync(this));
-        ConfirmDeleteCommand = new RelayCommand(() => IsConfirmingDelete = true);
-        CancelDeleteCommand = new RelayCommand(() => IsConfirmingDelete = false);
+        ConfirmDeleteCommand = new RelayCommand(() => StartConfirmation(leave: false));
+        CancelConfirmationCommand = new RelayCommand(() => IsConfirmingLeave = IsConfirmingDelete = false);
+        InviteCommand = new RelayCommand(() => _owner.RequestInvite(this));
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
     }
 
@@ -129,8 +129,6 @@ public sealed class GroupItemViewModel : ObservableObject
         {
             if (SetProperty(ref _isMembersOpen, value))
             {
-                IsConfirmingLeave = false;
-                IsConfirmingDelete = false;
                 if (value)
                 {
                     _ = _owner.LoadMembersAsync(this);
@@ -141,34 +139,20 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public ObservableCollection<GroupMemberItem> Members { get; } = [];
 
-    /// <summary>Amigos de quem está usando o aplicativo que ainda não estão no grupo.</summary>
-    public ObservableCollection<Person> AddableFriends { get; } = [];
+    /// <summary>Ids dos integrantes, trocado a cada recarga (a janela de amigos mostra quem já foi convidado).</summary>
+    public IReadOnlySet<Guid> MemberIds { get; private set; } = new HashSet<Guid>();
 
     public bool IsLoadingMembers
     {
         get => _isLoadingMembers;
-        set
-        {
-            if (SetProperty(ref _isLoadingMembers, value))
-            {
-                OnPropertyChanged(nameof(ShowNoAddableFriends));
-            }
-        }
+        set => SetProperty(ref _isLoadingMembers, value);
     }
 
     public bool HasLoadedMembers
     {
         get => _hasLoadedMembers;
-        set
-        {
-            if (SetProperty(ref _hasLoadedMembers, value))
-            {
-                OnPropertyChanged(nameof(ShowNoAddableFriends));
-            }
-        }
+        set => SetProperty(ref _hasLoadedMembers, value);
     }
-
-    public bool ShowNoAddableFriends => HasLoadedMembers && !IsLoadingMembers && AddableFriends.Count == 0;
 
     public string? MembersError
     {
@@ -196,7 +180,7 @@ public sealed class GroupItemViewModel : ObservableObject
                     IsConfirmingDelete = false;
                 }
 
-                OnPropertyChanged(nameof(ShowGroupActions));
+                _owner.UpdateConfirmation(this);
             }
         }
     }
@@ -220,13 +204,30 @@ public sealed class GroupItemViewModel : ObservableObject
                     IsConfirmingLeave = false;
                 }
 
-                OnPropertyChanged(nameof(ShowGroupActions));
+                _owner.UpdateConfirmation(this);
             }
         }
     }
 
-    /// <summary>Botões "Sair do grupo" e "Excluir grupo", escondidos enquanto uma das confirmações está aberta.</summary>
-    public bool ShowGroupActions => !IsConfirmingLeave && !IsConfirmingDelete;
+    /// <summary>Fecha o menu de integrantes e abre a confirmação (janela central) de sair ou de excluir.</summary>
+    private void StartConfirmation(bool leave)
+    {
+        IsMembersOpen = false;
+        MembersError = null;
+        if (leave)
+        {
+            IsConfirmingLeave = true;
+        }
+        else
+        {
+            IsConfirmingDelete = true;
+        }
+    }
+
+    /// <summary>Abre a janela de amigos para convidar para este grupo.</summary>
+    public RelayCommand InviteCommand { get; }
+
+    public RelayCommand CancelConfirmationCommand { get; }
 
     public AsyncRelayCommand<Person> AddMemberCommand { get; }
 
@@ -234,13 +235,9 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public RelayCommand ConfirmLeaveCommand { get; }
 
-    public RelayCommand CancelLeaveCommand { get; }
-
     public AsyncRelayCommand DeleteGroupCommand { get; }
 
     public RelayCommand ConfirmDeleteCommand { get; }
-
-    public RelayCommand CancelDeleteCommand { get; }
 
     public RelayCommand ToggleExpandCommand { get; }
 
@@ -298,7 +295,7 @@ public sealed class GroupItemViewModel : ObservableObject
         return true;
     }
 
-    public void SetMembers(IEnumerable<GroupMember> members, IEnumerable<Person> addableFriends)
+    public void SetMembers(IEnumerable<GroupMember> members)
     {
         Members.Clear();
         foreach (var member in members)
@@ -307,15 +304,9 @@ public sealed class GroupItemViewModel : ObservableObject
         }
 
         SortMembers();
-
-        AddableFriends.Clear();
-        foreach (var friend in addableFriends)
-        {
-            AddableFriends.Add(friend);
-        }
-
+        MemberIds = Members.Select(m => m.Person.UserId).ToHashSet();
+        OnPropertyChanged(nameof(MemberIds));
         HasLoadedMembers = true;
-        OnPropertyChanged(nameof(ShowNoAddableFriends));
     }
 
     /// <summary>Conectados primeiro, depois por nome.</summary>

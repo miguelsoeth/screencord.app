@@ -5,6 +5,14 @@ using ScreenCord.Services;
 
 namespace ScreenCord.ViewModels;
 
+/// <summary>Abas da janela de amigos.</summary>
+public enum FriendsTab
+{
+    Friends,
+    Incoming,
+    Outgoing,
+}
+
 public sealed class FriendsViewModel : ObservableObject
 {
     public const int MinSearchLength = 2;
@@ -20,6 +28,8 @@ public sealed class FriendsViewModel : ObservableObject
     private string _activeQuery = "";
     private bool _isOpen;
     private Person? _pendingRemoval;
+    private GroupItemViewModel? _inviteGroup;
+    private FriendsTab _selectedTab;
 
     public FriendsViewModel(IFriendsService friendsService)
     {
@@ -34,6 +44,9 @@ public sealed class FriendsViewModel : ObservableObject
         RemoveCommand = new RelayCommand<Person>(p => PendingRemoval = p);
         ConfirmRemoveCommand = new AsyncRelayCommand(ConfirmRemoveAsync);
         CancelRemoveCommand = new RelayCommand(() => PendingRemoval = null);
+        CloseCommand = new RelayCommand(() => IsOpen = false);
+        EscapeCommand = new RelayCommand(Escape);
+        InviteCommand = new AsyncRelayCommand<Person>(p => InviteGroup?.AddMemberCommand.ExecuteAsync(p) ?? Task.CompletedTask);
     }
 
     public ObservableCollection<Person> Friends { get; } = [];
@@ -66,17 +79,125 @@ public sealed class FriendsViewModel : ObservableObject
 
     public RelayCommand CancelRemoveCommand { get; }
 
-    /// <summary>Menu de amigos aberto (o botão de amigos no cabeçalho). Fechar descarta a confirmação pendente.</summary>
+    public RelayCommand CloseCommand { get; }
+
+    /// <summary>Esc na busca: limpa a busca, se houver; senão fecha a janela.</summary>
+    public RelayCommand EscapeCommand { get; }
+
+    /// <summary>Janela de amigos aberta (o botão de amigos no cabeçalho). Fechar descarta a confirmação pendente.</summary>
     public bool IsOpen
     {
         get => _isOpen;
         set
         {
-            if (SetProperty(ref _isOpen, value) && !value)
+            if (!SetProperty(ref _isOpen, value))
+            {
+                return;
+            }
+
+            if (value)
+            {
+                // Com solicitações esperando resposta (a bolinha vermelha do botão), abre direto nelas.
+                SelectedTab = HasIncomingRequests && !IsInviting ? FriendsTab.Incoming : FriendsTab.Friends;
+            }
+            else
             {
                 PendingRemoval = null;
+                InviteGroup = null;
             }
         }
+    }
+
+    public FriendsTab SelectedTab
+    {
+        get => _selectedTab;
+        set
+        {
+            if (SetProperty(ref _selectedTab, value))
+            {
+                PendingRemoval = null;
+                OnPropertyChanged(nameof(IsFriendsTab));
+                OnPropertyChanged(nameof(IsIncomingTab));
+                OnPropertyChanged(nameof(IsOutgoingTab));
+                NotifyTabState();
+            }
+        }
+    }
+
+    // Para os botões de aba (RadioButton): só a marcação troca a aba.
+    public bool IsFriendsTab
+    {
+        get => SelectedTab == FriendsTab.Friends;
+        set => SelectTab(value, FriendsTab.Friends);
+    }
+
+    public bool IsIncomingTab
+    {
+        get => SelectedTab == FriendsTab.Incoming;
+        set => SelectTab(value, FriendsTab.Incoming);
+    }
+
+    public bool IsOutgoingTab
+    {
+        get => SelectedTab == FriendsTab.Outgoing;
+        set => SelectTab(value, FriendsTab.Outgoing);
+    }
+
+    /// <summary>Abas visíveis: fora da busca e fora do convite (que mostra só os amigos).</summary>
+    public bool ShowTabs => ShowFriends && !IsInviting;
+
+    public bool ShowFriendsTab => ShowFriends && (IsInviting || SelectedTab == FriendsTab.Friends);
+
+    public bool ShowIncomingTab => ShowTabs && SelectedTab == FriendsTab.Incoming;
+
+    public bool ShowOutgoingTab => ShowTabs && SelectedTab == FriendsTab.Outgoing;
+
+    public bool ShowNoIncomingRequests => _hasLoaded && IncomingRequests.Count == 0;
+
+    public bool ShowNoOutgoingRequests => _hasLoaded && OutgoingRequests.Count == 0;
+
+    private void SelectTab(bool selected, FriendsTab tab)
+    {
+        if (selected)
+        {
+            SelectedTab = tab;
+        }
+    }
+
+    private void NotifyTabState()
+    {
+        OnPropertyChanged(nameof(ShowTabs));
+        OnPropertyChanged(nameof(ShowFriendsTab));
+        OnPropertyChanged(nameof(ShowIncomingTab));
+        OnPropertyChanged(nameof(ShowOutgoingTab));
+    }
+
+    /// <summary>Grupo para o qual a janela foi aberta pelo "Convidar"; cada amigo ganha o botão de convidar.</summary>
+    public GroupItemViewModel? InviteGroup
+    {
+        get => _inviteGroup;
+        private set
+        {
+            if (SetProperty(ref _inviteGroup, value))
+            {
+                OnPropertyChanged(nameof(IsInviting));
+                NotifyTabState();
+            }
+        }
+    }
+
+    public bool IsInviting => InviteGroup is not null;
+
+    /// <summary>Adiciona o amigo ao <see cref="InviteGroup"/>.</summary>
+    public AsyncRelayCommand<Person> InviteCommand { get; }
+
+    /// <summary>Abre a janela de amigos para convidar para <paramref name="group"/>.</summary>
+    public void OpenInvite(GroupItemViewModel group)
+    {
+        ClearSearch();
+        PendingRemoval = null;
+        InviteGroup = group;
+        IsOpen = true;
     }
 
     /// <summary>Amigo aguardando a confirmação de remoção.</summary>
@@ -115,6 +236,7 @@ public sealed class FriendsViewModel : ObservableObject
             if (SetProperty(ref _showSearchResults, value))
             {
                 OnPropertyChanged(nameof(ShowFriends));
+                NotifyTabState();
             }
         }
     }
@@ -261,6 +383,18 @@ public sealed class FriendsViewModel : ObservableObject
         }
     }
 
+    private void Escape()
+    {
+        if (ShowSearchResults || SearchText.Length > 0)
+        {
+            ClearSearch();
+        }
+        else
+        {
+            IsOpen = false;
+        }
+    }
+
     private void ClearSearch()
     {
         _activeQuery = "";
@@ -327,6 +461,8 @@ public sealed class FriendsViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowNoFriends));
         OnPropertyChanged(nameof(HasIncomingRequests));
         OnPropertyChanged(nameof(HasOutgoingRequests));
+        OnPropertyChanged(nameof(ShowNoIncomingRequests));
+        OnPropertyChanged(nameof(ShowNoOutgoingRequests));
     }
 
     private static void Replace(ObservableCollection<Person> target, IReadOnlyList<Person> items)

@@ -16,13 +16,13 @@ public sealed class GroupsViewModel : ObservableObject
 {
     private readonly IGroupsService _groupsService;
     private readonly IGroupsRealtime _realtime;
-    private readonly IFriendsService _friendsService;
     private readonly IScreenShareService _screenShare;
     private readonly IScreenShareUi _shareUi;
     private readonly SynchronizationContext? _ui;
     private readonly List<StreamViewerViewModel> _viewers = [];
 
     private GroupItemViewModel? _currentGroup;
+    private GroupItemViewModel? _confirmingGroup;
     private Guid? _desiredGroupId;
     private RealtimeState _realtimeState;
     private bool _isActive;
@@ -40,13 +40,11 @@ public sealed class GroupsViewModel : ObservableObject
     public GroupsViewModel(
         IGroupsService groupsService,
         IGroupsRealtime realtime,
-        IFriendsService friendsService,
         IScreenShareService screenShare,
         IScreenShareUi shareUi)
     {
         _groupsService = groupsService;
         _realtime = realtime;
-        _friendsService = friendsService;
         _screenShare = screenShare;
         _shareUi = shareUi;
 
@@ -292,6 +290,7 @@ public sealed class GroupsViewModel : ObservableObject
         _isActive = false;
         _desiredGroupId = null;
         CurrentGroup = null;
+        ConfirmingGroup = null;
         Groups.Clear();
         _hasLoaded = false;
         CancelCreate();
@@ -308,13 +307,11 @@ public sealed class GroupsViewModel : ObservableObject
         try
         {
             var details = await _groupsService.GetGroupAsync(group.Id);
-            var friends = await _friendsService.GetFriendsAsync();
 
-            var memberIds = details.Members.Select(m => m.Person.UserId).ToHashSet();
             group.Name = details.Name;
             group.MemberCount = details.Members.Count;
             group.CanDelete = details.CanDelete;
-            group.SetMembers(details.Members, friends.Where(f => !memberIds.Contains(f.UserId)));
+            group.SetMembers(details.Members);
 
             // Vale a presença mais nova: a dos detalhes, ou a que já chegou pelo hub enquanto eles eram buscados.
             var connected = details.Members.Where(m => m.IsConnected).Select(m => m.Person).ToList();
@@ -362,7 +359,6 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        group.IsMembersOpen = false;
         RemoveGroup(group.Id);
     }
 
@@ -380,8 +376,49 @@ public sealed class GroupsViewModel : ObservableObject
         }
 
         // Os outros integrantes (e as outras janelas desta conta) recebem GroupRemoved pelo hub.
-        group.IsMembersOpen = false;
         RemoveGroup(group.Id);
+    }
+
+    /// <summary>Grupo com a confirmação de sair ou de excluir aberta (janela central), ou nulo.</summary>
+    public GroupItemViewModel? ConfirmingGroup
+    {
+        get => _confirmingGroup;
+        private set
+        {
+            if (SetProperty(ref _confirmingGroup, value))
+            {
+                OnPropertyChanged(nameof(IsConfirming));
+            }
+        }
+    }
+
+    public bool IsConfirming => ConfirmingGroup is not null;
+
+    /// <summary>Pedido de convidar amigos para um grupo; a janela de amigos abre para ele.</summary>
+    public event Action<GroupItemViewModel>? InviteRequested;
+
+    internal void RequestInvite(GroupItemViewModel group)
+    {
+        group.IsMembersOpen = false;
+        InviteRequested?.Invoke(group);
+    }
+
+    /// <summary>Uma confirmação de cada vez: abrir a de um grupo fecha a de outro.</summary>
+    internal void UpdateConfirmation(GroupItemViewModel group)
+    {
+        if (group.IsConfirmingLeave || group.IsConfirmingDelete)
+        {
+            var previous = ConfirmingGroup;
+            ConfirmingGroup = group;
+            if (previous is not null && previous != group)
+            {
+                previous.IsConfirmingLeave = previous.IsConfirmingDelete = false;
+            }
+        }
+        else if (ConfirmingGroup == group)
+        {
+            ConfirmingGroup = null;
+        }
     }
 
     private async Task JoinAsync(GroupItemViewModel group)
@@ -587,6 +624,7 @@ public sealed class GroupsViewModel : ObservableObject
         }
 
         group.IsMembersOpen = false;
+        group.IsConfirmingLeave = group.IsConfirmingDelete = false;
         Groups.Remove(group);
         OnPropertyChanged(nameof(ShowNoGroups));
     }
