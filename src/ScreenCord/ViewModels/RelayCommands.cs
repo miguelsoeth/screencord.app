@@ -22,6 +22,34 @@ public sealed class RelayCommand : ICommand
     public void NotifyCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 
+/// <summary>Comando síncrono com parâmetro (o item da lista em que o botão foi clicado).</summary>
+public sealed class RelayCommand<T> : ICommand
+    where T : class
+{
+    private readonly Action<T> _execute;
+
+    public RelayCommand(Action<T> execute)
+    {
+        _execute = execute;
+    }
+
+    public event EventHandler? CanExecuteChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public bool CanExecute(object? parameter) => parameter is T;
+
+    public void Execute(object? parameter)
+    {
+        if (parameter is T item)
+        {
+            _execute(item);
+        }
+    }
+}
+
 /// <summary>Comando assíncrono com parâmetro (o item da lista em que o botão foi clicado).</summary>
 public sealed class AsyncRelayCommand<T> : ICommand
     where T : class

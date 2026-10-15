@@ -155,16 +155,43 @@ public class FriendsViewModelTests
     }
 
     [Fact]
-    public async Task Remover_TiraDaListaDeAmigos()
+    public async Task Remover_PedeConfirmacaoAntesDeTirarDaLista()
     {
         _service.Friends.Add(_ana with { Relationship = RelationshipStatus.Friend });
         var vm = new FriendsViewModel(_service);
         await vm.LoadAsync();
 
-        await vm.RemoveCommand.ExecuteAsync(vm.Friends[0]);
+        vm.RemoveCommand.Execute(vm.Friends[0]);
 
+        Assert.True(vm.HasPendingRemoval);
+        Assert.Equal(_ana.UserId, vm.PendingRemoval!.UserId);
+        Assert.Single(vm.Friends);
+
+        await vm.ConfirmRemoveCommand.ExecuteAsync();
+
+        Assert.False(vm.HasPendingRemoval);
         Assert.Empty(vm.Friends);
         Assert.True(vm.ShowNoFriends);
+    }
+
+    [Fact]
+    public async Task Remover_CanceladoOuMenuFechado_MantemOAmigo()
+    {
+        _service.Friends.Add(_ana with { Relationship = RelationshipStatus.Friend });
+        var vm = new FriendsViewModel(_service);
+        await vm.LoadAsync();
+
+        vm.RemoveCommand.Execute(vm.Friends[0]);
+        vm.CancelRemoveCommand.Execute(null);
+        Assert.False(vm.HasPendingRemoval);
+
+        vm.IsOpen = true;
+        vm.RemoveCommand.Execute(vm.Friends[0]);
+        vm.IsOpen = false;
+        Assert.False(vm.HasPendingRemoval);
+
+        await vm.ConfirmRemoveCommand.ExecuteAsync();
+        Assert.Single(vm.Friends);
     }
 
     [Fact]

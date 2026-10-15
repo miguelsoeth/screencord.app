@@ -9,8 +9,8 @@
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="ScreenCord"
         Icon="/ScreenCord;component/Assets/screencord.ico"
-        Width="1120" Height="680"
-        MinWidth="780" MinHeight="480"
+        Width="480" Height="720"
+        MinWidth="400" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}"
@@ -78,13 +78,9 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
 
             <!-- Cabeçalho: conta conectada -->
-            <Border Grid.Row="0" Style="{StaticResource Card}">
+            <Border x:Name="HeaderCard" Grid.Row="0" Style="{StaticResource Card}">
                 <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -119,7 +115,209 @@
 
                         <!-- Ações da conta, no canto superior direito do bloco -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
-                            <Button Style="{StaticResource PrimaryIconButton}"
+                            <!-- Amigos no ScreenCord (API central), num menu que abre abaixo do botão. -->
+                            <Grid>
+                                <ToggleButton x:Name="FriendsToggle" Style="{StaticResource IconToggleButton}"
+                                              IsChecked="{Binding Friends.IsOpen}"
+                                              IsHitTestVisible="{Binding IsOpen, ElementName=FriendsPopup, Converter={StaticResource InverseBool}}"
+                                              ToolTip="Amigos"
+                                              AutomationProperties.Name="Amigos">
+                                    <Path Data="{StaticResource FriendsIcon}" Style="{StaticResource IconPath}" />
+                                </ToggleButton>
+                                <!-- Solicitações recebidas esperando resposta. -->
+                                <Ellipse Width="11" Height="11" Fill="{StaticResource DangerBrush}" Stroke="{StaticResource SurfaceBrush}" StrokeThickness="2"
+                                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0" IsHitTestVisible="False"
+                                         Visibility="{Binding Friends.HasIncomingRequests, Converter={StaticResource BoolToVisibility}}" />
+                                <Popup x:Name="FriendsPopup" DataContext="{Binding Friends}" IsOpen="{Binding IsOpen}" StaysOpen="False"
+                                       PlacementTarget="{Binding ElementName=HeaderCard}" Placement="Bottom"
+                                       HorizontalOffset="0" VerticalOffset="8"
+                                       AllowsTransparency="True" PopupAnimation="Fade">
+                        <!-- Mesma largura do cabeçalho, logo abaixo dele (a margem é a área da sombra). -->
+                        <Border Style="{StaticResource Card}" Padding="16" Margin="14" Width="{Binding ActualWidth, ElementName=HeaderCard}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                TextElement.Foreground="{StaticResource TextBrush}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.55" Color="Black" />
+                            </Border.Effect>
+                            <Border.Resources>
+                                <Style x:Key="SectionHeader" TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+                                    <Setter Property="FontSize" Value="12" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="Margin" Value="0,10,0,2" />
+                                </Style>
+
+                                <!-- Uma pessoa, com as ações possíveis para a relação atual. -->
+                                <DataTemplate x:Key="PersonTemplate">
+                                    <Grid Margin="0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Width="40" Height="40">
+                                            <Ellipse Fill="{StaticResource SurfaceRaisedBrush}" />
+                                            <Ellipse>
+                                                <Ellipse.Fill>
+                                                    <ImageBrush ImageSource="{Binding AvatarUrl, TargetNullValue={x:Null}}" Stretch="UniformToFill" />
+                                                </Ellipse.Fill>
+                                            </Ellipse>
+                                        </Grid>
+                                        <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Handle}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="Adicionar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
+                                                    Visibility="{Binding CanAdd, Converter={StaticResource BoolToVisibility}}"
+                                                    Command="{Binding DataContext.AddCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Aceitar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
+                                                    Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
+                                                    Command="{Binding DataContext.AcceptCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Recusar" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="8,0,0,0"
+                                                    Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
+                                                    Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Cancelar pedido" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
+                                                    Visibility="{Binding IsPendingOutgoing, Converter={StaticResource BoolToVisibility}}"
+                                                    Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Remover" Style="{StaticResource DangerButton}" Padding="12,5" FontSize="12"
+                                                    Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibility}}"
+                                                    Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </Border.Resources>
+
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel>
+                                    <TextBlock Text="Amigos" FontSize="17" FontWeight="Bold" />
+                                    <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
+                                               Text="Amigos no ScreenCord: pessoas que também entraram aqui com o Discord. Não é a sua lista de amigos do Discord." />
+                                </StackPanel>
+
+                                <!-- Busca de usuários do sistema -->
+                                <Grid Grid.Row="1" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}"
+                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="Buscar usuários">
+                                        <TextBox.InputBindings>
+                                            <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                                            <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                                        </TextBox.InputBindings>
+                                    </TextBox>
+                                    <TextBlock Text="Buscar usuário para adicionar (ex.: @fulano)" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               IsHitTestVisible="False" Foreground="{StaticResource MutedTextBrush}" FontSize="14">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <Button Grid.Column="1" Content="Buscar" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+                                            Command="{Binding SearchCommand}" />
+                                    <Button Grid.Column="2" Content="Voltar aos amigos" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                            Command="{Binding ClearSearchCommand}"
+                                            Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}" />
+                                </Grid>
+
+                                <!-- Confirmação de remoção, erro de carregamento ou de uma ação -->
+                                <StackPanel Grid.Row="2">
+                                <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
+                                        Visibility="{Binding HasPendingRemoval, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"><Run Text="Remover " /><Run Text="{Binding PendingRemoval.DisplayName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" dos seus amigos?" /></TextBlock>
+                                        <Button Grid.Column="1" Content="Cancelar" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
+                                                Command="{Binding CancelRemoveCommand}" />
+                                        <Button Grid.Column="2" Content="Remover" Style="{StaticResource DangerFilledButton}" Padding="12,5" FontSize="12" Margin="6,0,0,0"
+                                                Command="{Binding ConfirmRemoveCommand}" />
+                                    </Grid>
+                                </Border>
+                                <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
+                                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="Tentar novamente" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0"
+                                                Command="{Binding ReloadCommand}" />
+                                    </Grid>
+                                </Border>
+                                </StackPanel>
+
+                                <ScrollViewer Grid.Row="3" Margin="0,8,0,0" MaxHeight="420" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel>
+
+                                        <!-- Resultados da busca -->
+                                        <StackPanel Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="RESULTADOS DA BUSCA" Style="{StaticResource SectionHeader}" />
+                                            <TextBlock Text="Buscando…" Style="{StaticResource MutedText}" Margin="0,8"
+                                                       Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
+                                            <TextBlock Text="{Binding SearchMessage}" Style="{StaticResource MutedText}" Margin="0,8"
+                                                       Visibility="{Binding HasSearchMessage, Converter={StaticResource BoolToVisibility}}" />
+                                            <ItemsControl ItemsSource="{Binding SearchResults}" ItemTemplate="{StaticResource PersonTemplate}" />
+                                        </StackPanel>
+
+                                        <!-- Solicitações e amigos -->
+                                        <StackPanel Visibility="{Binding ShowFriends, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Carregando…" Style="{StaticResource MutedText}" Margin="0,8"
+                                                       Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+                                            <StackPanel Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="SOLICITAÇÕES RECEBIDAS" Style="{StaticResource SectionHeader}" />
+                                                <ItemsControl ItemsSource="{Binding IncomingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
+                                            </StackPanel>
+
+                                            <StackPanel Visibility="{Binding HasOutgoingRequests, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="SOLICITAÇÕES ENVIADAS" Style="{StaticResource SectionHeader}" />
+                                                <ItemsControl ItemsSource="{Binding OutgoingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
+                                            </StackPanel>
+
+                                            <StackPanel Visibility="{Binding HasFriends, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="SEUS AMIGOS" Style="{StaticResource SectionHeader}" />
+                                                <ItemsControl ItemsSource="{Binding Friends}" ItemTemplate="{StaticResource PersonTemplate}" />
+                                            </StackPanel>
+
+                                            <TextBlock Style="{StaticResource MutedText}" Margin="0,14,0,0"
+                                                       Text="Você ainda não tem amigos aqui. Busque alguém pelo nome de usuário para enviar uma solicitação."
+                                                       Visibility="{Binding ShowNoFriends, Converter={StaticResource BoolToVisibility}}" />
+                                        </StackPanel>
+
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                                </Popup>
+                            </Grid>
+                            <Button Style="{StaticResource PrimaryIconButton}" Margin="8,0,0,0"
                                     Command="{Binding RefreshProfileCommand}"
                                     ToolTip="Atualizar perfil"
                                     AutomationProperties.Name="Atualizar perfil">
@@ -141,172 +339,8 @@
                 <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
             </Border>
 
-            <!-- Amigos no sistema ScreenCord (API central) -->
-            <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,12,0,0" DataContext="{Binding Friends}">
-                <Border.Resources>
-                    <Style x:Key="SectionHeader" TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
-                        <Setter Property="FontSize" Value="12" />
-                        <Setter Property="FontWeight" Value="SemiBold" />
-                        <Setter Property="Margin" Value="0,10,0,2" />
-                    </Style>
-
-                    <!-- Uma pessoa, com as ações possíveis para a relação atual. -->
-                    <DataTemplate x:Key="PersonTemplate">
-                        <Grid Margin="0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid Width="40" Height="40">
-                                <Ellipse Fill="{StaticResource SurfaceRaisedBrush}" />
-                                <Ellipse>
-                                    <Ellipse.Fill>
-                                        <ImageBrush ImageSource="{Binding AvatarUrl, TargetNullValue={x:Null}}" Stretch="UniformToFill" />
-                                    </Ellipse.Fill>
-                                </Ellipse>
-                            </Grid>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
-                                <TextBlock FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis">
-                                    <Run Text="{Binding Handle, Mode=OneWay}" /><Run Text=" · ID " /><Run Text="{Binding DiscordId, Mode=OneWay}" />
-                                </TextBlock>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="Adicionar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
-                                        Visibility="{Binding CanAdd, Converter={StaticResource BoolToVisibility}}"
-                                        Command="{Binding DataContext.AddCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Content="Aceitar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
-                                        Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
-                                        Command="{Binding DataContext.AcceptCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Content="Recusar" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="8,0,0,0"
-                                        Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
-                                        Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Content="Cancelar pedido" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
-                                        Visibility="{Binding IsPendingOutgoing, Converter={StaticResource BoolToVisibility}}"
-                                        Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Content="Remover" Style="{StaticResource DangerButton}" Padding="12,5" FontSize="12"
-                                        Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibility}}"
-                                        Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </Border.Resources>
-
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel>
-                        <TextBlock Text="Amigos" FontSize="17" FontWeight="Bold" />
-                        <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
-                                   Text="Amigos no ScreenCord: pessoas que também entraram aqui com o Discord. Não é a sua lista de amigos do Discord." />
-                    </StackPanel>
-
-                    <!-- Busca de usuários do sistema -->
-                    <Grid Grid.Row="1" Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="Buscar usuários">
-                            <TextBox.InputBindings>
-                                <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
-                                <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
-                            </TextBox.InputBindings>
-                        </TextBox>
-                        <TextBlock Text="Buscar usuário para adicionar (ex.: @fulano)" Margin="12,0,0,0" VerticalAlignment="Center"
-                                   IsHitTestVisible="False" Foreground="{StaticResource MutedTextBrush}" FontSize="14">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <Button Grid.Column="1" Content="Buscar" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
-                                Command="{Binding SearchCommand}" />
-                        <Button Grid.Column="2" Content="Voltar aos amigos" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
-                                Command="{Binding ClearSearchCommand}"
-                                Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}" />
-                    </Grid>
-
-                    <!-- Erro de carregamento ou de uma ação -->
-                    <Border Grid.Row="2" Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
-                            Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Tentar novamente" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0"
-                                    Command="{Binding ReloadCommand}" />
-                        </Grid>
-                    </Border>
-
-                    <ScrollViewer Grid.Row="3" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel>
-
-                            <!-- Resultados da busca -->
-                            <StackPanel Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="RESULTADOS DA BUSCA" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="Buscando…" Style="{StaticResource MutedText}" Margin="0,8"
-                                           Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
-                                <TextBlock Text="{Binding SearchMessage}" Style="{StaticResource MutedText}" Margin="0,8"
-                                           Visibility="{Binding HasSearchMessage, Converter={StaticResource BoolToVisibility}}" />
-                                <ItemsControl ItemsSource="{Binding SearchResults}" ItemTemplate="{StaticResource PersonTemplate}" />
-                            </StackPanel>
-
-                            <!-- Solicitações e amigos -->
-                            <StackPanel Visibility="{Binding ShowFriends, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Carregando…" Style="{StaticResource MutedText}" Margin="0,8"
-                                           Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
-
-                                <StackPanel Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="SOLICITAÇÕES RECEBIDAS" Style="{StaticResource SectionHeader}" />
-                                    <ItemsControl ItemsSource="{Binding IncomingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
-                                </StackPanel>
-
-                                <StackPanel Visibility="{Binding HasOutgoingRequests, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="SOLICITAÇÕES ENVIADAS" Style="{StaticResource SectionHeader}" />
-                                    <ItemsControl ItemsSource="{Binding OutgoingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
-                                </StackPanel>
-
-                                <StackPanel Visibility="{Binding HasFriends, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="SEUS AMIGOS" Style="{StaticResource SectionHeader}" />
-                                    <ItemsControl ItemsSource="{Binding Friends}" ItemTemplate="{StaticResource PersonTemplate}" />
-                                </StackPanel>
-
-                                <TextBlock Style="{StaticResource MutedText}" Margin="0,14,0,0"
-                                           Text="Você ainda não tem amigos aqui. Busque alguém pelo nome de usuário para enviar uma solicitação."
-                                           Visibility="{Binding ShowNoFriends, Converter={StaticResource BoolToVisibility}}" />
-                            </StackPanel>
-
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-
-            <!-- Grupos: salas de presença em tempo real, na lateral direita -->
-            <Border Grid.Column="1" Grid.RowSpan="3" Style="{StaticResource Card}" Padding="10,14" Margin="12,0,0,0" Width="252"
+            <!-- Grupos: salas de presença em tempo real, ocupando o resto da janela -->
+            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="10,14" Margin="0,12,0,0"
                     DataContext="{Binding Groups}">
                 <Border.Resources>
                     <Style x:Key="SidebarHeader" TargetType="TextBlock">

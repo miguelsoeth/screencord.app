@@ -256,7 +256,7 @@ public class ScreenShareViewModelTests
 
         Assert.Equal(StreamViewerState.Ended, viewer.State);
         Assert.True(_share.Watching[0].IsDisposed);
-        Assert.Equal("A transmissão terminou.", viewer.StatusText);
+        Assert.Equal("Compartilhamento encerrado.", viewer.StatusText);
     }
 
     [Fact]

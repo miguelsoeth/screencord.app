@@ -18,6 +18,8 @@ public sealed class FriendsViewModel : ObservableObject
     private string? _searchMessage;
     private string _searchText = "";
     private string _activeQuery = "";
+    private bool _isOpen;
+    private Person? _pendingRemoval;
 
     public FriendsViewModel(IFriendsService friendsService)
     {
@@ -29,7 +31,9 @@ public sealed class FriendsViewModel : ObservableObject
         AddCommand = new AsyncRelayCommand<Person>(p => RunActionAsync(() => _friendsService.SendRequestAsync(p.UserId)));
         AcceptCommand = new AsyncRelayCommand<Person>(p => RunActionAsync(() => _friendsService.AcceptRequestAsync(p.UserId)));
         DeclineCommand = new AsyncRelayCommand<Person>(p => RunActionAsync(() => _friendsService.DeleteRequestAsync(p.UserId)));
-        RemoveCommand = new AsyncRelayCommand<Person>(p => RunActionAsync(() => _friendsService.RemoveFriendAsync(p.UserId)));
+        RemoveCommand = new RelayCommand<Person>(p => PendingRemoval = p);
+        ConfirmRemoveCommand = new AsyncRelayCommand(ConfirmRemoveAsync);
+        CancelRemoveCommand = new RelayCommand(() => PendingRemoval = null);
     }
 
     public ObservableCollection<Person> Friends { get; } = [];
@@ -55,7 +59,40 @@ public sealed class FriendsViewModel : ObservableObject
     /// <summary>Recusa uma solicitação recebida ou cancela uma enviada.</summary>
     public AsyncRelayCommand<Person> DeclineCommand { get; }
 
-    public AsyncRelayCommand<Person> RemoveCommand { get; }
+    /// <summary>Pede a confirmação para desfazer a amizade; só <see cref="ConfirmRemoveCommand"/> remove de fato.</summary>
+    public RelayCommand<Person> RemoveCommand { get; }
+
+    public AsyncRelayCommand ConfirmRemoveCommand { get; }
+
+    public RelayCommand CancelRemoveCommand { get; }
+
+    /// <summary>Menu de amigos aberto (o botão de amigos no cabeçalho). Fechar descarta a confirmação pendente.</summary>
+    public bool IsOpen
+    {
+        get => _isOpen;
+        set
+        {
+            if (SetProperty(ref _isOpen, value) && !value)
+            {
+                PendingRemoval = null;
+            }
+        }
+    }
+
+    /// <summary>Amigo aguardando a confirmação de remoção.</summary>
+    public Person? PendingRemoval
+    {
+        get => _pendingRemoval;
+        private set
+        {
+            if (SetProperty(ref _pendingRemoval, value))
+            {
+                OnPropertyChanged(nameof(HasPendingRemoval));
+            }
+        }
+    }
+
+    public bool HasPendingRemoval => PendingRemoval is not null;
 
     public bool IsLoading
     {
@@ -174,7 +211,20 @@ public sealed class FriendsViewModel : ObservableObject
         Replace(OutgoingRequests, []);
         ClearSearch();
         ErrorMessage = null;
+        PendingRemoval = null;
+        IsOpen = false;
         NotifyListState();
+    }
+
+    private async Task ConfirmRemoveAsync()
+    {
+        if (PendingRemoval is not { } person)
+        {
+            return;
+        }
+
+        PendingRemoval = null;
+        await RunActionAsync(() => _friendsService.RemoveFriendAsync(person.UserId));
     }
 
     private async Task SearchAsync()

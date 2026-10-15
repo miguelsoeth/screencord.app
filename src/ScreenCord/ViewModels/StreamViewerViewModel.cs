@@ -87,7 +87,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     public string StatusText => State switch
     {
         StreamViewerState.Connecting => "Conectando…",
-        StreamViewerState.Ended => _message ?? "A transmissão terminou.",
+        StreamViewerState.Ended => _message ?? "Compartilhamento encerrado.",
         _ => "Aguardando imagem…",
     };
 
