@@ -9,8 +9,8 @@
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="ScreenCord"
         Icon="/ScreenCord;component/Assets/screencord.ico"
-        Width="480" Height="720"
-        MinWidth="400" MinHeight="480"
+        Width="1180" Height="720"
+        MinWidth="820" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}"
@@ -78,6 +78,10 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
             <!-- Cabeçalho: conta conectada -->
             <Border x:Name="HeaderCard" Grid.Row="0" Style="{StaticResource Card}">
@@ -129,11 +133,10 @@
                                          HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0" IsHitTestVisible="False"
                                          Visibility="{Binding Friends.HasIncomingRequests, Converter={StaticResource BoolToVisibility}}" />
                                 <Popup x:Name="FriendsPopup" DataContext="{Binding Friends}" IsOpen="{Binding IsOpen}" StaysOpen="False"
-                                       PlacementTarget="{Binding ElementName=HeaderCard}" Placement="Bottom"
-                                       HorizontalOffset="0" VerticalOffset="8"
+                                       PlacementTarget="{Binding ElementName=HeaderCard}" Placement="Custom"
                                        AllowsTransparency="True" PopupAnimation="Fade">
-                        <!-- Mesma largura do cabeçalho, logo abaixo dele (a margem é a área da sombra). -->
-                        <Border Style="{StaticResource Card}" Padding="16" Margin="14" Width="{Binding ActualWidth, ElementName=HeaderCard}"
+                        <!-- Abre logo abaixo do cabeçalho, alinhado à direita dele (a margem é a área da sombra). -->
+                        <Border Style="{StaticResource Card}" Padding="16" Margin="14" Width="440"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                 TextElement.Foreground="{StaticResource TextBrush}">
                             <Border.Effect>
@@ -339,8 +342,21 @@
                 <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
             </Border>
 
-            <!-- Grupos: salas de presença em tempo real, ocupando o resto da janela -->
-            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="10,14" Margin="0,12,0,0"
+            <!-- Tela que você está assistindo: o espaço principal da janela -->
+            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
+                <Grid>
+                    <StackPanel x:Name="NoStreamPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380" Margin="24">
+                        <Path Data="{StaticResource MonitorIcon}" Fill="{StaticResource MutedTextBrush}" Width="44" Height="44" Stretch="Uniform" />
+                        <TextBlock Text="Nenhuma tela aberta" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
+                        <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,6,0,0"
+                                   Text="Quando alguém da sala compartilhar a tela, clique em AO VIVO ao lado do nome para assistir aqui." />
+                    </StackPanel>
+                    <views:StreamPlayer x:Name="Player" Visibility="Collapsed" />
+                </Grid>
+            </Border>
+
+            <!-- Grupos: salas de presença em tempo real, na lateral direita -->
+            <Border Grid.Column="1" Grid.RowSpan="3" Style="{StaticResource Card}" Padding="10,14" Margin="12,0,0,0" Width="252"
                     DataContext="{Binding Groups}">
                 <Border.Resources>
                     <Style x:Key="SidebarHeader" TargetType="TextBlock">

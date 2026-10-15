@@ -4,10 +4,14 @@ using ScreenCord.ViewModels;
 
 namespace ScreenCord.Views;
 
-/// <summary>Abre as janelas do compartilhamento de tela a partir da janela principal.</summary>
+/// <summary>
+/// Liga o compartilhamento de tela à interface: a escolha do que compartilhar abre numa janela; a tela de
+/// quem você assiste aparece na área principal da janela principal, uma de cada vez.
+/// </summary>
 public sealed class ScreenShareUi : IScreenShareUi
 {
-    private readonly Dictionary<StreamViewerViewModel, StreamViewerWindow> _windows = [];
+    // A janela principal depende (pelos view models) deste serviço, então é buscada na hora em vez de injetada.
+    private static MainWindow Main => Application.Current.Windows.OfType<MainWindow>().First();
 
     public ShareRequest? PickShare(ShareSettings initial)
     {
@@ -15,28 +19,16 @@ public sealed class ScreenShareUi : IScreenShareUi
         return picker.ShowDialog() == true ? picker.Result : null;
     }
 
-    public void ShowViewer(StreamViewerViewModel viewer, Action closed)
-    {
-        var window = new StreamViewerWindow(viewer);
-        _windows[viewer] = window;
-        window.Closed += (_, _) =>
-        {
-            _windows.Remove(viewer);
-            closed();
-        };
-        window.Show();
-    }
+    public void ShowViewer(StreamViewerViewModel viewer, Action closed) => Main.ShowStream(viewer, closed);
 
     public void ActivateViewer(StreamViewerViewModel viewer)
     {
-        if (_windows.TryGetValue(viewer, out var window))
+        var window = Main;
+        if (window.WindowState == WindowState.Minimized)
         {
-            if (window.WindowState == WindowState.Minimized)
-            {
-                window.WindowState = WindowState.Normal;
-            }
-
-            window.Activate();
+            window.WindowState = WindowState.Normal;
         }
+
+        window.Activate();
     }
 }
