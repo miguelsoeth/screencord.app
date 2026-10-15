@@ -37,19 +37,9 @@ Sistema com dois componentes:
 
 O único escopo solicitado é `identify`.
 
-## 2. Configurar o Client ID
+## 2. Configuração
 
-O mesmo Application ID vai nos dois componentes, em arquivos `appsettings.Local.json` (ignorados pelo Git):
-
-`src/ScreenCord/appsettings.Local.json` (aplicativo):
-
-```json
-{
-  "Discord": { "ClientId": "SEU_APPLICATION_ID" }
-}
-```
-
-`src/ScreenCord.Api/appsettings.Local.json` (API):
+O mesmo Application ID vai nos dois componentes. No aplicativo ele já está em `src/ScreenCord/appsettings.json` (não é um segredo). Na API local, fica em `src/ScreenCord.Api/appsettings.Local.json` no repositório **screencord.api** (ignorado pelo Git):
 
 ```json
 {
@@ -59,15 +49,27 @@ O mesmo Application ID vai nos dois componentes, em arquivos `appsettings.Local.
 
 A API usa o Client ID para recusar tokens do Discord emitidos para outros aplicativos.
 
+### Produção e desenvolvimento
+
+| Arquivo | Quando vale | `Api:BaseUrl` |
+|---|---|---|
+| `appsettings.json` | sempre (é o único que vai para a publicação) | `https://154.16.50.20` (produção) |
+| `appsettings.Development.json` | com `DOTNET_ENVIRONMENT=Development`: `dotnet run` (via `Properties/launchSettings.json`) e o `screencord.ps1` | `http://localhost:5080` |
+| `appsettings.Local.json` | se existir; ignorado pelo Git, sobrepõe os outros e nunca é publicado | o que você quiser (ex.: um túnel) |
+
+A API de produção roda num VPS sem domínio: o HTTPS é direto no IP, com certificado da Let's Encrypt emitido para o IP (perfil *shortlived*, renovado automaticamente pelo Caddy). O app valida o certificado normalmente; nada de TLS é desativado. Para conferir se ela está no ar: `GET https://154.16.50.20/health` devolve `{"status":"ok","version":"..."}`.
+
+Para rodar o executável de Debug direto contra a API local, defina `DOTNET_ENVIRONMENT=Development` antes; sem isso ele usa a produção.
+
 Opções do aplicativo:
 
 | Chave | Padrão | Descrição |
 |---|---|---|
-| `Discord:ClientId` | *(vazio)* | Application ID. Obrigatório. |
+| `Discord:ClientId` | Application ID do ScreenCord | Application ID. Obrigatório. |
 | `Discord:RedirectPort` | `47821` | Porta do callback local. Se mudar, atualize o redirect no portal. |
 | `Discord:Scopes` | `identify` | Escopos separados por espaço. |
 | `Discord:LoginTimeoutSeconds` | `300` | Espera máxima pela autorização no navegador. |
-| `Api:BaseUrl` | `http://localhost:5080` | Endereço da API central. Precisa ser `https`, exceto para localhost. |
+| `Api:BaseUrl` | `https://154.16.50.20` (Development: `http://localhost:5080`) | Endereço da API central. Precisa ser `https`, exceto para localhost. |
 
 Opções da API:
 
@@ -91,17 +93,19 @@ Também aceita ações diretas: `status`, `start-api`, `stop-api`, `start-app`, 
 
 ### Manualmente
 
-Em um terminal, a API (fica em `http://localhost:5080`; o banco é criado na primeira execução):
+Em um terminal, a API, a partir do clone do **screencord.api** (fica em `http://localhost:5080`; o banco é criado na primeira execução):
 
 ```bash
 dotnet run --project src/ScreenCord.Api
 ```
 
-Em outro, o aplicativo:
+Em outro, o aplicativo (em Development, portanto usando a API local):
 
 ```bash
 dotnet run --project src/ScreenCord
 ```
+
+Para rodar o app contra a API de produção, use `dotnet run --project src/ScreenCord --no-launch-profile`.
 
 Sem a API no ar, o perfil continua funcionando e a seção "Amigos" mostra um erro com o botão "Tentar novamente".
 
@@ -125,7 +129,7 @@ Aplicativo para Windows x64 (executável único, sem exigir .NET instalado):
 dotnet publish src/ScreenCord -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/app
 ```
 
-Distribua `ScreenCord.exe` com `appsettings.json` contendo o `Discord:ClientId` e o `Api:BaseUrl` do servidor.
+Distribua `ScreenCord.exe` com o `appsettings.json` que sai na pasta: ele já aponta para a API de produção (`https://154.16.50.20`). `appsettings.Development.json` e `appsettings.Local.json` não são copiados para a publicação.
 
 API:
 

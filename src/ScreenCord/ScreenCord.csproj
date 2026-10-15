@@ -33,9 +33,12 @@
   <ItemGroup>
     <Resource Include="Assets\screencord.ico" />
     <Resource Include="Assets\screencord.png" />
+    <!-- Produção (API em https://154.16.50.20). É o único arquivo de configuração que vai para a publicação. -->
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Configuração local opcional (não versionada), ex.: o Client ID de desenvolvimento. -->
-    <Content Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Desenvolvimento (DOTNET_ENVIRONMENT=Development, usado por 'dotnet run' e pelo screencord.ps1): API local. -->
+    <Content Include="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <!-- Configuração local opcional (não versionada), ex.: outro endereço da API. Nunca vai para a publicação. -->
+    <Content Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
 </Project>

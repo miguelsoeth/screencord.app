@@ -175,10 +175,17 @@ function Start-Component([string]$Key) {
             $env:ASPNETCORE_ENVIRONMENT = $previousEnv
         }
     } else {
-        $proc = Start-Process -FilePath $c.Output `
-            -WorkingDirectory $c.WorkDir `
-            -RedirectStandardOutput $c.OutLog -RedirectStandardError $c.ErrLog `
-            -PassThru
+        # Em Development o app usa a API local (appsettings.Development.json) em vez da de produção.
+        $previousEnv = $env:DOTNET_ENVIRONMENT
+        $env:DOTNET_ENVIRONMENT = 'Development'
+        try {
+            $proc = Start-Process -FilePath $c.Output `
+                -WorkingDirectory $c.WorkDir `
+                -RedirectStandardOutput $c.OutLog -RedirectStandardError $c.ErrLog `
+                -PassThru
+        } finally {
+            $env:DOTNET_ENVIRONMENT = $previousEnv
+        }
     }
 
     Save-TrackedProcess $Key $proc

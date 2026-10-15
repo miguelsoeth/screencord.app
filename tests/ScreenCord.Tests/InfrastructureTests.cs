@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
 using ScreenCord.Services;
 using ScreenCord.Tests.Fakes;
@@ -182,6 +183,40 @@ public class DiscordOptionsTests
         options.Validate();
 
         Assert.Equal("http://127.0.0.1:5000/cb", options.RedirectUri);
+    }
+}
+
+public class ApiOptionsTests
+{
+    [Theory]
+    [InlineData("https://154.16.50.20", "https://154.16.50.20/")]
+    [InlineData("https://api.exemplo.com/base", "https://api.exemplo.com/base/")]
+    [InlineData("http://localhost:5080", "http://localhost:5080/")]
+    [InlineData("http://127.0.0.1:5080/", "http://127.0.0.1:5080/")]
+    public void EnderecoValido_TerminaComBarra(string baseUrl, string expected)
+    {
+        var uri = new ApiOptions { BaseUrl = baseUrl }.GetBaseUri();
+
+        Assert.Equal(expected, uri.AbsoluteUri);
+    }
+
+    [Theory]
+    [InlineData("http://154.16.50.20")]
+    [InlineData("ws://localhost:5080")]
+    public void HttpForaDeLoopback_Lanca(string baseUrl)
+    {
+        var ex = Assert.Throws<DiscordException>(() => new ApiOptions { BaseUrl = baseUrl }.GetBaseUri());
+
+        Assert.Equal(DiscordErrorKind.Configuration, ex.Kind);
+    }
+
+    [Fact]
+    public void Producao_HubEMidiaUsamHttpsEWss()
+    {
+        var baseUri = new ApiOptions { BaseUrl = "https://154.16.50.20" }.GetBaseUri();
+
+        Assert.Equal("https://154.16.50.20/hubs/groups", new Uri(baseUri, GroupsHubContract.Path.TrimStart('/')).AbsoluteUri);
+        Assert.StartsWith("wss://154.16.50.20/media/", MediaContract.BuildUri(baseUri, Guid.NewGuid(), Guid.NewGuid()).AbsoluteUri);
     }
 }
 
