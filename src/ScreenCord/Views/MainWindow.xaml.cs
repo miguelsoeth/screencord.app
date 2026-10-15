@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
 using ScreenCord.ViewModels;
 
 namespace ScreenCord.Views;
@@ -44,6 +46,60 @@ public partial class MainWindow : Window
             }
         };
     }
+
+    private void OnMinimizeClick(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
+
+    private void OnMaximizeClick(object sender, RoutedEventArgs e)
+    {
+        if (WindowState == WindowState.Maximized)
+        {
+            SystemCommands.RestoreWindow(this);
+        }
+        else
+        {
+            SystemCommands.MaximizeWindow(this);
+        }
+    }
+
+    private void OnCloseClick(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    /// <summary>
+    /// Com a barra de título própria, a janela maximizada passa da tela pela espessura da borda redimensionável;
+    /// a margem traz o conteúdo (e os botões da barra) de volta para a área visível.
+    /// </summary>
+    private void OnWindowStateChanged(object? sender, EventArgs e)
+    {
+        var maximized = WindowState == WindowState.Maximized;
+        WindowRoot.Margin = maximized ? MaximizedOverflow() : new Thickness(0);
+        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restaurar" : "Maximizar";
+        System.Windows.Automation.AutomationProperties.SetName(MaximizeButton, (string)MaximizeButton.ToolTip);
+    }
+
+    private Thickness MaximizedOverflow()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var dpi = GetDpiForWindow(hwnd);
+        if (dpi == 0)
+        {
+            return new Thickness(8);
+        }
+
+        var scale = dpi / 96.0;
+        var x = (GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi)) / scale;
+        var y = (GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi)) / scale;
+        return new Thickness(x, y, x, y);
+    }
+
+    private const int SM_CXSIZEFRAME = 32;
+    private const int SM_CYSIZEFRAME = 33;
+    private const int SM_CXPADDEDBORDER = 92;
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
 
     /// <summary>
     /// Dimensiona a tela no maior 16:9 que cabe ao lado da lateral e abaixo do cabeçalho. O bloco todo fica

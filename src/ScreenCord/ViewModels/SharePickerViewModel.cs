@@ -82,7 +82,6 @@ public sealed class SharePickerViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsScreenKind));
                 OnPropertyChanged(nameof(IsWindowKind));
-                OnPropertyChanged(nameof(AudioDescription));
                 Refresh();
             }
         }
@@ -160,10 +159,6 @@ public sealed class SharePickerViewModel : ObservableObject
         get => _shareAudio;
         set => SetProperty(ref _shareAudio, value);
     }
-
-    public string AudioDescription => Kind == CaptureSourceKind.Screen
-        ? "Tudo o que toca no computador, menos o ScreenCord."
-        : "Só o áudio do programa da janela.";
 
     public ShareRequest? BuildRequest() =>
         SelectedSource is { } source
