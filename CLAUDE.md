@@ -55,7 +55,7 @@ O repositório é privado: o download da release exige acesso ao repo (`gh relea
 
 Não crie tags para testar o pipeline: cada tag gera uma release visível para quem tem acesso ao repo. Para refazer uma release com falha, apague a release e a tag (`gh release delete v0.2.0 --cleanup-tag`) e crie a tag de novo.
 
-O link público em `https://154.16.50.20/download/ScreenCord-Setup.msi` (VPS) não é atualizado pelo pipeline: para trocá-lo, baixe o MSI da release e copie (`scp ScreenCord-Setup-0.2.0-win64.msi deploy@154.16.50.20:/srv/screencord/downloads/ScreenCord-Setup.msi`).
+O instalador é distribuído só pela GitHub Release (o VPS não serve mais downloads).
 
 ## Cuidados
 
