@@ -303,7 +303,7 @@ public sealed class GroupItemViewModel : ObservableObject
         Members.Clear();
         foreach (var member in members)
         {
-            Members.Add(new GroupMemberItem(member.Person, member.IsConnected));
+            Members.Add(new GroupMemberItem(member.Person, member.IsConnected, member.IsOwner));
         }
 
         SortMembers();
@@ -340,13 +340,17 @@ public sealed class GroupMemberItem : ObservableObject
 {
     private bool _isConnected;
 
-    public GroupMemberItem(Person person, bool isConnected)
+    public GroupMemberItem(Person person, bool isConnected, bool isOwner = false)
     {
         Person = person;
         _isConnected = isConnected;
+        IsOwner = isOwner;
     }
 
     public Person Person { get; }
+
+    /// <summary>Quem criou o grupo (marcado com uma coroa na lista de integrantes).</summary>
+    public bool IsOwner { get; }
 
     public bool IsConnected
     {

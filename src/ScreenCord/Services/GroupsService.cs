@@ -47,7 +47,7 @@ public sealed class CentralGroupsService : IGroupsService
             if (member is not null &&
                 CentralApiClient.ToPerson(member.Id, member.DiscordId, member.Username, member.GlobalName, member.Discriminator, member.AvatarHash, RelationshipStatus.None) is { } person)
             {
-                members.Add(new GroupMember(person, member.IsConnected));
+                members.Add(new GroupMember(person, member.IsConnected, member.IsOwner));
             }
         }
 

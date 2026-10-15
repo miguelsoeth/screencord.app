@@ -185,7 +185,7 @@ public sealed class MockupGroupsService(MockupWorld world, MockupGroupsRealtime 
                 var user = world.GetUser(id);
                 if (CentralApiClient.ToPerson(user.Id, user.DiscordId, user.Username, user.GlobalName, "0", null, RelationshipStatus.None) is { } person)
                 {
-                    members.Add(new GroupMember(person, group.Connected.Contains(id)));
+                    members.Add(new GroupMember(person, group.Connected.Contains(id), id == group.OwnerId));
                 }
             }
 
