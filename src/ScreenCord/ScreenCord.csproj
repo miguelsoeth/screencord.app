@@ -9,6 +9,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Só pelo ícone da bandeja (NotifyIcon), que o WPF não tem. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>ScreenCord</RootNamespace>
     <AssemblyName>ScreenCord</AssemblyName>
     <!-- Versão de desenvolvimento. A versão real vem da tag git (vX.Y.Z): o CI passa -p:Version=. -->
@@ -16,6 +18,12 @@
     <Product>ScreenCord</Product>
     <ApplicationIcon>Assets\screencord.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Os usings implícitos do Windows Forms conflitam com os do WPF (Application, MessageBox...). -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Concentus" Version="2.2.2" />
