@@ -195,31 +195,25 @@
         </Setter>
     </Style>
 
-    <!-- Botão só com ícone que abre um menu (ex.: amigos); fica destacado enquanto o menu está aberto. -->
-    <Style x:Key="IconToggleButton" TargetType="ToggleButton">
-        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-        <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="36" />
+    <!-- Ações do cabeçalho (amigos, atualizar, desconectar): só o ícone, sem fundo; cinza claro ao passar o mouse. -->
+    <Style x:Key="HeaderIconButton" TargetType="ButtonBase">
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="ToolTipService.Placement" Value="Bottom" />
         <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="ToggleButton">
+                <ControlTemplate TargetType="ButtonBase">
                     <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6"
                             BorderThickness="1" BorderBrush="Transparent">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Opacity" Value="0.88" />
-                        </Trigger>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="White" />
-                        </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
                         </Trigger>
@@ -230,6 +224,35 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource BorderBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Abre uma janela (ex.: amigos); fica na cor de destaque enquanto ela está aberta. -->
+    <Style x:Key="HeaderIconToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource HeaderIconButton}">
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Ação destrutiva (ex.: desconectar): neutra em repouso, vermelha só ao passar o mouse. -->
+    <Style x:Key="HeaderDangerIconButton" TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource DangerSurfaceBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="DangerIconButton" TargetType="Button" BasedOn="{StaticResource DangerButton}">
@@ -326,37 +349,6 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
                             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Root" Property="Opacity" Value="0.45" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- Variante discreta com destaque na cor do tema (ex.: "+" de novo grupo); preenche com a cor de destaque no hover. -->
-    <Style x:Key="AccentGhostIconButton" TargetType="Button" BasedOn="{StaticResource GhostIconButton}">
-        <Setter Property="Foreground" Value="#A5AFFF" />
-        <Setter Property="Background" Value="{StaticResource InfoSurfaceBrush}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6"
-                            BorderThickness="1" BorderBrush="Transparent">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="White" />
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
