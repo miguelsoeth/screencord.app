@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -52,6 +53,9 @@ public partial class StreamPlayer : UserControl
 
         CommandBindings.Add(new CommandBinding(ViewerCommands.ToggleFullScreen, (_, _) => ToggleFullScreen()));
         CommandBindings.Add(new CommandBinding(ViewerCommands.ExitFullScreen, (_, _) => ExitFullScreen()));
+
+        // O Slider já trata (e marca como tratado) o clique que move o volume até o ponto; por isso o handledEventsToo.
+        VolumeSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnVolumeMouseDown), handledEventsToo: true);
 
         _hideControls = new DispatcherTimer { Interval = ControlsHideDelay };
         _hideControls.Tick += (_, _) => HideControls();
@@ -223,6 +227,32 @@ public partial class StreamPlayer : UserControl
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => _viewer?.RequestClose();
+
+    /// <summary>
+    /// Depois de o clique na trilha levar o volume ao ponto, passa o mesmo clique para o seletor, para o arraste
+    /// continuar sem soltar o botão (como nos players de vídeo).
+    /// </summary>
+    private void OnVolumeMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (VolumeSlider.Template.FindName("PART_Track", VolumeSlider) is not Track { Thumb: { } thumb } || thumb.IsMouseOver)
+        {
+            return;
+        }
+
+        thumb.UpdateLayout();
+        thumb.RaiseEvent(new MouseButtonEventArgs(e.MouseDevice, e.Timestamp, MouseButton.Left)
+        {
+            RoutedEvent = MouseLeftButtonDownEvent,
+            Source = thumb,
+        });
+    }
+
+    private void OnVolumeMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var step = e.Delta > 0 ? VolumeSlider.SmallChange : -VolumeSlider.SmallChange;
+        VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + step, VolumeSlider.Minimum, VolumeSlider.Maximum);
+        e.Handled = true;
+    }
 
     private void OnMouseMove(object sender, MouseEventArgs e)
     {
