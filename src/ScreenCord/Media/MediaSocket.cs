@@ -57,6 +57,7 @@ public sealed class MediaSocket : IAsyncDisposable
             var token = await api.GetApiTokenAsync(cancellationToken).ConfigureAwait(false);
             var socket = new ClientWebSocket();
             socket.Options.SetRequestHeader("Authorization", "Bearer " + token);
+            socket.Options.SetRequestHeader(ClientVersionContract.Header, AppVersion.Current);
             socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
             socket.Options.CollectHttpResponseDetails = true;
             try
@@ -74,6 +75,11 @@ public sealed class MediaSocket : IAsyncDisposable
                 {
                     api.InvalidateToken(token);
                     continue;
+                }
+
+                if (status == HttpStatusCode.UpgradeRequired)
+                {
+                    throw api.ReportOutdated(inner: ex);
                 }
 
                 throw status switch

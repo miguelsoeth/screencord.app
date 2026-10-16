@@ -35,6 +35,20 @@ dotnet run --project src/ScreenCord     # Development: API local (http://localho
 - **PATCH**: correção.
 - Se a versão nova do app depende de algo novo na API, lance a API primeiro.
 
+## Compatibilidade com a API e atualização automática
+
+- Toda chamada à API (HTTP, hub SignalR e WebSocket de mídia) leva o cabeçalho `X-ScreenCord-Version` com a versão do build (`AppVersion.Current`; `ClientVersionContract` nos Contracts). A API recusa versões abaixo da sua `Clients:MinVersion` com **426** e código `client_outdated`. Builds de desenvolvimento (`0.0.0-dev`) são sempre aceitos.
+- **Atualização automática** (`AppUpdater`): ao abrir, o app consulta `GET https://api.github.com/repos/miguelsoeth/screencord/releases/latest` (até 5 s; sem rede segue normalmente). Se a release for mais nova, baixa o `ScreenCord-Setup-<versão>-win64.msi` mostrando o progresso, fecha, um PowerShell oculto roda `msiexec /i ... /passive` e reabre o app. Só aceita o MSI com esse nome, do próprio repo, por HTTPS. Build de desenvolvimento nunca se atualiza.
+- Se a API responder 426 com o app aberto, ele tenta se atualizar na hora; sem versão nova publicada ainda, mostra o texto da API.
+- Por isso a release pública mais recente (`--latest` no `release.yml`) é o que todos os usuários recebem: nunca publique lá uma versão que não funcione com a API em produção.
+- A v0.1.0 não tem o atualizador nem manda o cabeçalho (a API trata a falta dele como 0.1.0): quem está nela precisa instalar a próxima versão à mão uma vez.
+
+### Mudanças de contrato
+
+1. **Compatível (o normal):** a API ganha campos opcionais, endpoints ou métodos do hub novos e continua atendendo o formato antigo. O app ignora campos que não conhece. Lance a API, depois o app; nada de versão mínima.
+2. **Quebra com transição (expandir e contrair):** a API passa a aceitar o formato novo e o antigo ao mesmo tempo (se precisar, ramifique pela versão com `HttpContext.GetClientVersion()` na API). Lance a API, depois o app (que usa o formato novo). Quando os usuários já tiverem se atualizado (o app se atualiza ao abrir), suba `Clients:MinVersion` da API para a versão do app e remova o formato antigo numa release da API.
+3. **Quebra sem transição possível:** numa release da API, faça a mudança e suba `Clients:MinVersion` para a versão do app que a acompanha; publique o app logo em seguida. Entre as duas releases, quem abrir o app vê o aviso de versão não aceita; depois da release do app, todos se atualizam sozinhos.
+
 ## Release
 
 Para lançar uma versão, a partir da `main` atualizada e com os testes passando:

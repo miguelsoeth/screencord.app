@@ -15,7 +15,7 @@ public static class ErrorMessages
 
     private static string ForCentralApi(DiscordException exception) => exception.Kind switch
     {
-        DiscordErrorKind.Configuration or DiscordErrorKind.Rejected => exception.Message,
+        DiscordErrorKind.Configuration or DiscordErrorKind.Rejected or DiscordErrorKind.ClientOutdated => exception.Message,
         DiscordErrorKind.Network => "Não foi possível conectar ao servidor do ScreenCord. Verifique se a API está em execução e a sua conexão.",
         DiscordErrorKind.Timeout => "O servidor do ScreenCord demorou demais para responder. Tente novamente.",
         DiscordErrorKind.Unauthorized => "O servidor do ScreenCord não aceitou o seu login. Desconecte e conecte sua conta novamente.",

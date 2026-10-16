@@ -106,6 +106,7 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
                 {
                     // Enviado no cabeçalho Authorization (nunca na URL) em todos os transportes.
                     options.AccessTokenProvider = async () => _lastToken = await _api.GetApiTokenAsync().ConfigureAwait(false);
+                    options.Headers[ClientVersionContract.Header] = AppVersion.Current;
                 })
                 .Build();
 
@@ -221,6 +222,18 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
                 {
                     _api.InvalidateToken(token);
                 }
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.UpgradeRequired)
+            {
+                // Versão não aceita: insistir não adianta; o aplicativo se atualiza.
+                _api.ReportOutdated(inner: ex);
+                SetState(RealtimeState.Disconnected);
+                return;
+            }
+            catch (DiscordException ex) when (ex.Kind == DiscordErrorKind.ClientOutdated)
+            {
+                SetState(RealtimeState.Disconnected);
+                return;
             }
             catch (DiscordException ex) when (ex.Source == ErrorSource.Discord && ex.Kind == DiscordErrorKind.Unauthorized)
             {

@@ -43,6 +43,12 @@ public sealed class CentralApiClient
 
     public Uri BaseUri => _options.Value.GetBaseUri();
 
+    /// <summary>
+    /// A API não aceita mais esta versão do aplicativo (HTTP 426). Pode vir de qualquer thread;
+    /// o argumento é o texto da API para o usuário.
+    /// </summary>
+    public event EventHandler<string>? ClientOutdated;
+
     /// <summary>Id do usuário na API central, conhecido depois do primeiro login na sessão.</summary>
     public Guid? CurrentUserId { get; private set; }
 
@@ -214,11 +220,23 @@ public sealed class CentralApiClient
         return new Person(id, discordId, username, globalName, avatarUrl, relationship);
     }
 
+    /// <summary>Avisa que a API recusou esta versão; chamado também pelo hub e pelo canal de mídia.</summary>
+    public DiscordException ReportOutdated(string? message = null, Exception? inner = null)
+    {
+        message = string.IsNullOrWhiteSpace(message) || message.Length > 300 ? OutdatedMessage : message;
+        _logger.LogWarning("A API central não aceita mais a versão {Version} do aplicativo.", AppVersion.Current);
+        ClientOutdated?.Invoke(this, message);
+        return Error(DiscordErrorKind.ClientOutdated, message, inner, HttpStatusCode.UpgradeRequired);
+    }
+
+    public const string OutdatedMessage = "Esta versão do ScreenCord não é mais aceita pelo servidor. Atualize o aplicativo.";
+
     public static DiscordException Error(DiscordErrorKind kind, string message, Exception? inner = null, HttpStatusCode? status = null) =>
         new(kind, message, inner) { Source = ErrorSource.CentralApi, StatusCode = status };
 
     private async Task<HttpResponseMessage> SendCoreAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        request.Headers.TryAddWithoutValidation(ClientVersionContract.Header, AppVersion.Current);
         try
         {
             return await _httpClientFactory.CreateClient(ClientName).SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -237,7 +255,7 @@ public sealed class CentralApiClient
         }
     }
 
-    private static async Task<DiscordException> CreateExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<DiscordException> CreateExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var status = response.StatusCode;
         if (status == HttpStatusCode.Unauthorized)
@@ -263,6 +281,11 @@ public sealed class CentralApiClient
         }
         catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException)
         {
+        }
+
+        if (status == HttpStatusCode.UpgradeRequired)
+        {
+            return ReportOutdated(error?.Message);
         }
 
         return error is { Message.Length: > 0 and <= 300 }

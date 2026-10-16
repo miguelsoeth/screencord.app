@@ -60,6 +60,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGroupsService, CentralGroupsService>();
         services.AddSingleton<IGroupsRealtime, GroupsRealtimeClient>();
 
+        // Atualização automática pelas GitHub Releases (o download segue o redirecionamento do GitHub para o CDN).
+        services.AddHttpClient(AppUpdater.ClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"ScreenCord/{AppVersion.Current}");
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+        });
+        services.AddSingleton<IAppUpdater, AppUpdater>();
+
         // Compartilhamento de tela: captura, encoder e canal de mídia; as janelas ficam na camada de interface.
         services.AddSingleton<IScreenShareService, ScreenShareService>();
         services.AddSingleton<IScreenShareUi, ScreenShareUi>();
