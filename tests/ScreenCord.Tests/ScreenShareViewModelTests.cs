@@ -377,6 +377,19 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
+    public async Task CanalCaiuAntesDaPresenca_FechaATelaQuandoOCompartilhamentoTermina()
+    {
+        var (_, group) = await InRoomAsync();
+        RaisePresence(group, 200, ShareOf(_bruno));
+        await group.WatchCommand.ExecuteAsync(_bruno);
+
+        _share.Watching[0].RaiseEnded("A conexão de vídeo com a API central caiu.");
+        RaisePresence(group, 201);
+
+        Assert.Empty(_ui.Open);
+    }
+
+    [Fact]
     public async Task SairDaSala_FechaAsJanelasDeQuemAssistia()
     {
         var (vm, group) = await InRoomAsync();

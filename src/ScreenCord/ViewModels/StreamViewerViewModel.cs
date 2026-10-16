@@ -167,9 +167,15 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     {
         if (share is null)
         {
+            // Quem compartilhava parou: a tela sai sozinha, mesmo que o canal de vídeo tenha caído
+            // antes de a presença chegar (a API pode derrubar a conexão em vez de fechá-la).
             if (State != StreamViewerState.Ended)
             {
                 End(null);
+            }
+            else
+            {
+                RequestClose();
             }
 
             return;
