@@ -88,7 +88,24 @@ public static class CaptureSources
                 return true;
             }
 
-            Native.GetWindowRect(hwnd, out var rect);
+            // Minimizada (ex.: jogo em tela cheia após Alt+Tab), o retângulo vira um ícone de ~160 × 28 fora
+            // da tela; o tamanho que conta é o de quando ela for restaurada.
+            Native.Rect rect;
+            if (Native.IsIconic(hwnd))
+            {
+                var placement = new Native.WindowPlacement { Length = Marshal.SizeOf<Native.WindowPlacement>() };
+                if (!Native.GetWindowPlacement(hwnd, ref placement))
+                {
+                    return true;
+                }
+
+                rect = placement.NormalPosition;
+            }
+            else
+            {
+                Native.GetWindowRect(hwnd, out rect);
+            }
+
             var width = rect.Right - rect.Left;
             var height = rect.Bottom - rect.Top;
             if (width < 50 || height < 50)
@@ -141,6 +158,19 @@ public static class CaptureSources
             public int Bottom;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WindowPlacement
+        {
+            public int Length;
+            public int Flags;
+            public int ShowCmd;
+            public int MinPositionX;
+            public int MinPositionY;
+            public int MaxPositionX;
+            public int MaxPositionY;
+            public Rect NormalPosition;
+        }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct MonitorInfoEx
         {
@@ -187,6 +217,12 @@ public static class CaptureSources
 
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowPlacement(IntPtr hwnd, ref WindowPlacement placement);
 
         [DllImport("dwmapi.dll")]
         public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
