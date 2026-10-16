@@ -6,7 +6,7 @@ namespace ScreenCord.Views;
 
 /// <summary>
 /// Ícone do ScreenCord na bandeja do Windows. Clique abre a janela; o botão direito mostra o menu com o nome do
-/// app, "Mostrar" e "Sair".
+/// app (que também abre a janela) e "Sair".
 /// </summary>
 public sealed class TrayIcon : IDisposable
 {
@@ -29,7 +29,6 @@ public sealed class TrayIcon : IDisposable
         title.Font = new Drawing.Font(title.Font, Drawing.FontStyle.Bold);
         _menu.Items.Add(title);
         _menu.Items.Add(new Forms.ToolStripSeparator());
-        _menu.Items.Add(new Forms.ToolStripMenuItem("Mostrar", null, (_, _) => show()));
         _menu.Items.Add(new Forms.ToolStripMenuItem("Sair", null, (_, _) => exit()));
 
         _notifyIcon = new Forms.NotifyIcon
