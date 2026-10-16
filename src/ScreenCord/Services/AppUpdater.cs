@@ -39,6 +39,18 @@ public sealed class AppUpdater : IAppUpdater
 
     public static readonly Uri LatestReleaseUri = new($"https://api.github.com/repos/{Repository}/releases/latest");
 
+    /// <summary>
+    /// Argumento com que o app é reaberto quando a instalação de uma versão falha: ele não tenta a mesma versão de novo.
+    /// </summary>
+    public const string FailedArgument = "--UpdateFailed";
+
+    /// <summary>
+    /// Nome do MSI na release. Até a 0.3.0 era "ScreenCord-Setup-X.Y.Z-win64.msi", e o script de instalação daquelas
+    /// versões passava o caminho errado ao msiexec e reabria o app em loop. Por isso o nome mudou: elas não acham o
+    /// instalador novo e seguem funcionando sem se atualizar (quem está nelas instala a próxima à mão uma vez).
+    /// </summary>
+    public static string InstallerName(Version version) => $"ScreenCord-Setup-{version.ToString(3)}-x64.msi";
+
     private const long MaxInstallerSize = 300L * 1024 * 1024;
 
     private readonly IHttpClientFactory _httpClientFactory;
@@ -109,7 +121,7 @@ public sealed class AppUpdater : IAppUpdater
             return null;
         }
 
-        var expectedName = $"ScreenCord-Setup-{latest.ToString(3)}-win64.msi";
+        var expectedName = InstallerName(latest);
         var asset = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, expectedName, StringComparison.OrdinalIgnoreCase));
         if (asset is null || asset.Size <= 0 || asset.Size > MaxInstallerSize ||
             !Uri.TryCreate(asset.BrowserDownloadUrl, UriKind.Absolute, out var url) ||
@@ -126,12 +138,12 @@ public sealed class AppUpdater : IAppUpdater
     {
         var folder = Path.Combine(Path.GetTempPath(), "ScreenCord", "Updates");
         Directory.CreateDirectory(folder);
-        var installer = Path.Combine(folder, $"ScreenCord-Setup-{update.Version.ToString(3)}-win64.msi");
+        var installer = Path.Combine(folder, InstallerName(update.Version));
 
         await DownloadAsync(update, installer, progress, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation("Instalando a versão {Version} ao fechar o aplicativo.", update.Version.ToString(3));
-        StartInstaller(installer);
+        StartInstaller(installer, update.Version);
     }
 
     private async Task DownloadAsync(AppUpdate update, string path, IProgress<double>? progress, CancellationToken cancellationToken)
@@ -177,21 +189,20 @@ public sealed class AppUpdater : IAppUpdater
 
     /// <summary>
     /// Um PowerShell oculto espera este processo sair (o exe não pode estar em uso), roda o MSI com barra de
-    /// progresso e sem perguntas, e abre o ScreenCord de novo (a versão nova, ou a antiga se a instalação falhar).
+    /// progresso e sem perguntas, e abre o ScreenCord de novo: a versão nova, ou a antiga com <see cref="FailedArgument"/>
+    /// se a instalação falhar (o log do msiexec fica em <see cref="FileLoggerProvider.DefaultFolder"/>).
     /// </summary>
-    private static void StartInstaller(string installer)
+    private void StartInstaller(string installer, Version version)
     {
-        static string Quote(string value) => "'" + value.Replace("'", "''") + "'";
+        var exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ScreenCord", "ScreenCord.exe");
+        if (!File.Exists(exe))
+        {
+            exe = Environment.ProcessPath ?? exe;
+        }
 
-        var script = $$"""
-            $ErrorActionPreference = 'SilentlyContinue'
-            Wait-Process -Id {{Environment.ProcessId}} -Timeout 60
-            Start-Process -FilePath msiexec.exe -ArgumentList @('/i', '"' + {{Quote(installer)}} + '"', '/passive', '/norestart') -Wait
-            Remove-Item -LiteralPath {{Quote(installer)}} -Force
-            $exe = Join-Path $env:LOCALAPPDATA 'Programs\ScreenCord\ScreenCord.exe'
-            if (-not (Test-Path -LiteralPath $exe)) { $exe = {{Quote(Environment.ProcessPath ?? "")}} }
-            if ($exe) { Start-Process -FilePath $exe }
-            """;
+        Directory.CreateDirectory(FileLoggerProvider.DefaultFolder);
+        var log = Path.Combine(FileLoggerProvider.DefaultFolder, $"msiexec-{version.ToString(3)}.log");
+        var script = BuildInstallScript(Environment.ProcessId, installer, log, exe, version);
 
         Process.Start(new ProcessStartInfo
         {
@@ -200,6 +211,32 @@ public sealed class AppUpdater : IAppUpdater
             UseShellExecute = false,
             CreateNoWindow = true,
         })?.Dispose();
+        _logger.LogInformation("Log da instalação: {Log}.", log);
+    }
+
+    /// <summary>
+    /// O script de instalação. Os argumentos do msiexec vão numa string só, montada aqui com as aspas certas:
+    /// a lista do Start-Process do Windows PowerShell não põe aspas, e o "+" dentro de @(...) perde para a vírgula.
+    /// </summary>
+    public static string BuildInstallScript(int processId, string installer, string log, string exe, Version version, string msiexec = "msiexec.exe")
+    {
+        static string Quote(string value) => "'" + value.Replace("'", "''") + "'";
+
+        var msiArguments = $"/i \"{installer}\" /passive /norestart /l*v \"{log}\"";
+        var failedArguments = $"{FailedArgument}={version.ToString(3)}";
+
+        return $$"""
+            $ErrorActionPreference = 'SilentlyContinue'
+            Wait-Process -Id {{processId}} -Timeout 60
+            $msi = Start-Process -FilePath {{Quote(msiexec)}} -ArgumentList {{Quote(msiArguments)}} -Wait -PassThru
+            Remove-Item -LiteralPath {{Quote(installer)}} -Force
+            $exe = {{Quote(exe)}}
+            if ($msi -and ($msi.ExitCode -eq 0 -or $msi.ExitCode -eq 3010)) {
+                Start-Process -FilePath $exe
+            } else {
+                Start-Process -FilePath $exe -ArgumentList {{Quote(failedArguments)}}
+            }
+            """;
     }
 }
 

@@ -38,7 +38,8 @@ dotnet run --project src/ScreenCord     # Development: API local (http://localho
 ## Compatibilidade com a API e atualização automática
 
 - Toda chamada à API (HTTP, hub SignalR e WebSocket de mídia) leva o cabeçalho `X-ScreenCord-Version` com a versão do build (`AppVersion.Current`; `ClientVersionContract` nos Contracts). A API recusa versões abaixo da sua `Clients:MinVersion` com **426** e código `client_outdated`. Builds de desenvolvimento (`0.0.0-dev`) são sempre aceitos.
-- **Atualização automática** (`AppUpdater`): ao abrir, o app consulta `GET https://api.github.com/repos/miguelsoeth/screencord/releases/latest` (até 5 s; sem rede segue normalmente). Se a release for mais nova, baixa o `ScreenCord-Setup-<versão>-win64.msi` mostrando o progresso, fecha, um PowerShell oculto roda `msiexec /i ... /passive` e reabre o app. Só aceita o MSI com esse nome, do próprio repo, por HTTPS. Build de desenvolvimento nunca se atualiza.
+- **Atualização automática** (`AppUpdater`): ao abrir, o app consulta `GET https://api.github.com/repos/miguelsoeth/screencord/releases/latest` (até 5 s; sem rede segue normalmente). Se a release for mais nova, baixa o `ScreenCord-Setup-<versão>-x64.msi` mostrando o progresso, fecha, um PowerShell oculto roda `msiexec /i ... /passive` e reabre o app. Só aceita o MSI com esse nome, do próprio repo, por HTTPS. Build de desenvolvimento nunca se atualiza. Se o msiexec falhar, o app reabre com `--UpdateFailed=<versão>` e não tenta essa versão de novo na mesma execução; o log do msiexec fica em `%LOCALAPPDATA%\ScreenCord\logs`.
+- A 0.2.0 e a 0.3.0 têm o script de instalação quebrado (msiexec recebia o caminho errado e o app reabria em loop) e só aceitam o nome antigo `ScreenCord-Setup-<versão>-win64.msi`. **Nunca volte a publicar o MSI com esse nome**: é ele que as faz entrar em loop. Quem está nelas instala a versão nova à mão uma vez.
 - Se a API responder 426 com o app aberto, ele tenta se atualizar na hora; sem versão nova publicada ainda, mostra o texto da API.
 - Por isso a release pública mais recente (`--latest` no `release.yml`) é o que todos os usuários recebem: nunca publique lá uma versão que não funcione com a API em produção.
 - A v0.1.0 não tem o atualizador nem manda o cabeçalho (a API trata a falta dele como 0.1.0): quem está nela precisa instalar a próxima versão à mão uma vez.
@@ -61,7 +62,7 @@ git push origin v0.2.0
 O `release.yml` então:
 1. roda os testes;
 2. gera o instalador MSI (`dotnet build installer/ScreenCord.Installer -p:AppVersion=<versão>`, que publica o app como exe único autocontido com a versão da tag);
-3. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-win64.msi` anexado;
+3. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-x64.msi` anexado;
 4. cria a mesma release (mesmas notas e MSI) no repo público `miguelsoeth/screencord`, usando o secret `PUBLIC_RELEASES_TOKEN` (fine-grained PAT com `Contents: read and write` só nesse repo).
 
 Um MSI de versão maior substitui a instalação anterior (mesmo `UpgradeCode`), preservando a sessão do Discord.

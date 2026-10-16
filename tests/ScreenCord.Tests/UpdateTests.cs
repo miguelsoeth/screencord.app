@@ -19,9 +19,9 @@ public class AppUpdaterTests
         [
             new GitHubReleaseAsset
             {
-                Name = assetName ?? $"ScreenCord-Setup-{tag.TrimStart('v')}-win64.msi",
+                Name = assetName ?? $"ScreenCord-Setup-{tag.TrimStart('v')}-x64.msi",
                 Size = size,
-                BrowserDownloadUrl = url ?? $"{Download}/{tag}/ScreenCord-Setup-{tag.TrimStart('v')}-win64.msi",
+                BrowserDownloadUrl = url ?? $"{Download}/{tag}/ScreenCord-Setup-{tag.TrimStart('v')}-x64.msi",
             },
         ],
     };
@@ -62,12 +62,22 @@ public class AppUpdaterTests
 
     [Theory]
     [InlineData("Outro-0.2.0.msi", $"{Download}/v0.2.0/Outro-0.2.0.msi")]
-    [InlineData(null, "https://example.com/miguelsoeth/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-win64.msi")]
-    [InlineData(null, "http://github.com/miguelsoeth/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-win64.msi")]
-    [InlineData(null, "https://github.com/outra-pessoa/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-win64.msi")]
+    [InlineData(null, "https://example.com/miguelsoeth/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-x64.msi")]
+    [InlineData(null, "http://github.com/miguelsoeth/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-x64.msi")]
+    [InlineData(null, "https://github.com/outra-pessoa/screencord/releases/download/v0.2.0/ScreenCord-Setup-0.2.0-x64.msi")]
     public void InstaladorForaDoPadraoOuDeOutraOrigem_ERecusado(string? assetName, string url)
     {
         Assert.Null(AppUpdater.SelectUpdate(Release("v0.2.0", assetName, url), "0.1.0"));
+    }
+
+    [Fact]
+    public void NomeAntigoDoInstalador_ERecusado()
+    {
+        // A 0.2.0 e a 0.3.0 só aceitam o nome antigo e têm o script de instalação quebrado (reabriam em loop).
+        // O nome novo é o que as impede de achar o instalador; o app novo não pode voltar a aceitar o antigo.
+        const string old = "ScreenCord-Setup-0.4.0-win64.msi";
+
+        Assert.Null(AppUpdater.SelectUpdate(Release("v0.4.0", old, $"{Download}/v0.4.0/{old}"), "0.3.0"));
     }
 
     [Fact]
@@ -80,7 +90,7 @@ public class AppUpdaterTests
     public async Task ConsultaAUltimaReleaseDoRepoPublico()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, $$"""
-            {"tag_name":"v0.3.0","draft":false,"prerelease":false,"assets":[{"name":"ScreenCord-Setup-0.3.0-win64.msi","size":5000,"browser_download_url":"{{Download}}/v0.3.0/ScreenCord-Setup-0.3.0-win64.msi"}]}
+            {"tag_name":"v0.3.0","draft":false,"prerelease":false,"assets":[{"name":"ScreenCord-Setup-0.3.0-x64.msi","size":5000,"browser_download_url":"{{Download}}/v0.3.0/ScreenCord-Setup-0.3.0-x64.msi"}]}
             """);
         var updater = new AppUpdater(new StubHttpClientFactory(handler), NullLogger<AppUpdater>.Instance, "0.2.0");
 
@@ -108,6 +118,68 @@ public class AppUpdaterTests
         Assert.False(updater.IsEnabled);
         Assert.Null(await updater.FindUpdateAsync());
         Assert.Empty(handler.Requests);
+    }
+}
+
+public class InstallScriptTests : IDisposable
+{
+    // Espaço e apóstrofo no caminho, como em perfis de usuário reais.
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "ScreenCord Testes", "d'Avila " + Guid.NewGuid().ToString("N"));
+
+    public InstallScriptTests() => Directory.CreateDirectory(_folder);
+
+    public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    [Fact]
+    public async Task InstalacaoComSucesso_PassaOCaminhoCertoAoMsiexecEReabreOApp()
+    {
+        var (msiArgs, appArgs, installer) = await RunAsync(exitCode: 0);
+
+        Assert.Equal($"/i \"{installer}\" /passive /norestart /l*v \"{Path.Combine(_folder, "msi.log")}\"", msiArgs);
+        Assert.Equal("", appArgs);
+        Assert.False(File.Exists(installer));
+    }
+
+    [Fact]
+    public async Task InstalacaoComFalha_ReabreOAppSemTentarDeNovo()
+    {
+        var (_, appArgs, _) = await RunAsync(exitCode: 1619);
+
+        Assert.Equal($"{AppUpdater.FailedArgument}=0.4.0", appArgs);
+    }
+
+    /// <summary>Roda o script com um msiexec e um app falsos, que só registram os argumentos recebidos.</summary>
+    private async Task<(string MsiArgs, string AppArgs, string Installer)> RunAsync(int exitCode)
+    {
+        var installer = Path.Combine(_folder, "ScreenCord-Setup-0.4.0-x64.msi");
+        File.WriteAllText(installer, "msi");
+        var msiOut = Path.Combine(_folder, "msi-args.txt");
+        var appOut = Path.Combine(_folder, "app-args.txt");
+        var msiexec = Path.Combine(_folder, "msiexec.cmd");
+        var app = Path.Combine(_folder, "ScreenCord.cmd");
+        File.WriteAllText(msiexec, $"@echo.%*> \"{msiOut}\"\r\n@exit /b {exitCode}\r\n");
+        File.WriteAllText(app, $"@echo.%*> \"{appOut}\"\r\n");
+
+        // PID que nunca existe no Windows (não é múltiplo de 4): o script não espera nada.
+        var script = AppUpdater.BuildInstallScript(999_999, installer, Path.Combine(_folder, "msi.log"), app, new Version(0, 4, 0), msiexec);
+        using (var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            ArgumentList = { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script)) },
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        })!)
+        {
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60));
+        }
+
+        // O app é aberto sem esperar por ele.
+        for (var i = 0; i < 100 && !File.Exists(appOut); i++)
+        {
+            await Task.Delay(100);
+        }
+
+        return (File.ReadAllText(msiOut).Trim(), File.ReadAllText(appOut).Trim(), installer);
     }
 }
 
