@@ -1,6 +1,7 @@
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
 using ScreenCord.Models;
+using ScreenCord.Services;
 using ScreenCord.Tests.Fakes;
 using ScreenCord.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,6 +22,36 @@ public class FriendsViewModelTests
 
     private static DiscordException CentralError(DiscordErrorKind kind, string message = "x") =>
         new(kind, message) { Source = ErrorSource.CentralApi };
+
+    [Fact]
+    public async Task AvisoDoHub_RecarregaSolicitacoesEAmigosSemAtualizarManualmente()
+    {
+        var realtime = new FakeGroupsRealtime();
+        var vm = new FriendsViewModel(_service, realtime);
+        await vm.LoadAsync();
+
+        _service.Incoming.Add(_bruno with { Relationship = RelationshipStatus.PendingIncoming });
+        realtime.RaiseFriendsChanged();
+        Assert.True(vm.HasIncomingRequests);
+
+        _service.Incoming.Clear();
+        _service.Friends.Add(_bruno with { Relationship = RelationshipStatus.Friend });
+        realtime.SetState(RealtimeState.Connected);
+        Assert.False(vm.HasIncomingRequests);
+        Assert.Equal("bruno", Assert.Single(vm.Friends).Username);
+    }
+
+    [Fact]
+    public void AvisoDoHub_AntesDaPrimeiraCarga_NaoCarrega()
+    {
+        var realtime = new FakeGroupsRealtime();
+        var vm = new FriendsViewModel(_service, realtime);
+        _service.Friends.Add(_ana with { Relationship = RelationshipStatus.Friend });
+
+        realtime.RaiseFriendsChanged();
+
+        Assert.Empty(vm.Friends);
+    }
 
     [Fact]
     public async Task Load_SemAmigos_MostraEstadoVazio()
