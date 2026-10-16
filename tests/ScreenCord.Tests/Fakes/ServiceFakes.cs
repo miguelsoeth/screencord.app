@@ -314,6 +314,8 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
 
     public event EventHandler<Guid>? GroupRemoved;
 
+    public event EventHandler? FriendsChanged;
+
     public void Start() => StartCount++;
 
     public Task<GroupPresenceDto> JoinAsync(Guid groupId, CancellationToken cancellationToken = default)
@@ -360,4 +362,6 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
     public void RaiseGroupChanged(GroupDto group) => GroupChanged?.Invoke(this, group);
 
     public void RaiseGroupRemoved(Guid groupId) => GroupRemoved?.Invoke(this, groupId);
+
+    public void RaiseFriendsChanged() => FriendsChanged?.Invoke(this, EventArgs.Empty);
 }

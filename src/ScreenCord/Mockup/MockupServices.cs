@@ -304,6 +304,13 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
         remove { }
     }
 
+    // As ações de amizade já recarregam as listas; ninguém de fora muda as amizades do mockup.
+    public event EventHandler? FriendsChanged
+    {
+        add { }
+        remove { }
+    }
+
     public void Start()
     {
         CancellationTokenSource lifetime;

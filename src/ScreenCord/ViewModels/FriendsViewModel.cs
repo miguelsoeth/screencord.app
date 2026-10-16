@@ -18,6 +18,7 @@ public sealed class FriendsViewModel : ObservableObject
     public const int MinSearchLength = 2;
 
     private readonly IFriendsService _friendsService;
+    private readonly SynchronizationContext? _ui;
     private bool _isLoading;
     private bool _hasLoaded;
     private bool _isSearching;
@@ -31,9 +32,24 @@ public sealed class FriendsViewModel : ObservableObject
     private GroupItemViewModel? _inviteGroup;
     private FriendsTab _selectedTab;
 
-    public FriendsViewModel(IFriendsService friendsService)
+    public FriendsViewModel(IFriendsService friendsService, IGroupsRealtime? realtime = null)
     {
         _friendsService = friendsService;
+
+        // Criado na thread da interface; os eventos do hub chegam de outras threads e são trazidos para cá.
+        _ui = SynchronizationContext.Current;
+        if (realtime is not null)
+        {
+            realtime.FriendsChanged += (_, _) => Post(RefreshFromServerAsync);
+            // Reconectado: algo pode ter mudado enquanto a conexão estava fora.
+            realtime.StateChanged += (_, state) =>
+            {
+                if (state == RealtimeState.Connected)
+                {
+                    Post(RefreshFromServerAsync);
+                }
+            };
+        }
 
         SearchCommand = new AsyncRelayCommand(SearchAsync);
         ClearSearchCommand = new RelayCommand(ClearSearch);
@@ -432,6 +448,43 @@ public sealed class FriendsViewModel : ObservableObject
         }
 
         ErrorMessage = actionError;
+    }
+
+    /// <summary>
+    /// Aviso do servidor de que a relação com alguém mudou: recarrega em silêncio (sem o indicador de carregamento),
+    /// e só depois da primeira carga, para não registrar o usuário antes da hora.
+    /// </summary>
+    private async Task RefreshFromServerAsync()
+    {
+        if (!_hasLoaded)
+        {
+            return;
+        }
+
+        try
+        {
+            await RefreshListsAsync(CancellationToken.None);
+            if (ShowSearchResults && _activeQuery.Length > 0)
+            {
+                await RunSearchAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // Melhor esforço: a próxima mudança ou o "Atualizar" tentam de novo.
+        }
+    }
+
+    private void Post(Func<Task> action)
+    {
+        if (_ui is null || SynchronizationContext.Current == _ui)
+        {
+            _ = action();
+        }
+        else
+        {
+            _ui.Post(_ => _ = action(), null);
+        }
     }
 
     private async Task RunSearchAsync()
