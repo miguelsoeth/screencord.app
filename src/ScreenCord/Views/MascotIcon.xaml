@@ -1,0 +1,46 @@
+<UserControl x:Class="ScreenCord.Views.MascotIcon"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="False" Cursor="Hand" MouseLeftButtonDown="OnMouseLeftButtonDown">
+    <!-- Ícone do app em camadas: o monitor e os olhos, que seguem o mouse, piscam e ficam tontos com um tapa. As
+         coordenadas são as das imagens (600×439); o Viewbox escala tudo para o tamanho do controle. -->
+    <Viewbox>
+        <!-- O tapa balança o monitor sobre o pé, que fica parado na mesa. -->
+        <Canvas Width="600" Height="439" RenderTransformOrigin="0.5,0.97">
+            <Canvas.RenderTransform>
+                <TransformGroup>
+                    <SkewTransform x:Name="SlapTilt" />
+                    <TranslateTransform x:Name="SlapShift" />
+                </TransformGroup>
+            </Canvas.RenderTransform>
+
+            <Image Source="/ScreenCord;component/Assets/mascot-monitor.png" Width="600" Height="439"
+                   RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.RenderTransform>
+                    <TranslateTransform x:Name="BodyShift" />
+                </Image.RenderTransform>
+            </Image>
+
+            <Image Source="/ScreenCord;component/Assets/mascot-eye.png" Canvas.Left="149" Canvas.Top="116" Width="128" Height="152"
+                   RenderOptions.BitmapScalingMode="HighQuality" RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="LeftEyelid" />
+                        <ScaleTransform x:Name="LeftSquint" />
+                        <TranslateTransform x:Name="LeftEyeShift" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+            <Image Source="/ScreenCord;component/Assets/mascot-eye.png" Canvas.Left="323" Canvas.Top="116" Width="128" Height="152"
+                   RenderOptions.BitmapScalingMode="HighQuality" RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="RightEyelid" />
+                        <ScaleTransform x:Name="RightSquint" />
+                        <TranslateTransform x:Name="RightEyeShift" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+        </Canvas>
+    </Viewbox>
+</UserControl>

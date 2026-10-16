@@ -24,6 +24,7 @@
         <views:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <views:IsSharingToVisibilityConverter x:Key="IsSharingToVisibility" />
         <views:InviteStateToVisibilityConverter x:Key="InviteStateToVisibility" />
+        <views:BoolToVisibleOrHiddenConverter x:Key="BoolToVisibleOrHidden" />
     </Window.Resources>
 
     <!-- Sem a barra de título do Windows: a nossa ocupa o topo, mas a janela continua arrastável, redimensionável e com snap. -->
@@ -85,32 +86,42 @@
             <!-- Tela inicial -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           views:Motion.IsShown="{Binding ShowLogin}" views:Motion.Kind="Overlay">
-                <Border Style="{StaticResource Card}" Padding="36" Margin="24" MaxWidth="440"
+                <!-- O cartão tem largura fixa e cada estado ocupa sempre o mesmo espaço, para ele não mudar de tamanho ao
+                     conectar, cancelar ou mostrar um erro. -->
+                <Border Style="{StaticResource Card}" Padding="36,32" Margin="24" Width="440"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
-                        <Image Source="/ScreenCord;component/Assets/screencord.png" Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,12"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Style="{StaticResource Wordmark}" FontSize="30" HorizontalAlignment="Center" Margin="0,0,0,24">
-                            <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
-                        </TextBlock>
+                        <views:MascotIcon Width="172" Height="126" HorizontalAlignment="Center" Margin="0,0,0,14" />
+                        <views:WordmarkText Text="Screen" AccentText="Cord" AccentForeground="{StaticResource WordmarkAccentBrush}"
+                                            Foreground="{StaticResource TextBrush}" FontFamily="Segoe UI Variable Display, Segoe UI" FontWeight="Bold"
+                                            FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,24" />
 
-                        <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11"
-                                Command="{Binding ConnectCommand}"
-                                Visibility="{Binding ShowConnectButton, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- Botão e espera sobrepostos: o que não está ativo fica oculto, mas a célula tem a altura do maior. -->
+                        <Grid>
+                            <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11" VerticalAlignment="Center"
+                                    Command="{Binding ConnectCommand}"
+                                    Visibility="{Binding ShowConnectButton, Converter={StaticResource BoolToVisibleOrHidden}}" />
 
-                        <StackPanel Visibility="{Binding IsSigningIn, Converter={StaticResource BoolToVisibility}}">
-                            <ProgressBar IsIndeterminate="True" Height="4"
-                                         Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0" />
-                            <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,14"
-                                       Text="Aguardando a autorização no navegador…" />
-                            <Button Content="Cancelar" Style="{StaticResource SecondaryButton}"
-                                    Command="{Binding CancelConnectCommand}" />
-                        </StackPanel>
+                            <StackPanel Visibility="{Binding IsSigningIn, Converter={StaticResource BoolToVisibleOrHidden}}">
+                                <ProgressBar IsIndeterminate="True" Height="4"
+                                             Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0" />
+                                <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,14"
+                                           Text="Aguardando a autorização no navegador…" />
+                                <Button Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding CancelConnectCommand}" />
+                            </StackPanel>
+                        </Grid>
 
-                        <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,18,0,0"
-                                views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
-                            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
-                        </Border>
+                        <!-- Rodapé com altura reservada para até três linhas de erro; sem erro, mostra um texto de apoio. -->
+                        <Grid Margin="0,18,0,0" MinHeight="76">
+                            <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" VerticalAlignment="Center"
+                                       Text="Entre com a sua conta do Discord para assistir e compartilhar telas com seus amigos."
+                                       views:Motion.IsShown="{Binding HasError, Converter={StaticResource InverseBool}}" />
+                            <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" VerticalAlignment="Center"
+                                    views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
+                                <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
+                            </Border>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </ScrollViewer>

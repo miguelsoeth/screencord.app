@@ -23,6 +23,21 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
+/// Verdadeiro → Visible; falso → Hidden (com <see cref="Invert"/>, o contrário). Oculto, o elemento continua ocupando
+/// o espaço: serve para estados sobrepostos na mesma célula não mudarem o tamanho do que os contém.
+/// </summary>
+public sealed class BoolToVisibleOrHiddenConverter : IValueConverter
+{
+    public bool Invert { get; set; }
+
+    public object Convert(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true != Invert ? Visibility.Visible : Visibility.Hidden;
+
+    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
 /// [id da pessoa, ids de quem compartilha] → Visible se a pessoa está compartilhando a tela.
 /// Reavaliado sempre que o conjunto de quem compartilha muda.
 /// </summary>
