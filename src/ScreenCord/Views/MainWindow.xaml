@@ -242,8 +242,9 @@
                 </Border>
 
                 <!-- Tela que você está assistindo: o espaço principal da janela -->
-                <Border x:Name="Stage" Grid.Row="2" Style="{StaticResource Card}" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
-                    <Grid>
+                <!-- O conteúdo é recortado com o raio interno do cartão (12 - 1 da borda), para o vídeo acompanhar os cantos. -->
+                <Border x:Name="Stage" Grid.Row="2" Style="{StaticResource Card}" Padding="0" Margin="0,12,0,0">
+                    <Grid views:RoundedClip.CornerRadius="11">
                         <StackPanel x:Name="NoStreamPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380" Margin="24">
                             <Path Data="{StaticResource MonitorIcon}" Fill="{StaticResource MutedTextBrush}" Width="44" Height="44" Stretch="Uniform" />
                             <TextBlock Text="Nenhuma tela aberta" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
