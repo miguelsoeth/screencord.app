@@ -1,0 +1,35 @@
+<UserControl x:Class="ScreenCord.Views.MascotIcon"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False" Focusable="False">
+    <!-- Ícone do app em camadas: o monitor e os olhos, que seguem o mouse e piscam. As coordenadas são as das imagens
+         (600×439); o Viewbox escala tudo para o tamanho do controle. -->
+    <Viewbox>
+        <Canvas Width="600" Height="439">
+            <Image Source="/ScreenCord;component/Assets/mascot-monitor.png" Width="600" Height="439"
+                   RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.RenderTransform>
+                    <TranslateTransform x:Name="BodyShift" />
+                </Image.RenderTransform>
+            </Image>
+
+            <Canvas>
+                <Canvas.RenderTransform>
+                    <TranslateTransform x:Name="EyesShift" />
+                </Canvas.RenderTransform>
+                <Image Source="/ScreenCord;component/Assets/mascot-eye.png" Canvas.Left="149" Canvas.Top="116" Width="128" Height="152"
+                       RenderOptions.BitmapScalingMode="HighQuality" RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform x:Name="LeftEyelid" />
+                    </Image.RenderTransform>
+                </Image>
+                <Image Source="/ScreenCord;component/Assets/mascot-eye.png" Canvas.Left="323" Canvas.Top="116" Width="128" Height="152"
+                       RenderOptions.BitmapScalingMode="HighQuality" RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform x:Name="RightEyelid" />
+                    </Image.RenderTransform>
+                </Image>
+            </Canvas>
+        </Canvas>
+    </Viewbox>
+</UserControl>

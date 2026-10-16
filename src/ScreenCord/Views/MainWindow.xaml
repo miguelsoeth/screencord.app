@@ -91,8 +91,7 @@
                 <Border Style="{StaticResource Card}" Padding="36,32" Margin="24" Width="440"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
-                        <Image Source="/ScreenCord;component/Assets/screencord.png" Width="132" Height="132" HorizontalAlignment="Center" Margin="0,0,0,8"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <views:MascotIcon Width="172" Height="126" HorizontalAlignment="Center" Margin="0,0,0,14" />
                         <TextBlock Style="{StaticResource Wordmark}" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,24">
                             <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
                         </TextBlock>
