@@ -28,7 +28,7 @@
                MouseLeftButtonDown="OnVideoMouseDown" />
 
         <!-- Conectando / aguardando / terminou -->
-        <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#CC1B1C20"
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#D90A0B10"
                 CornerRadius="10" Padding="24,18" Visibility="{Binding ShowOverlay, Converter={StaticResource BoolToVisibility}}">
             <StackPanel>
                 <TextBlock Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"
@@ -41,7 +41,7 @@
 
         <!-- Barra sobre a parte de baixo do vídeo: quem, qualidade, áudio, tela cheia e fechar.
              Some depois de alguns segundos sem mexer o mouse (e logo que ele sai do vídeo). -->
-        <Border x:Name="ControlBar" VerticalAlignment="Bottom" Background="#D91B1C20" Padding="14,8">
+        <Border x:Name="ControlBar" VerticalAlignment="Bottom" Background="#E00A0B10" Padding="14,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
