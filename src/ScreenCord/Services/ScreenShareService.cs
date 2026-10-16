@@ -90,7 +90,7 @@ public sealed class ScreenShareService : IScreenShareService
         }
 
         var settings = request.Settings;
-        ScreenCapture? capture = null;
+        IScreenCapture? capture = null;
         H264Encoder? encoder = null;
         MediaSocket? socket = null;
         AudioCapture? audio = null;
@@ -101,11 +101,11 @@ public sealed class ScreenShareService : IScreenShareService
         {
             // O tamanho final depende da proporção da tela ou janela, então a captura vem antes do anúncio.
             // Fora da thread da interface: a criação espera operações assíncronas do Windows.
-            capture = await Task.Run(() => new ScreenCapture(request.Source, settings.Height, settings.Fps), cancellationToken);
+            capture = await Task.Run(() => ScreenCapture.Create(request.Source, settings.Height, settings.Fps, _logger), cancellationToken);
             encoder = await Task.Run(() => H264Encoder.Create(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps), cancellationToken);
             _logger.LogInformation(
-                "Compartilhando {Kind} em {Width}x{Height}, {Fps} fps, {Kbps} kbps, encoder {Encoder}.",
-                request.Source.Kind, capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, encoder.Name);
+                "Compartilhando {Kind} ({Capture}) em {Width}x{Height}, {Fps} fps, {Kbps} kbps, encoder {Encoder}.",
+                request.Source.Kind, capture.Name, capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, encoder.Name);
 
             // O áudio também vem antes do anúncio: a sala só vê "com áudio" se a captura começou de fato.
             // Os pacotes de antes do canal de mídia abrir se perdem.
@@ -200,7 +200,7 @@ public sealed class ScreenShareService : IScreenShareService
     /// </summary>
     private sealed class ActiveScreenShare : IActiveScreenShare
     {
-        private readonly ScreenCapture _capture;
+        private readonly IScreenCapture _capture;
         private readonly H264Encoder _encoder;
         private readonly MediaSocket _socket;
         private readonly IGroupsRealtime _realtime;
@@ -218,7 +218,7 @@ public sealed class ScreenShareService : IScreenShareService
         public ActiveScreenShare(
             ScreenShareDto share,
             ShareRequest request,
-            ScreenCapture capture,
+            IScreenCapture capture,
             H264Encoder encoder,
             MediaSocket socket,
             AudioCapture? audio,
