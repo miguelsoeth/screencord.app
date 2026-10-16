@@ -13,6 +13,9 @@ public interface IActiveScreenShare
 
     ShareRequest Request { get; }
 
+    /// <summary>Por que o áudio pedido não está sendo compartilhado; null quando está ou não foi pedido.</summary>
+    string? AudioWarning { get; }
+
     /// <summary>O compartilhamento parou sozinho (janela fechada, conexão caiu); o argumento é o motivo.</summary>
     event EventHandler<string>? Ended;
 
@@ -90,6 +93,9 @@ public sealed class ScreenShareService : IScreenShareService
         ScreenCapture? capture = null;
         H264Encoder? encoder = null;
         MediaSocket? socket = null;
+        AudioCapture? audio = null;
+        MediaSocket? audioTarget = null;
+        string? audioWarning = null;
         var announced = false;
         try
         {
@@ -101,21 +107,34 @@ public sealed class ScreenShareService : IScreenShareService
                 "Compartilhando {Kind} em {Width}x{Height}, {Fps} fps, {Kbps} kbps, encoder {Encoder}.",
                 request.Source.Kind, capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, encoder.Name);
 
+            // O áudio também vem antes do anúncio: a sala só vê "com áudio" se a captura começou de fato.
+            // Os pacotes de antes do canal de mídia abrir se perdem.
+            if (settings.ShareAudio)
+            {
+                try
+                {
+                    audio = await AudioCapture.StartAsync(request.Source, (packet, timestamp) => audioTarget?.SendAudio(packet, timestamp));
+                }
+                catch (Exception ex)
+                {
+                    // Sem áudio o vídeo continua; quem compartilha é avisado.
+                    _logger.LogWarning(ex, "Captura de áudio indisponível para {Kind} (processo {ProcessId}); compartilhando sem som.",
+                        request.Source.Kind, request.Source.ProcessId);
+                    audioWarning = "Não foi possível capturar o áudio: o compartilhamento segue sem som.";
+                }
+            }
+
             // O novo anúncio substitui o do compartilhamento atual; a partir daqui, quando o canal antigo fechar
             // (o servidor o troca pelo novo), ele não pode avisar o fim do compartilhamento.
             previous?.PrepareReplacement();
             var share = await _realtime.StartScreenShareAsync(
-                new ScreenShareStart(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio),
+                new ScreenShareStart(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, audio is not null),
                 cancellationToken);
             announced = true;
 
             socket = await MediaSocket.ConnectAsync(_api, groupId, share.UserId, settings.BitrateKbps, cancellationToken);
-            var active = new ActiveScreenShare(share, request, capture, encoder, socket, _realtime, _loggerFactory.CreateLogger<ActiveScreenShare>());
-            if (settings.ShareAudio)
-            {
-                await active.StartAudioAsync();
-            }
-
+            audioTarget = socket;
+            var active = new ActiveScreenShare(share, request, capture, encoder, socket, audio, audioWarning, _realtime, _loggerFactory.CreateLogger<ActiveScreenShare>());
             active.Start();
             if (previous is not null)
             {
@@ -126,6 +145,11 @@ public sealed class ScreenShareService : IScreenShareService
         }
         catch
         {
+            if (audio is not null)
+            {
+                await audio.DisposeAsync();
+            }
+
             if (socket is not null)
             {
                 await socket.DisposeAsync();
@@ -187,7 +211,7 @@ public sealed class ScreenShareService : IScreenShareService
         private readonly BitrateController _bitrate;
         private readonly FramePacer _pacer = new();
         private bool _adaptiveBitrate = true;
-        private AudioCapture? _audio;
+        private readonly AudioCapture? _audio;
         private int _stopped;
         private volatile bool _replaced;
 
@@ -197,14 +221,18 @@ public sealed class ScreenShareService : IScreenShareService
             ScreenCapture capture,
             H264Encoder encoder,
             MediaSocket socket,
+            AudioCapture? audio,
+            string? audioWarning,
             IGroupsRealtime realtime,
             ILogger logger)
         {
             Share = share;
             Request = request;
+            AudioWarning = audioWarning;
             _capture = capture;
             _encoder = encoder;
             _socket = socket;
+            _audio = audio;
             _realtime = realtime;
             _logger = logger;
             _bitrate = new BitrateController(request.Settings.BitrateKbps, TimeSpan.Zero);
@@ -233,20 +261,9 @@ public sealed class ScreenShareService : IScreenShareService
 
         public ShareRequest Request { get; }
 
-        public event EventHandler<string>? Ended;
+        public string? AudioWarning { get; }
 
-        public async Task StartAudioAsync()
-        {
-            try
-            {
-                _audio = await AudioCapture.StartAsync(Request.Source, (packet, timestamp) => _socket.SendAudio(packet, timestamp));
-            }
-            catch (Exception ex)
-            {
-                // Sem áudio o vídeo continua; quem assiste só não ouve nada.
-                _logger.LogWarning("Captura de áudio indisponível ({ExceptionType}: {Message}).", ex.GetType().Name, ex.Message);
-            }
-        }
+        public event EventHandler<string>? Ended;
 
         public void Start()
         {

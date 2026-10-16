@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
 using ScreenCord.Services;
+using Microsoft.Extensions.Logging;
 using ScreenCord.Tests.Fakes;
 
 namespace ScreenCord.Tests;
@@ -258,5 +259,60 @@ public class ErrorMessagesTests
         var message = ErrorMessages.For(new InvalidOperationException("segredo interno"));
 
         Assert.DoesNotContain("segredo interno", message);
+    }
+}
+
+public sealed class FileLoggerTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "ScreenCord.Tests", "logs-" + Guid.NewGuid().ToString("N"));
+    private readonly FakeTimeProvider _time = new();
+
+    [Fact]
+    public void Grava_UmArquivoPorDia_ComNivelCategoriaEExcecao()
+    {
+        using (var provider = new FileLoggerProvider(_folder, _time))
+        {
+            var logger = provider.CreateLogger("ScreenCord.Audio");
+            logger.LogWarning(new InvalidOperationException("sem dispositivo"), "Captura de áudio indisponível.");
+            _time.Now = _time.Now.AddDays(1);
+            logger.LogInformation("Outro dia.");
+        }
+
+        var files = Directory.GetFiles(_folder).Select(Path.GetFileName).Order().ToList();
+        Assert.Equal(2, files.Count);
+        var first = File.ReadAllText(Path.Combine(_folder, files[0]!));
+        Assert.Contains("WRN ScreenCord.Audio: Captura de áudio indisponível.", first);
+        Assert.Contains("InvalidOperationException: sem dispositivo", first);
+        Assert.Contains("INF ScreenCord.Audio: Outro dia.", File.ReadAllText(Path.Combine(_folder, files[1]!)));
+    }
+
+    [Fact]
+    public void ApagaOsArquivosMaisAntigosQueOPrazo()
+    {
+        Directory.CreateDirectory(_folder);
+        var today = DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+        var old = Path.Combine(_folder, $"screencord-{today.AddDays(-FileLoggerProvider.KeepDays):yyyyMMdd}.log");
+        var kept = Path.Combine(_folder, $"screencord-{today.AddDays(-(FileLoggerProvider.KeepDays - 1)):yyyyMMdd}.log");
+        File.WriteAllText(old, "");
+        File.WriteAllText(kept, "");
+
+        using (var provider = new FileLoggerProvider(_folder, _time))
+        {
+            provider.CreateLogger("x").LogInformation("hoje");
+        }
+
+        Assert.False(File.Exists(old));
+        Assert.True(File.Exists(kept));
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_folder, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
     }
 }

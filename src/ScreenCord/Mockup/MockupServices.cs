@@ -557,6 +557,8 @@ public sealed class MockupScreenShareService(MockupWorld world, MockupGroupsReal
 
         public ShareRequest Request { get; } = request;
 
+        public string? AudioWarning => null;
+
         // O compartilhamento simulado só termina quando a pessoa para.
         public event EventHandler<string>? Ended
         {

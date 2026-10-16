@@ -728,6 +728,7 @@ public sealed class GroupsViewModel : ObservableObject
             active.Ended += (_, reason) => Post(() => OnShareEnded(active, reason));
             _activeShare = active;
             _shareGroupId = group.Id;
+            ShareMessage = active.AudioWarning;
         }
         catch (Exception ex)
         {
@@ -767,6 +768,7 @@ public sealed class GroupsViewModel : ObservableObject
 
             replacement.Ended += (_, reason) => Post(() => OnShareEnded(replacement, reason));
             _activeShare = replacement;
+            ShareMessage = replacement.AudioWarning;
         }
         catch (Exception ex)
         {

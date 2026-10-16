@@ -144,6 +144,26 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
+    public async Task Compartilhar_SemCapturaDeAudio_SegueSemSomEAvisa()
+    {
+        var (vm, _) = await InRoomAsync();
+        _share.AudioFailure = "Não foi possível capturar o áudio: o compartilhamento segue sem som.";
+        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings);
+
+        await vm.StartShareCommand.ExecuteAsync();
+
+        Assert.True(vm.IsSharing);
+        Assert.DoesNotContain("com áudio", vm.ShareDetailText);
+        Assert.Equal(_share.AudioFailure, vm.ShareMessage);
+
+        // Sem pedir áudio na troca de configurações, o aviso some.
+        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { ShareAudio = false });
+        await vm.ChangeShareCommand.ExecuteAsync();
+
+        Assert.Null(vm.ShareMessage);
+    }
+
+    [Fact]
     public async Task Compartilhar_Cancelado_NaoComeca()
     {
         var (vm, _) = await InRoomAsync();
