@@ -59,6 +59,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFriendsService, CentralFriendsService>();
         services.AddSingleton<IGroupsService, CentralGroupsService>();
         services.AddSingleton<IGroupsRealtime, GroupsRealtimeClient>();
+        services.AddSingleton<IPlanService, CentralPlanService>();
 
         // Atualização automática pelas GitHub Releases (o download segue o redirecionamento do GitHub para o CDN).
         services.AddHttpClient(AppUpdater.ClientName, client =>
@@ -76,6 +77,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<FriendsViewModel>();
         services.AddSingleton<GroupsViewModel>();
+        services.AddSingleton<PlanViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
 

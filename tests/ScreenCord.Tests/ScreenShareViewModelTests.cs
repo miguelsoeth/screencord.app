@@ -50,7 +50,7 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
-    public void Resolucao_1080pApareceDesligado()
+    public void Resolucao_1080pApareceDesligadoNoGratuito()
     {
         var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => []);
 
@@ -58,7 +58,7 @@ public class ScreenShareViewModelTests
         Assert.Equal([true, true, false], picker.Resolutions.Options.Select(o => o.IsAvailable));
 
         var fullHd = picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P1080);
-        Assert.Equal("Em breve no plano pago.", fullHd.Detail);
+        Assert.Equal("Disponível no ScreenCord Pro.", fullHd.Detail);
         fullHd.IsSelected = true;
 
         Assert.False(fullHd.IsSelected);
@@ -73,7 +73,7 @@ public class ScreenShareViewModelTests
 
         // 720p: 60 fps desligado.
         Assert.False(fps60.IsAvailable);
-        Assert.Equal("60 fps só em 540p.", fps60.Detail);
+        Assert.Equal("60 fps em 720p: Disponível no ScreenCord Pro.", fps60.Detail);
         fps60.IsSelected = true;
         Assert.Equal(ShareFrameRate.Fps30, picker.FrameRates.Selected);
 

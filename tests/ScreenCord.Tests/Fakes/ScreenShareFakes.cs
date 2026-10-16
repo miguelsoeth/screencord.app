@@ -133,9 +133,13 @@ public sealed class FakeScreenShareUi : IScreenShareUi
     /// <summary>Origem atual recebida em cada escolha (null ao começar um compartilhamento novo).</summary>
     public List<CaptureSource?> PickCurrents { get; } = [];
 
-    public ShareRequest? PickShare(ShareSettings initial, CaptureSource? current = null)
+    /// <summary>Limites do plano recebidos em cada escolha.</summary>
+    public List<PlanLimits> PickLimits { get; } = [];
+
+    public ShareRequest? PickShare(ShareSettings initial, PlanLimits limits, CaptureSource? current = null)
     {
         Picks.Add(initial);
+        PickLimits.Add(limits);
         PickCurrents.Add(current);
         return OnPick(initial);
     }

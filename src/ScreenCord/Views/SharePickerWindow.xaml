@@ -206,7 +206,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 540p a 30 ou 60 fps, 720p só a 30 fps; 1080p aparece desligado (plano pago). A taxa de bits é automática. -->
+            <!-- Gratuito: 540p a 30 ou 60 fps, 720p só a 30 fps; o resto aparece desligado (Pro). A taxa de bits é automática. -->
             <StackPanel Margin="0,0,24,0">
                 <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
                 <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
@@ -242,6 +242,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
+
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding BitrateText}" Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0" />
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">

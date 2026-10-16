@@ -26,13 +26,15 @@ public sealed class MainViewModel : ObservableObject
         IProfileService profileService,
         FriendsViewModel friends,
         GroupsViewModel groups,
-        ILogger<MainViewModel> logger)
+        ILogger<MainViewModel> logger,
+        PlanViewModel? plan = null)
     {
         _session = session;
         _profileService = profileService;
         _logger = logger;
         Friends = friends;
         Groups = groups;
+        Plan = plan;
         groups.InviteRequested += friends.OpenInvite;
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
@@ -47,6 +49,9 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Grupos de presença em tempo real, na lateral direita.</summary>
     public GroupsViewModel Groups { get; }
+
+    /// <summary>Plano da conta (gratuito ou Pro) e a janela de compra do Pro.</summary>
+    public PlanViewModel? Plan { get; }
 
     public AsyncRelayCommand ConnectCommand { get; }
 
@@ -255,7 +260,7 @@ public sealed class MainViewModel : ObservableObject
 
             if (IsConnected)
             {
-                await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
+                await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync(), Plan?.LoadAsync() ?? Task.CompletedTask);
             }
         }
         finally
@@ -288,6 +293,7 @@ public sealed class MainViewModel : ObservableObject
         Profile = null;
         _ = Groups.SignOutAsync();
         Friends.Clear();
+        Plan?.Clear();
         IsConfirmingDisconnect = false;
         IsConnected = false;
     }

@@ -6,8 +6,8 @@ namespace ScreenCord.ViewModels;
 
 /// <summary>
 /// Janela "Compartilhar tela": escolha entre uma tela ou uma janela, resolução, fps e áudio.
-/// O padrão é 720p, 30 fps, com áudio. 60 fps só em 540p; 1080p aparece desligado (plano pago).
-/// A taxa de bits é automática.
+/// O padrão é 720p, 30 fps, com áudio. As opções fora do plano aparecem desligadas: no gratuito, 60 fps só em
+/// 540p e nada de 1080p; o Pro libera todas. A taxa de bits é automática, até o teto do plano.
 /// </summary>
 public sealed class SharePickerViewModel : ObservableObject
 {
@@ -16,14 +16,18 @@ public sealed class SharePickerViewModel : ObservableObject
     private CaptureSourceKind _kind = CaptureSourceKind.Screen;
     private CaptureSource? _selectedSource;
     private bool _shareAudio;
+    private readonly PlanLimits _limits;
 
     /// <param name="current">Origem do compartilhamento em andamento, quando a escolha é para trocar as configurações dele.</param>
+    /// <param name="limits">Plano da conta; sem ele, o gratuito.</param>
     public SharePickerViewModel(
         ShareSettings initial,
         Func<IReadOnlyList<CaptureSource>>? screens = null,
         Func<IReadOnlyList<CaptureSource>>? windows = null,
-        CaptureSource? current = null)
+        CaptureSource? current = null,
+        PlanLimits? limits = null)
     {
+        _limits = limits ?? PlanLimits.Free;
         _screens = screens ?? CaptureSources.Screens;
         _windows = windows ?? CaptureSources.Windows;
         _shareAudio = initial.ShareAudio;
@@ -35,13 +39,13 @@ public sealed class SharePickerViewModel : ObservableObject
             _selectedSource = current;
         }
 
-        // Uma configuração fora dos limites (ex.: de outra versão) volta ao padrão.
-        var start = ShareSettings.IsAvailable(initial.Resolution, initial.FrameRate) ? initial : ShareSettings.Default;
+        // Uma configuração fora do plano (ex.: o Pro venceu) volta ao padrão.
+        var start = ShareSettings.IsAvailable(initial.Resolution, initial.FrameRate, _limits) ? initial : ShareSettings.Default;
         Resolutions = new Choice<ShareResolution>(start.Resolution,
         [
             new(ShareResolution.P540, "540p"),
             new(ShareResolution.P720, "720p"),
-            new(ShareResolution.P1080, "1080p", "Em breve no plano pago.", ShareSettings.IsAvailable(ShareResolution.P1080)),
+            new(ShareResolution.P1080, "1080p", ProOnly, ShareSettings.IsAvailable(ShareResolution.P1080, _limits)),
         ]);
         FrameRates = new Choice<ShareFrameRate>(start.FrameRate,
         [
@@ -57,7 +61,12 @@ public sealed class SharePickerViewModel : ObservableObject
         Refresh();
     }
 
+    private const string ProOnly = "Disponível no ScreenCord Pro.";
+
     public ObservableCollection<CaptureSource> Sources { get; } = [];
+
+    /// <summary>"Qualidade automática, até 3 Mbps".</summary>
+    public string BitrateText => $"Qualidade automática, até {_limits.MaxBitrateKbps / 1000.0:0.#} Mbps";
 
     /// <summary>Troca das configurações de um compartilhamento em andamento.</summary>
     public bool IsChange { get; }
@@ -144,7 +153,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public ShareRequest? BuildRequest() =>
         SelectedSource is { } source
-            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, ShareAudio))
+            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, ShareAudio, _limits.MaxBitrateKbps))
             : null;
 
     /// <summary>Liga só os fps permitidos na resolução escolhida; se o marcado deixou de valer, volta a 30 fps.</summary>
@@ -153,11 +162,12 @@ public sealed class SharePickerViewModel : ObservableObject
         var resolution = Resolutions.Selected;
         foreach (var option in FrameRates.Options)
         {
-            var available = ShareSettings.IsAvailable(resolution, option.Value);
-            option.SetAvailability(available, available ? null : $"{(int)option.Value} fps só em 540p.");
+            var available = ShareSettings.IsAvailable(resolution, option.Value, _limits);
+            var withPro = ShareSettings.IsAvailable(resolution, option.Value, PlanLimits.Pro);
+            option.SetAvailability(available, available ? null : withPro ? $"{(int)option.Value} fps em {(int)resolution}p: {ProOnly}" : $"{(int)option.Value} fps só em 540p.");
         }
 
-        if (!ShareSettings.IsAvailable(resolution, FrameRates.Selected))
+        if (!ShareSettings.IsAvailable(resolution, FrameRates.Selected, _limits))
         {
             FrameRates.Selected = FrameRates.Options.First(o => o.IsAvailable).Value;
         }

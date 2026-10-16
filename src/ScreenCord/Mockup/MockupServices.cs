@@ -26,7 +26,58 @@ public static class MockupServiceCollectionExtensions
         services.AddSingleton<MockupGroupsRealtime>();
         services.AddSingleton<IGroupsRealtime>(sp => sp.GetRequiredService<MockupGroupsRealtime>());
         services.AddSingleton<IScreenShareService, MockupScreenShareService>();
+        services.AddSingleton<IPlanService, MockupPlanService>();
         return services;
+    }
+}
+
+/// <summary>Começa no gratuito; "comprar" ativa o Pro na hora, sem pagamento nem navegador.</summary>
+public sealed class MockupPlanService(MockupWorld world) : IPlanService
+{
+    private static readonly IReadOnlyList<ProOfferDto> Offers =
+    [
+        new("pro-30", "Pro por 30 dias", 30, 1490),
+        new("pro-365", "Pro por 1 ano", 365, 14900),
+    ];
+
+    public PlanDto Current
+    {
+        get
+        {
+            lock (world.Lock)
+            {
+                return new PlanDto(world.Tier, world.ProUntilUtc, PlanLimits.For(world.Tier), Offers);
+            }
+        }
+    }
+
+    public event EventHandler? Changed;
+
+    public Task<PlanDto> RefreshAsync(CancellationToken cancellationToken = default) => Task.FromResult(Current);
+
+    public Task<Uri?> StartCheckoutAsync(string offerId, CancellationToken cancellationToken = default)
+    {
+        var offer = Offers.FirstOrDefault(o => o.Id == offerId) ?? throw MockupWorld.Error("Este período do Pro não está à venda.");
+        lock (world.Lock)
+        {
+            var now = DateTimeOffset.UtcNow;
+            world.ProUntilUtc = (world.ProUntilUtc > now ? world.ProUntilUtc.Value : now).AddDays(offer.Days);
+            world.Tier = PlanTier.Pro;
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+        return Task.FromResult<Uri?>(null);
+    }
+
+    public void Reset()
+    {
+        lock (world.Lock)
+        {
+            world.Tier = PlanTier.Free;
+            world.ProUntilUtc = null;
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 }
 
@@ -202,9 +253,10 @@ public sealed class MockupGroupsService(MockupWorld world, MockupGroupsRealtime 
                 throw MockupWorld.Error($"O nome do grupo pode ter no máximo {GroupsHubContract.MaxNameLength} caracteres.");
             }
 
-            if (world.Groups.Count(g => g.OwnerId == world.Me.Id) >= GroupsHubContract.MaxCreatedGroups)
+            var maxGroups = world.LimitsOf(world.Me.Id).MaxCreatedGroups;
+            if (world.Groups.Count(g => g.OwnerId == world.Me.Id) >= maxGroups)
             {
-                throw MockupWorld.Error($"Você já criou {GroupsHubContract.MaxCreatedGroups} grupos, o limite por conta. Exclua um para criar outro.");
+                throw MockupWorld.Error($"Você já criou {maxGroups} grupos, o limite por conta. Exclua um para criar outro.");
             }
 
             return Task.FromResult(world.ToGroupDto(world.AddGroup(name, world.Me.Id, [])));
@@ -227,9 +279,10 @@ public sealed class MockupGroupsService(MockupWorld world, MockupGroupsRealtime 
                 throw MockupWorld.Error("Essa pessoa já está no grupo.");
             }
 
-            if (group.Members.Count >= GroupsHubContract.MaxMembers)
+            var maxMembers = world.LimitsOf(group.OwnerId).MaxMembers;
+            if (group.Members.Count >= maxMembers)
             {
-                throw MockupWorld.Error($"Um grupo pode ter no máximo {GroupsHubContract.MaxMembers} integrantes.");
+                throw MockupWorld.Error($"Um grupo pode ter no máximo {maxMembers} integrantes.");
             }
 
             group.Members.Add(userId);
@@ -311,6 +364,13 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
 
     // As ações de amizade já recarregam as listas; ninguém de fora muda as amizades do mockup.
     public event EventHandler? FriendsChanged
+    {
+        add { }
+        remove { }
+    }
+
+    // O plano do mockup muda pelo próprio MockupPlanService.
+    public event EventHandler<PlanDto>? PlanChanged
     {
         add { }
         remove { }

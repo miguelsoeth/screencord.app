@@ -64,6 +64,14 @@ public sealed class MockupWorld
     /// <summary>Protege todo o estado: os serviços são chamados da interface e do simulador de atividade.</summary>
     public Lock Lock { get; } = new();
 
+    /// <summary>Plano da conta do mockup; começa no gratuito e vira Pro ao "comprar".</summary>
+    public PlanTier Tier { get; set; }
+
+    public DateTimeOffset? ProUntilUtc { get; set; }
+
+    /// <summary>Limites que valem para um grupo criado por <paramref name="ownerId"/> (os outros usuários do mockup são do gratuito).</summary>
+    public PlanLimits LimitsOf(Guid ownerId) => ownerId == Me.Id ? PlanLimits.For(Tier) : PlanLimits.Free;
+
     public User Me { get; }
 
     public IEnumerable<User> Users => _users.Values;

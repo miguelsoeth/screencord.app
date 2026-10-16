@@ -171,6 +171,12 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                     <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
                                     <TextBlock Text="Conta conectada" Margin="5,0,0,0" FontSize="12" Foreground="{StaticResource SuccessBrush}" />
+                                    <!-- Selo do plano Pro -->
+                                    <Border Background="{StaticResource AccentBrush}" CornerRadius="4" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding Plan.IsPro, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}"
+                                            ToolTip="{Binding Plan.StatusText}">
+                                        <TextBlock Text="PRO" FontSize="10" FontWeight="Bold" Foreground="White" />
+                                    </Border>
                                 </StackPanel>
                             </StackPanel>
 
@@ -178,6 +184,13 @@
                             <Border Grid.Column="2" Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="3"
                                     VerticalAlignment="Center" Margin="12,0,0,0">
                             <StackPanel Orientation="Horizontal">
+                                <!-- ScreenCord Pro: vantagens, validade e compra. -->
+                                <Button Style="{StaticResource HeaderIconButton}" Margin="0,0,2,0"
+                                        Command="{Binding Plan.OpenCommand}"
+                                        ToolTip="ScreenCord Pro"
+                                        AutomationProperties.Name="ScreenCord Pro">
+                                    <Path Data="{StaticResource ProIcon}" Style="{StaticResource IconPath}" />
+                                </Button>
                                 <!-- Amigos no ScreenCord (API central), numa janela sobre a tela principal. -->
                                 <Grid>
                                     <ToggleButton x:Name="FriendsToggle" Style="{StaticResource HeaderIconToggleButton}"
@@ -1076,6 +1089,73 @@
                             <Button Content="Excluir" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
                                     Command="{Binding DeleteGroupCommand}"
                                     Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ScreenCord Pro: vantagens, validade e compra de um período (o pagamento abre no navegador). -->
+            <Grid Background="#BF050508" DataContext="{Binding Plan}" Visibility="Collapsed"
+                  views:Motion.IsShown="{Binding IsOpen}" views:Motion.Kind="Overlay">
+                <Grid.InputBindings>
+                    <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
+                </Grid.InputBindings>
+                <Border Style="{StaticResource Card}" Padding="24" Margin="24" Width="420"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        TextElement.Foreground="{StaticResource TextBrush}">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.55" Color="Black" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource ProIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource AccentBrush}" />
+                            <TextBlock Text="ScreenCord Pro" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource MutedText}" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                        <Border Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="8" Padding="14,10" Margin="0,16,0,0">
+                            <StackPanel TextElement.FontSize="13">
+                                <TextBlock Text="&#x2713;  Transmita em 720p a 60 fps e em 1080p a 30 ou 60 fps" TextWrapping="Wrap" />
+                                <TextBlock Text="&#x2713;  Imagem mais nítida: até 5 Mbps, contra 3 Mbps no gratuito" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                <TextBlock Text="&#x2713;  Crie quantos grupos quiser" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                <TextBlock Text="&#x2713;  Até 20 pessoas nos grupos que você criar" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                <TextBlock Text="Quem assiste não precisa do Pro." Style="{StaticResource MutedText}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{Binding OffersHeader}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,18,0,6"
+                                   Visibility="{Binding HasOffers, Converter={StaticResource BoolToVisibility}}" />
+                        <ItemsControl x:Name="ProOffers" ItemsSource="{Binding Offers}" Focusable="False"
+                                      Visibility="{Binding HasOffers, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"
+                                            Command="{Binding DataContext.BuyCommand, ElementName=ProOffers}" CommandParameter="{Binding}"
+                                            IsEnabled="{Binding DataContext.IsBusy, ElementName=ProOffers, Converter={StaticResource InverseBool}}">
+                                        <TextBlock><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="  ·  " Foreground="{StaticResource MutedTextBrush}" /><Run Text="{Binding PriceText, Mode=OneWay}" FontWeight="Bold" /></TextBlock>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Pagamento único por Pix, sem renovação automática. Comprar de novo soma os dias ao seu Pro."
+                                   Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding HasOffers, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="A assinatura do Pro ainda não está disponível." Style="{StaticResource MutedText}" FontSize="13" TextWrapping="Wrap" Margin="0,18,0,0"
+                                   Visibility="{Binding HasNoOffers, Converter={StaticResource BoolToVisibility}}" />
+
+                        <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,14,0,0"
+                                views:Motion.IsShown="{Binding HasMessage}" views:Motion.Kind="SlideDown">
+                            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+                        <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,14,0,0"
+                                views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
+                            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                            <Button x:Name="ClosePlanButton" Content="Fechar" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CloseCommand}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

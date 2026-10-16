@@ -50,6 +50,18 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() => SearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
         };
+        // Janela do Pro: foco no "Fechar" ao abrir, para o Esc fechar.
+        if (viewModel.Plan is { } plan)
+        {
+            plan.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(PlanViewModel.IsOpen) && plan.IsOpen)
+                {
+                    Dispatcher.BeginInvoke(() => ClosePlanButton.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                }
+            };
+        }
+
         Loaded += async (_, _) => await viewModel.InitializeAsync();
 
         RootGrid.SizeChanged += (_, _) => UpdateStageSize();

@@ -37,17 +37,20 @@ public sealed class GroupsViewModel : ObservableObject
     private bool _isStartingShare;
     private string? _shareMessage;
     private ShareSettings _lastShareSettings = ShareSettings.Default;
+    private readonly IPlanService? _plans;
 
     public GroupsViewModel(
         IGroupsService groupsService,
         IGroupsRealtime realtime,
         IScreenShareService screenShare,
-        IScreenShareUi shareUi)
+        IScreenShareUi shareUi,
+        IPlanService? plans = null)
     {
         _groupsService = groupsService;
         _realtime = realtime;
         _screenShare = screenShare;
         _shareUi = shareUi;
+        _plans = plans;
 
         // Criado na thread da interface; os eventos do hub chegam de outras threads e são trazidos para cá.
         _ui = SynchronizationContext.Current;
@@ -89,6 +92,9 @@ public sealed class GroupsViewModel : ObservableObject
 
     /// <summary>Troca resolução, taxa de quadros, qualidade, áudio (ou a origem) sem encerrar para quem assiste.</summary>
     public AsyncRelayCommand ChangeShareCommand { get; }
+
+    /// <summary>Limites do plano da conta para o compartilhamento (o gratuito até o plano ser carregado).</summary>
+    private PlanLimits PlanLimits => _plans?.Current.Limits ?? PlanLimits.Free;
 
     public bool CanChangeShare => IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
 
@@ -706,7 +712,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(_lastShareSettings);
+        var request = _shareUi.PickShare(_lastShareSettings, PlanLimits);
         if (request is null || CurrentGroup != group)
         {
             return;
@@ -747,7 +753,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(current.Request.Settings, current.Request.Source);
+        var request = _shareUi.PickShare(current.Request.Settings, PlanLimits, current.Request.Source);
         if (request is null || _activeShare != current)
         {
             return;

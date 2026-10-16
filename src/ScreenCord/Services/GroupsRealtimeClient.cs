@@ -35,6 +35,9 @@ public interface IGroupsRealtime
     /// <summary>Amigos ou solicitações de amizade do usuário mudaram no servidor.</summary>
     event EventHandler? FriendsChanged;
 
+    /// <summary>O plano da conta mudou no servidor (ex.: pagamento do Pro confirmado).</summary>
+    event EventHandler<PlanDto>? PlanChanged;
+
     /// <summary>Abre a conexão em segundo plano, tentando de novo até conseguir ou até <see cref="StopAsync"/>.</summary>
     void Start();
 
@@ -92,6 +95,8 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
 
     public event EventHandler? FriendsChanged;
 
+    public event EventHandler<PlanDto>? PlanChanged;
+
     public RealtimeState State => _state;
 
     public void Start()
@@ -125,6 +130,7 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
             });
             connection.On<Guid>(GroupsHubContract.GroupRemoved, groupId => GroupRemoved?.Invoke(this, groupId));
             connection.On(GroupsHubContract.FriendsChanged, () => FriendsChanged?.Invoke(this, EventArgs.Empty));
+            connection.On<PlanDto>(GroupsHubContract.PlanChanged, plan => PlanChanged?.Invoke(this, plan));
 
             _lifetime = new CancellationTokenSource();
             lifetime = _lifetime.Token;
