@@ -50,10 +50,20 @@ public partial class App : Application
         if (!mockup && updater.IsEnabled)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            if (await FindUpdateAsync(updater, TimeSpan.FromSeconds(5)) is { } update && await InstallAsync(updater, update))
+            // Reaberto depois de uma instalação que falhou: não tenta a mesma versão de novo agora, senão entra em loop.
+            var failed = AppVersion.TryParse(builder.Configuration["UpdateFailed"], out var failedVersion) ? failedVersion : null;
+            if (await FindUpdateAsync(updater, TimeSpan.FromSeconds(5)) is { } update)
             {
-                Shutdown();
-                return;
+                if (update.Version == failed)
+                {
+                    _host.Services.GetRequiredService<ILogger<App>>().LogWarning(
+                        "A instalação da versão {Version} falhou; seguindo na {Current}.", update.Version.ToString(3), AppVersion.Current);
+                }
+                else if (await InstallAsync(updater, update))
+                {
+                    Shutdown();
+                    return;
+                }
             }
 
             ShutdownMode = ShutdownMode.OnMainWindowClose;

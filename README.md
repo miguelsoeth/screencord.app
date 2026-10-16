@@ -127,7 +127,7 @@ Nenhum teste acessa o Discord: as respostas são simuladas. Os testes da API sob
 
 ## 5. Publicar
 
-Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-win64.msi` (detalhes abaixo). Como este repositório é privado, a mesma release é criada no repo público [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), que também tem a página de download: <https://miguelsoeth.github.io/screencord/>.
+Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-x64.msi` (detalhes abaixo). Como este repositório é privado, a mesma release é criada no repo público [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), que também tem a página de download: <https://miguelsoeth.github.io/screencord/>.
 
 Para gerar só o executável (único, sem exigir .NET instalado):
 
