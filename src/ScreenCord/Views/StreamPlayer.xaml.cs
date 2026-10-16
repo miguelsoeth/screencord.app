@@ -234,7 +234,11 @@ public partial class StreamPlayer : UserControl
         }
 
         _lastMouse = position;
-        ControlBar.Visibility = Visibility.Visible;
+        if (ControlBar.Visibility != Visibility.Visible || !ControlBar.IsHitTestVisible)
+        {
+            Motion.Show(ControlBar, MotionKind.SlideUp);
+        }
+
         Cursor = null;
         _hideControls.Stop();
 
@@ -254,7 +258,7 @@ public partial class StreamPlayer : UserControl
     private void HideControls()
     {
         _hideControls.Stop();
-        ControlBar.Visibility = Visibility.Collapsed;
+        Motion.Hide(ControlBar, MotionKind.SlideUp);
         if (IsFullScreen)
         {
             Cursor = Cursors.None;

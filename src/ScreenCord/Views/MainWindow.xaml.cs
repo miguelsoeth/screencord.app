@@ -203,8 +203,8 @@ public partial class MainWindow : Window
         viewer.CloseRequested += OnStreamCloseRequested;
         viewer.IsVideoPaused = IsOutOfSight;
         Player.DataContext = viewer;
-        Player.Visibility = Visibility.Visible;
-        NoStreamPanel.Visibility = Visibility.Collapsed;
+        Motion.Hide(NoStreamPanel, MotionKind.Reveal);
+        Motion.Show(Player, MotionKind.Fade);
     }
 
     private void OnStreamCloseRequested(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() =>
@@ -229,7 +229,7 @@ public partial class MainWindow : Window
         Player.ExitFullScreen();
         Player.DataContext = null;
         Player.Visibility = Visibility.Collapsed;
-        NoStreamPanel.Visibility = Visibility.Visible;
+        Motion.Show(NoStreamPanel, MotionKind.Reveal);
         closed?.Invoke();
     }
 
