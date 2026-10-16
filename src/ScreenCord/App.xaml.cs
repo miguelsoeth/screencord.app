@@ -14,6 +14,7 @@ namespace ScreenCord;
 public partial class App : Application
 {
     private IHost? _host;
+    private TrayIcon? _tray;
     private bool _updating;
     private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
 
@@ -73,12 +74,31 @@ public partial class App : Application
         _host.Services.GetRequiredService<CentralApiClient>().ClientOutdated +=
             (_, message) => Dispatcher.BeginInvoke(() => OnClientOutdated(updater, message));
 
-        MainWindow = _host.Services.GetRequiredService<MainWindow>();
-        MainWindow.Show();
+        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;
+
+        // Fechar a janela deixa o app na bandeja; ele só sai pelo "Sair" do menu do ícone.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        mainWindow.HidesOnClose = true;
+        _tray = new TrayIcon(mainWindow.BringToFront, ExitApp);
+
+        mainWindow.Show();
+    }
+
+    /// <summary>Fecha o app de verdade (a janela principal, senão, só iria para a bandeja).</summary>
+    private void ExitApp()
+    {
+        if (MainWindow is MainWindow mainWindow)
+        {
+            mainWindow.HidesOnClose = false;
+        }
+
+        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _tray?.Dispose();
         _host?.Dispose();
         base.OnExit(e);
     }
@@ -98,7 +118,7 @@ public partial class App : Application
         {
             if (updater.IsEnabled && await FindUpdateAsync(updater, TimeSpan.FromSeconds(20)) is { } update && await InstallAsync(updater, update))
             {
-                Shutdown();
+                ExitApp();
                 return;
             }
 

@@ -57,14 +57,46 @@ public partial class MainWindow : Window
         ProfileError.SizeChanged += (_, _) => UpdateStageSize();
         ProfileError.IsVisibleChanged += (_, _) => UpdateStageSize();
 
-        // Minimizada, ninguém vê o vídeo: só o áudio continua, poupando a banda do servidor.
-        StateChanged += (_, _) =>
+        // Minimizada ou na bandeja, ninguém vê o vídeo: só o áudio continua, poupando a banda do servidor.
+        StateChanged += (_, _) => UpdateVideoPaused();
+        IsVisibleChanged += (_, _) => UpdateVideoPaused();
+    }
+
+    /// <summary>Fechar a janela só a esconde (o app continua na bandeja). Falso para fechar de verdade.</summary>
+    public bool HidesOnClose { get; set; }
+
+    private bool IsOutOfSight => WindowState == WindowState.Minimized || !IsVisible;
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (HidesOnClose)
         {
-            if (_watching is { } viewer)
-            {
-                viewer.IsVideoPaused = WindowState == WindowState.Minimized;
-            }
-        };
+            e.Cancel = true;
+            Player.ExitFullScreen();
+            Hide();
+        }
+
+        base.OnClosing(e);
+    }
+
+    /// <summary>Mostra a janela (também quando está na bandeja ou minimizada) e a traz para a frente.</summary>
+    public void BringToFront()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+    }
+
+    private void UpdateVideoPaused()
+    {
+        if (_watching is { } viewer)
+        {
+            viewer.IsVideoPaused = IsOutOfSight;
+        }
     }
 
     private void OnMinimizeClick(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
@@ -169,7 +201,7 @@ public partial class MainWindow : Window
         _watching = viewer;
         _watchingClosed = closed;
         viewer.CloseRequested += OnStreamCloseRequested;
-        viewer.IsVideoPaused = WindowState == WindowState.Minimized;
+        viewer.IsVideoPaused = IsOutOfSight;
         Player.DataContext = viewer;
         Player.Visibility = Visibility.Visible;
         NoStreamPanel.Visibility = Visibility.Collapsed;
@@ -212,12 +244,7 @@ public partial class MainWindow : Window
         // Depois do login no navegador, traz o aplicativo de volta para a frente.
         if (e.PropertyName == nameof(MainViewModel.IsConnected) && _viewModel.IsConnected)
         {
-            if (WindowState == WindowState.Minimized)
-            {
-                WindowState = WindowState.Normal;
-            }
-
-            Activate();
+            BringToFront();
         }
     }
 }
