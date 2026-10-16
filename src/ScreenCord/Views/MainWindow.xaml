@@ -13,7 +13,7 @@
         MinWidth="820" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         StateChanged="OnWindowStateChanged"
-        Background="{StaticResource WindowBrush}"
+        Background="{StaticResource WindowBackgroundBrush}"
         Foreground="{StaticResource TextBrush}"
         FontFamily="Segoe UI"
         UseLayoutRounding="True"
@@ -613,7 +613,7 @@
             </Grid>
 
             <!-- Amigos: centralizada sobre a tela esmaecida; clicar fora ou Esc fecha. -->
-            <Grid Background="#B3000000" DataContext="{Binding Friends}"
+            <Grid Background="#BF050508" DataContext="{Binding Friends}"
                   Visibility="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}"
                   MouseLeftButtonDown="OnFriendsOverlayMouseDown">
                 <Grid.InputBindings>
@@ -901,7 +901,7 @@
             </Grid>
 
             <!-- Criar grupo: centralizada sobre a tela esmaecida; clicar fora ou Esc cancela. -->
-            <Grid Background="#B3000000" DataContext="{Binding Groups}"
+            <Grid Background="#BF050508" DataContext="{Binding Groups}"
                   Visibility="{Binding IsCreating, Converter={StaticResource BoolToVisibility}}"
                   MouseLeftButtonDown="OnCreateGroupOverlayMouseDown">
                 <Grid.InputBindings>
@@ -945,7 +945,7 @@
             </Grid>
 
             <!-- Confirmação de sair do grupo ou de excluí-lo -->
-            <Grid Background="#B3000000" DataContext="{Binding Groups.ConfirmingGroup}"
+            <Grid Background="#BF050508" DataContext="{Binding Groups.ConfirmingGroup}"
                   Visibility="{Binding DataContext.Groups.IsConfirming, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
                 <Grid.InputBindings>
                     <KeyBinding Key="Escape" Command="{Binding CancelConfirmationCommand}" />
@@ -988,7 +988,7 @@
             </Grid>
 
             <!-- Confirmação de desconexão -->
-            <Grid Background="#B3000000"
+            <Grid Background="#BF050508"
                   Visibility="{Binding IsConfirmingDisconnect, Converter={StaticResource BoolToVisibility}}">
                 <Border Style="{StaticResource Card}" Padding="24" Margin="24" MaxWidth="400"
                         HorizontalAlignment="Center" VerticalAlignment="Center"

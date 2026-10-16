@@ -13,7 +13,7 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{StaticResource WindowBrush}"
+        Background="{StaticResource WindowBackgroundBrush}"
         BorderBrush="{StaticResource BorderBrush}"
         BorderThickness="1"
         Foreground="{StaticResource TextBrush}"
