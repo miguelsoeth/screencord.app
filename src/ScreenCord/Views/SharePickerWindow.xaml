@@ -237,12 +237,7 @@
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
-                        <!-- Na tela inteira o áudio é o do sistema todo: o asterisco remete à nota abaixo. -->
-                        <TextBlock Text="*" FontSize="10" Margin="1,-2,0,0" VerticalAlignment="Top" Foreground="{StaticResource MutedTextBrush}"
-                                   Visibility="{Binding IsScreenKind, Converter={StaticResource BoolToVisibility}}" />
-                    </StackPanel>
+                    <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
                     <TextBlock Text="Só o áudio do programa da janela." FontSize="11" Foreground="{StaticResource MutedTextBrush}"
                                Visibility="{Binding IsWindowKind, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"
