@@ -107,6 +107,10 @@
         <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <!-- As janelas usam o modo Display, que encaixa os glifos nos pixels e deixa texto grande serrilhado; o Ideal
+             mantém as curvas, e a suavização em tons de cinza fica limpa sobre o fundo escuro. -->
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="Grayscale" />
     </Style>
 
     <!-- Transições compartilhadas pelos templates. Cada template nomeia as partes que elas animam: "Hover" (camada do
