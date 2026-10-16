@@ -42,10 +42,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # As notas são lidas com o token do job: o PUBLIC_RELEASES_TOKEN só enxerga o repo público.
+      - name: Ler as notas da release
+        run: gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # O repo do app é privado: o download público (e a landing page) vem do repo miguelsoeth/screencord.
+      # É a release "latest" de lá que o app instalado baixa na atualização automática.
       - name: Publicar no repo público de downloads
         run: |
-          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
           gh release create "$GITHUB_REF_NAME" dist/*.msi --repo miguelsoeth/screencord --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
