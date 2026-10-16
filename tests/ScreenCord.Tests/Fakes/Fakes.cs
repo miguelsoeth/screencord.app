@@ -11,6 +11,8 @@ namespace ScreenCord.Tests.Fakes;
 public sealed record RecordedRequest(HttpMethod Method, Uri Uri, string? Authorization, string Body)
 {
     public string? Form(string key) => HttpUtility.ParseQueryString(Body)[key];
+
+    public Dictionary<string, string> Headers { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>Responde às requisições com uma fila de respostas pré-definidas e grava o que foi enviado.</summary>
@@ -45,7 +47,10 @@ public sealed class StubHttpHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
-        Requests.Add(new RecordedRequest(request.Method, request.RequestUri!, request.Headers.Authorization?.ToString(), body));
+        Requests.Add(new RecordedRequest(request.Method, request.RequestUri!, request.Headers.Authorization?.ToString(), body)
+        {
+            Headers = request.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase),
+        });
 
         if (_responses.Count == 0)
         {

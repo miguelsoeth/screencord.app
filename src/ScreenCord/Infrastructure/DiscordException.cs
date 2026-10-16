@@ -26,6 +26,8 @@ public enum DiscordErrorKind
     InvalidResponse,
     /// <summary>A API central recusou a operação; <see cref="Exception.Message"/> é o texto para o usuário.</summary>
     Rejected,
+    /// <summary>A API central não aceita mais esta versão do aplicativo (HTTP 426); o aplicativo se atualiza.</summary>
+    ClientOutdated,
     Unexpected,
 }
 

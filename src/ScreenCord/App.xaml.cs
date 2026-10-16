@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using ScreenCord.Infrastructure;
 using ScreenCord.Mockup;
+using ScreenCord.Services;
 using ScreenCord.Views;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,8 +14,10 @@ namespace ScreenCord;
 public partial class App : Application
 {
     private IHost? _host;
+    private bool _updating;
+    private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -28,7 +31,8 @@ public partial class App : Application
         builder.Configuration.AddCommandLine(e.Args);
         builder.Services.AddScreenCord(builder.Configuration);
         // Ambiente de mockup (DOTNET_ENVIRONMENT=Mockup, escolhido no screencord.ps1): dados falsos, sem Discord e sem API.
-        if (builder.Environment.IsEnvironment("Mockup"))
+        var mockup = builder.Environment.IsEnvironment("Mockup");
+        if (mockup)
         {
             builder.Services.AddScreenCordMockup();
         }
@@ -36,6 +40,24 @@ public partial class App : Application
         _host = builder.Build();
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+        // Sempre na versão mais recente: se houver uma nova, instala e reabre antes de mostrar a janela.
+        var updater = _host.Services.GetRequiredService<IAppUpdater>();
+        if (!mockup && updater.IsEnabled)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            if (await FindUpdateAsync(updater, TimeSpan.FromSeconds(5)) is { } update && await InstallAsync(updater, update))
+            {
+                Shutdown();
+                return;
+            }
+
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+        }
+
+        // A API deixou de aceitar esta versão com o app aberto (ela subiu a versão mínima).
+        _host.Services.GetRequiredService<CentralApiClient>().ClientOutdated +=
+            (_, message) => Dispatcher.BeginInvoke(() => OnClientOutdated(updater, message));
 
         MainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow.Show();
@@ -45,6 +67,69 @@ public partial class App : Application
     {
         _host?.Dispose();
         base.OnExit(e);
+    }
+
+    private async void OnClientOutdated(IAppUpdater updater, string message)
+    {
+        // Várias requisições recebem 426 ao mesmo tempo: uma tentativa por vez, e no máximo a cada 10 minutos.
+        var now = DateTimeOffset.UtcNow;
+        if (_updating || now - _lastOutdatedCheck < TimeSpan.FromMinutes(10))
+        {
+            return;
+        }
+
+        _updating = true;
+        _lastOutdatedCheck = now;
+        try
+        {
+            if (updater.IsEnabled && await FindUpdateAsync(updater, TimeSpan.FromSeconds(20)) is { } update && await InstallAsync(updater, update))
+            {
+                Shutdown();
+                return;
+            }
+
+            // Sem versão nova ainda (a release do app sai logo depois da API) ou sem acesso ao GitHub.
+            MessageBox.Show(MainWindow, message, "ScreenCord", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        finally
+        {
+            _updating = false;
+        }
+    }
+
+    private static async Task<AppUpdate?> FindUpdateAsync(IAppUpdater updater, TimeSpan timeout)
+    {
+        using var cancellation = new CancellationTokenSource(timeout);
+        try
+        {
+            return await updater.FindUpdateAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Baixa e agenda a instalação mostrando o progresso; false se falhar (o app segue na versão atual).</summary>
+    private async Task<bool> InstallAsync(IAppUpdater updater, AppUpdate update)
+    {
+        var version = update.Version.ToString(3);
+        var window = new UpdateWindow();
+        window.SetStatus($"Baixando a versão {version}…", 0);
+        window.Show();
+        try
+        {
+            var progress = new Progress<double>(value => window.SetStatus($"Baixando a versão {version}… {value:P0}", value));
+            await updater.DownloadAndScheduleInstallAsync(update, progress);
+            window.SetStatus($"Instalando a versão {version}. O ScreenCord abre de novo em seguida.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _host?.Services.GetService<ILogger<App>>()?.LogError(ex, "Falha ao atualizar para a versão {Version}.", version);
+            window.Close();
+            return false;
+        }
     }
 
     // Última barreira: erros não tratados pelos ViewModels são registrados e mostrados sem derrubar o aplicativo.
