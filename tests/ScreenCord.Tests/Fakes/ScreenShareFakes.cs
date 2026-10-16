@@ -18,6 +18,9 @@ public sealed class FakeScreenShareService : IScreenShareService
 
     public Exception? StartFailure { get; set; }
 
+    /// <summary>Simula a captura de áudio falhando: o compartilhamento começa sem som e com este aviso.</summary>
+    public string? AudioFailure { get; set; }
+
     public Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default)
     {
         Calls.Add($"{(replacing is null ? "start" : "change")}:{groupId}:{request.Settings.Height}p{request.Settings.Fps}:{request.Settings.BitrateKbps}");
@@ -34,8 +37,11 @@ public sealed class FakeScreenShareService : IScreenShareService
 
         var settings = request.Settings;
         var share = new FakeActiveShare(
-            new ScreenShareDto(FakeGroupsService.Me.UserId, settings.Height * 16 / 9, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio),
-            request);
+            new ScreenShareDto(FakeGroupsService.Me.UserId, settings.Height * 16 / 9, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio && AudioFailure is null),
+            request)
+        {
+            AudioWarning = settings.ShareAudio ? AudioFailure : null,
+        };
         Started.Add(share);
         return Task.FromResult<IActiveScreenShare>(share);
     }
@@ -54,6 +60,8 @@ public sealed class FakeActiveShare(ScreenShareDto share, ShareRequest request) 
     public ScreenShareDto Share { get; } = share;
 
     public ShareRequest Request { get; } = request;
+
+    public string? AudioWarning { get; set; }
 
     public bool IsStopped { get; private set; }
 

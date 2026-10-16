@@ -30,6 +30,8 @@ public partial class App : Application
         // A linha de comando volta a valer por último, acima do appsettings.Local.json (o screencord.ps1 escolhe a API assim).
         builder.Configuration.AddCommandLine(e.Args);
         builder.Services.AddScreenCord(builder.Configuration);
+        // Na versão instalada não há console: o arquivo é o que dá para pedir a quem relata um problema.
+        builder.Logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultFolder));
         // Ambiente de mockup (DOTNET_ENVIRONMENT=Mockup, escolhido no screencord.ps1): dados falsos, sem Discord e sem API.
         var mockup = builder.Environment.IsEnvironment("Mockup");
         if (mockup)
@@ -40,6 +42,8 @@ public partial class App : Application
         _host = builder.Build();
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+        _host.Services.GetRequiredService<ILogger<App>>().LogInformation(
+            "ScreenCord {Version} iniciado ({Environment}, {OS}).", AppVersion.Current, builder.Environment.EnvironmentName, Environment.OSVersion.VersionString);
 
         // Sempre na versão mais recente: se houver uma nova, instala e reabre antes de mostrar a janela.
         var updater = _host.Services.GetRequiredService<IAppUpdater>();
