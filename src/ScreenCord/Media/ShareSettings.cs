@@ -2,44 +2,47 @@ using ScreenCord.Contracts;
 
 namespace ScreenCord.Media;
 
-/// <summary>Combinação de resolução e fps oferecida no compartilhamento.</summary>
-public enum ShareQuality
+public enum ShareResolution
 {
-    P540Fps60,
-    P720Fps30,
+    P540 = 540,
+    P720 = 720,
 
     /// <summary>Reservada para um plano pago: aparece desligada na escolha e a API ainda não aceita.</summary>
-    P1080Fps60,
+    P1080 = 1080,
+}
+
+public enum ShareFrameRate
+{
+    Fps30 = 30,
+    Fps60 = 60,
 }
 
 /// <summary>
-/// Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, com áudio. A taxa de bits não é escolhida:
-/// começa no teto (<see cref="ScreenShareLimits.MaxBitrateKbps"/>) e o <see cref="BitrateController"/> a adapta à rede.
+/// Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, com áudio. 60 fps só em 540p
+/// (<see cref="ScreenShareLimits.IsValidQuality"/>). A taxa de bits não é escolhida: começa no teto
+/// (<see cref="ScreenShareLimits.MaxBitrateKbps"/>) e o <see cref="BitrateController"/> a adapta à rede.
 /// </summary>
 public sealed record ShareSettings(
-    ShareQuality Quality = ShareQuality.P720Fps30,
+    ShareResolution Resolution = ShareResolution.P720,
+    ShareFrameRate FrameRate = ShareFrameRate.Fps30,
     bool ShareAudio = true)
 {
     public static ShareSettings Default { get; } = new();
 
-    public int Height => HeightOf(Quality);
+    public int Height => (int)Resolution;
 
-    public int Fps => FpsOf(Quality);
+    public int Fps => (int)FrameRate;
 
     /// <summary>Taxa com que o compartilhamento começa e que é anunciada na sala.</summary>
     public int BitrateKbps => ScreenShareLimits.MaxBitrateKbps;
 
-    public static int HeightOf(ShareQuality quality) => quality switch
-    {
-        ShareQuality.P540Fps60 => 540,
-        ShareQuality.P720Fps30 => 720,
-        _ => 1080,
-    };
-
-    public static int FpsOf(ShareQuality quality) => quality == ShareQuality.P720Fps30 ? 30 : 60;
+    /// <summary>A resolução tem ao menos um fps dentro dos limites da API.</summary>
+    public static bool IsAvailable(ShareResolution resolution) =>
+        Enum.GetValues<ShareFrameRate>().Any(fps => IsAvailable(resolution, fps));
 
     /// <summary>A combinação está dentro dos limites da API (as outras ficam desligadas na escolha).</summary>
-    public static bool IsAvailable(ShareQuality quality) => ScreenShareLimits.IsValidQuality(HeightOf(quality), FpsOf(quality));
+    public static bool IsAvailable(ShareResolution resolution, ShareFrameRate frameRate) =>
+        ScreenShareLimits.IsValidQuality((int)resolution, (int)frameRate);
 
     /// <summary>Resumo para a interface: "720p · 30 fps".</summary>
     public string Summary => $"{Height}p · {Fps} fps";

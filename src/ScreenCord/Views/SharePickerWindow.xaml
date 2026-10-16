@@ -206,10 +206,10 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 540p a 60 fps ou 720p a 30 fps; 1080p aparece desligado (plano pago). A taxa de bits é automática. -->
-            <StackPanel Grid.ColumnSpan="2">
-                <TextBlock Text="QUALIDADE" Style="{StaticResource FieldLabel}" />
-                <ItemsControl ItemsSource="{Binding Qualities.Options}" Focusable="False">
+            <!-- 540p a 30 ou 60 fps, 720p só a 30 fps; 1080p aparece desligado (plano pago). A taxa de bits é automática. -->
+            <StackPanel Margin="0,0,24,0">
+                <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
@@ -217,15 +217,34 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Quality" Content="{Binding Label}"
-                                         IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsAvailable, Mode=OneTime}"
-                                         ToolTip="{Binding Detail, Mode=OneTime}" ToolTipService.ShowOnDisabled="True" />
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Resolution" Content="{Binding Label}"
+                                         IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsAvailable}"
+                                         ToolTip="{Binding Detail}" ToolTipService.ShowOnDisabled="True" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="{Binding BitrateHint, Mode=OneTime}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
-                           Margin="0,6,0,0" TextWrapping="Wrap" />
             </StackPanel>
+
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="TAXA DE QUADROS" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding FrameRates.Options}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="FrameRate" Content="{Binding Label}"
+                                         IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsAvailable}"
+                                         ToolTip="{Binding Detail}" ToolTipService.ShowOnDisabled="True" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding BitrateHint, Mode=OneTime}" FontSize="11"
+                       Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">

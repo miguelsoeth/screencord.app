@@ -44,44 +44,77 @@ public class ScreenShareViewModelTests
         var request = picker.BuildRequest()!;
 
         Assert.Equal(FakeScreenShareUi.Screen, request.Source);
-        Assert.Equal(new ShareSettings(ShareQuality.P720Fps30, true), request.Settings);
+        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true), request.Settings);
         Assert.Equal(3000, request.Settings.BitrateKbps);
-        Assert.True(picker.Qualities.Options.Single(o => o.Value == ShareQuality.P720Fps30).IsSelected);
+        Assert.True(picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P720).IsSelected);
         Assert.Equal("A taxa de bits se ajusta à sua conexão, até 3 Mbps.", picker.BitrateHint);
     }
 
     [Fact]
-    public void Qualidade_540p60Ou720p30_1080pDesligado()
+    public void Resolucao_1080pApareceDesligado()
     {
         var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => []);
 
-        Assert.Equal(["540p · 60 fps", "720p · 30 fps", "1080p · 60 fps"], picker.Qualities.Options.Select(o => o.Label));
-        Assert.Equal([true, true, false], picker.Qualities.Options.Select(o => o.IsAvailable));
+        Assert.Equal(["540p", "720p", "1080p"], picker.Resolutions.Options.Select(o => o.Label));
+        Assert.Equal([true, true, false], picker.Resolutions.Options.Select(o => o.IsAvailable));
 
-        var fullHd = picker.Qualities.Options.Single(o => o.Value == ShareQuality.P1080Fps60);
+        var fullHd = picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P1080);
         Assert.Equal("Em breve no plano pago.", fullHd.Detail);
         fullHd.IsSelected = true;
 
         Assert.False(fullHd.IsSelected);
-        Assert.Equal(ShareQuality.P720Fps30, picker.BuildRequest()!.Settings.Quality);
+        Assert.Equal(ShareResolution.P720, picker.BuildRequest()!.Settings.Resolution);
+    }
 
-        // Uma configuração fora do plano (ex.: de outra versão) volta ao padrão.
-        var reopened = new SharePickerViewModel(new ShareSettings(ShareQuality.P1080Fps60), () => [FakeScreenShareUi.Screen], () => []);
-        Assert.Equal(ShareQuality.P720Fps30, reopened.Qualities.Selected);
+    [Fact]
+    public void Fps_540pPermite30Ou60_720pSo30()
+    {
+        var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => []);
+        var fps60 = picker.FrameRates.Options.Single(o => o.Value == ShareFrameRate.Fps60);
+
+        // 720p: 60 fps desligado.
+        Assert.False(fps60.IsAvailable);
+        Assert.Equal("60 fps só em 540p.", fps60.Detail);
+        fps60.IsSelected = true;
+        Assert.Equal(ShareFrameRate.Fps30, picker.FrameRates.Selected);
+
+        // 540p: os dois.
+        picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P540).IsSelected = true;
+        Assert.True(fps60.IsAvailable);
+        Assert.Null(fps60.Detail);
+        fps60.IsSelected = true;
+        Assert.Equal(new ShareSettings(ShareResolution.P540, ShareFrameRate.Fps60, true), picker.BuildRequest()!.Settings);
+
+        // De volta a 720p, o 60 fps marcado passa para 30.
+        picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P720).IsSelected = true;
+        Assert.False(fps60.IsAvailable);
+        Assert.True(picker.FrameRates.Options.Single(o => o.Value == ShareFrameRate.Fps30).IsSelected);
+        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true), picker.BuildRequest()!.Settings);
     }
 
     [Theory]
-    [InlineData(ShareQuality.P540Fps60, 540, 60, true)]
-    [InlineData(ShareQuality.P720Fps30, 720, 30, true)]
-    [InlineData(ShareQuality.P1080Fps60, 1080, 60, false)]
-    public void Qualidade_DentroDosLimitesDaApi(ShareQuality quality, int height, int fps, bool available)
+    [InlineData(ShareResolution.P1080, ShareFrameRate.Fps30)]
+    [InlineData(ShareResolution.P720, ShareFrameRate.Fps60)]
+    public void ConfiguracaoForaDosLimites_VoltaAoPadrao(ShareResolution resolution, ShareFrameRate frameRate)
     {
-        var settings = new ShareSettings(quality);
+        var picker = new SharePickerViewModel(new ShareSettings(resolution, frameRate), () => [FakeScreenShareUi.Screen], () => []);
 
-        Assert.Equal(height, settings.Height);
-        Assert.Equal(fps, settings.Fps);
-        Assert.Equal(available, ShareSettings.IsAvailable(quality));
-        Assert.Equal(available, ScreenShareLimits.IsValid(new ScreenShareStart(height * 16 / 9, height, fps, settings.BitrateKbps, true)));
+        Assert.Equal(ShareSettings.Default, picker.BuildRequest()!.Settings);
+    }
+
+    [Theory]
+    [InlineData(ShareResolution.P540, ShareFrameRate.Fps30, true)]
+    [InlineData(ShareResolution.P540, ShareFrameRate.Fps60, true)]
+    [InlineData(ShareResolution.P720, ShareFrameRate.Fps30, true)]
+    [InlineData(ShareResolution.P720, ShareFrameRate.Fps60, false)]
+    [InlineData(ShareResolution.P1080, ShareFrameRate.Fps30, false)]
+    [InlineData(ShareResolution.P1080, ShareFrameRate.Fps60, false)]
+    public void Combinacoes_IguaisAosLimitesDaApi(ShareResolution resolution, ShareFrameRate frameRate, bool available)
+    {
+        var settings = new ShareSettings(resolution, frameRate);
+
+        Assert.Equal(available, ShareSettings.IsAvailable(resolution, frameRate));
+        Assert.Equal(available, ScreenShareLimits.IsValid(new ScreenShareStart(settings.Height * 16 / 9, settings.Height, settings.Fps, settings.BitrateKbps, true)));
     }
 
     [Fact]
@@ -107,11 +140,12 @@ public class ScreenShareViewModelTests
         Assert.False(picker.CanShare);
 
         picker.SelectedSource = window;
-        picker.Qualities.Options.Single(o => o.Value == ShareQuality.P540Fps60).IsSelected = true;
+        picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P540).IsSelected = true;
+        picker.FrameRates.Options.Single(o => o.Value == ShareFrameRate.Fps60).IsSelected = true;
         picker.ShareAudio = false;
 
-        Assert.Equal(new ShareRequest(window, new ShareSettings(ShareQuality.P540Fps60, false)), picker.BuildRequest());
-        Assert.False(picker.Qualities.Options.Single(o => o.Value == ShareQuality.P720Fps30).IsSelected);
+        Assert.Equal(new ShareRequest(window, new ShareSettings(ShareResolution.P540, ShareFrameRate.Fps60, false)), picker.BuildRequest());
+        Assert.False(picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P720).IsSelected);
     }
 
     [Fact]
@@ -136,7 +170,7 @@ public class ScreenShareViewModelTests
     public async Task Compartilhar_ComeçaComAEscolhaEGuardaAConfiguracaoParaAProximaVez()
     {
         var (vm, group) = await InRoomAsync();
-        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Quality = ShareQuality.P540Fps60 });
+        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Resolution = ShareResolution.P540, FrameRate = ShareFrameRate.Fps60 });
 
         await vm.StartShareCommand.ExecuteAsync();
 
@@ -153,7 +187,7 @@ public class ScreenShareViewModelTests
         Assert.True(_share.Started[0].IsStopped);
 
         await vm.StartShareCommand.ExecuteAsync();
-        Assert.Equal(ShareQuality.P540Fps60, _ui.Picks[1].Quality);
+        Assert.Equal((ShareResolution.P540, ShareFrameRate.Fps60), (_ui.Picks[1].Resolution, _ui.Picks[1].FrameRate));
     }
 
     [Fact]
@@ -209,7 +243,7 @@ public class ScreenShareViewModelTests
         Assert.True(vm.CanChangeShare);
         var first = _share.Started[0];
 
-        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Quality = ShareQuality.P540Fps60 });
+        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Resolution = ShareResolution.P540, FrameRate = ShareFrameRate.Fps60 });
         await vm.ChangeShareCommand.ExecuteAsync();
 
         // A escolha abre com a configuração e a origem atuais.
@@ -238,7 +272,7 @@ public class ScreenShareViewModelTests
         await vm.ChangeShareCommand.ExecuteAsync();
         Assert.Single(_share.Calls);
 
-        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Quality = ShareQuality.P540Fps60 });
+        _ui.OnPick = settings => new ShareRequest(FakeScreenShareUi.Screen, settings with { Resolution = ShareResolution.P540, FrameRate = ShareFrameRate.Fps60 });
         _share.StartFailure = new InvalidOperationException("Nenhum encoder H.264 aceitou a configuração.");
         await vm.ChangeShareCommand.ExecuteAsync();
 
