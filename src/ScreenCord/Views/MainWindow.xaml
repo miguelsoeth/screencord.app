@@ -76,7 +76,7 @@
 
             <!-- Verificação da sessão salva -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding IsInitializing, Converter={StaticResource BoolToVisibility}}">
+                        views:Motion.IsShown="{Binding IsInitializing}">
                 <TextBlock Text="Carregando sessão…" Style="{StaticResource MutedText}" HorizontalAlignment="Center" />
                 <ProgressBar IsIndeterminate="True" Width="200" Height="4" Margin="0,12,0,0"
                              Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0" />
@@ -84,7 +84,7 @@
 
             <!-- Tela inicial -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding ShowLogin, Converter={StaticResource BoolToVisibility}}">
+                          views:Motion.IsShown="{Binding ShowLogin}" views:Motion.Kind="Overlay">
                 <Border Style="{StaticResource Card}" Padding="36" Margin="24" MaxWidth="440"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
@@ -108,7 +108,7 @@
                         </StackPanel>
 
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,18,0,0"
-                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                             <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
                         </Border>
                     </StackPanel>
@@ -119,7 +119,7 @@
             <!-- Desabilitada enquanto a confirmação está aberta, para o teclado não alcançar os controles por trás. -->
             <!-- A largura da coluna da esquerda e a altura da tela são calculadas no code-behind para a tela ficar em 16:9. -->
             <Grid x:Name="MainGrid" Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center"
-                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}}"
+                  views:Motion.IsShown="{Binding IsConnected}"
                   IsEnabled="{Binding IsMainInteractive}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -178,7 +178,8 @@
                                     <!-- Solicitações recebidas esperando resposta. -->
                                     <Ellipse Width="10" Height="10" Fill="{StaticResource DangerBrush}" Stroke="{StaticResource WindowBrush}" StrokeThickness="2"
                                              HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0" IsHitTestVisible="False"
-                                             Visibility="{Binding Friends.HasIncomingRequests, Converter={StaticResource BoolToVisibility}}" />
+                                             RenderTransformOrigin="0.5,0.5"
+                                             views:Motion.IsShown="{Binding Friends.HasIncomingRequests}" views:Motion.Kind="Pop" />
                                 </Grid>
                                 <Button Margin="2,0,0,0"
                                         Command="{Binding RefreshProfileCommand}"
@@ -236,7 +237,7 @@
 
                 <!-- Erro do perfil -->
                 <Border x:Name="ProfileError" Grid.Row="1" Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
-                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                        views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                     <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
                 </Border>
 
@@ -302,7 +303,7 @@
                         <!-- Uma linha por grupo: [seta] [indicador] nome ...... [👤 conectados/integrantes],
                              com quem está conectado listado logo abaixo. -->
                         <DataTemplate x:Key="GroupRowTemplate">
-                            <StackPanel>
+                            <StackPanel views:Motion.AppearOnLoad="True">
                             <Border x:Name="Row" CornerRadius="6" Margin="0,1" Background="Transparent">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -310,6 +311,12 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
+
+                                    <!-- Fundo do hover e da sala atual, acesos aos poucos. -->
+                                    <Border x:Name="RowHover" Grid.ColumnSpan="3" CornerRadius="6" Opacity="0"
+                                            Background="{StaticResource SurfaceRaisedBrush}" />
+                                    <Border x:Name="RowCurrent" Grid.ColumnSpan="3" CornerRadius="6" Opacity="0"
+                                            Background="{StaticResource SurfaceRaisedBrush}" />
 
                                     <!-- Recolhe/expande a lista de conectados; só aparece quando há alguém na sala. -->
                                     <Button x:Name="ExpandButton" Style="{StaticResource GhostIconButton}" Width="18" Height="22" Margin="2,0,0,0"
@@ -337,7 +344,12 @@
 
                                             <!-- Indicador: cinza = vazio, verde = há gente na sala, anel = você está nela. -->
                                             <Grid Width="14" Height="14" VerticalAlignment="Center">
-                                                <Ellipse x:Name="Ring" Stroke="{StaticResource SuccessBrush}" StrokeThickness="1.5" Visibility="Collapsed" />
+                                                <Ellipse x:Name="Ring" Stroke="{StaticResource SuccessBrush}" StrokeThickness="1.5" Opacity="0"
+                                                         RenderTransformOrigin="0.5,0.5">
+                                                    <Ellipse.RenderTransform>
+                                                        <ScaleTransform ScaleX="0.4" ScaleY="0.4" />
+                                                    </Ellipse.RenderTransform>
+                                                </Ellipse>
                                                 <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource IdleDotBrush}" />
                                             </Grid>
                                             <TextBlock x:Name="GroupName" Grid.Column="1" Text="{Binding Name}" Margin="8,0,0,0"
@@ -359,11 +371,12 @@
                                     </ToggleButton>
 
                                     <!-- Popup de integrantes, aberto ao lado esquerdo da contagem. -->
-                                    <Popup x:Name="MembersPopup" IsOpen="{Binding IsMembersOpen}" StaysOpen="False"
+                                    <!-- Abre e fecha animado; o clique fora, o Esc e mexer na janela fecham (Motion.IsOpen). -->
+                                    <Popup x:Name="MembersPopup" views:Motion.IsOpen="{Binding IsMembersOpen}" StaysOpen="True"
                                            PlacementTarget="{Binding ElementName=CountToggle}" Placement="Left"
                                            HorizontalOffset="-6" VerticalOffset="-14"
-                                           AllowsTransparency="True" PopupAnimation="Fade">
-                                        <Border Style="{StaticResource Card}" Padding="14" Margin="14" Width="292"
+                                           AllowsTransparency="True">
+                                        <Border Style="{StaticResource Card}" Padding="14" Margin="14" Width="292" RenderTransformOrigin="1,0"
                                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                                 TextElement.Foreground="{StaticResource TextBrush}">
                                             <Border.Effect>
@@ -374,7 +387,7 @@
                                                 <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
 
                                                 <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
-                                                        Visibility="{Binding HasMembersError, Converter={StaticResource BoolToVisibility}}">
+                                                        views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
                                                     <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
                                                 </Border>
 
@@ -403,7 +416,7 @@
 
                             <!-- Conectados à sala, recuados sob o nome do grupo -->
                             <ItemsControl ItemsSource="{Binding ConnectedUsers}" Margin="40,0,4,4" Focusable="False"
-                                          Visibility="{Binding ShowConnectedUsers, Converter={StaticResource BoolToVisibility}}">
+                                          views:Motion.IsShown="{Binding ShowConnectedUsers}" views:Motion.Kind="SlideDown">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid Margin="0,2">
@@ -447,22 +460,85 @@
                                     <Setter TargetName="ExpandButton" Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                    <Setter TargetName="ExpandChevron" Property="RenderTransform">
-                                        <Setter.Value>
-                                            <RotateTransform Angle="-90" />
-                                        </Setter.Value>
-                                    </Setter>
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ExpandChevron"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                 To="-90" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ExpandChevron"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                 To="0" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding HasConnected}" Value="True">
                                     <Setter TargetName="Dot" Property="Fill" Value="{StaticResource SuccessBrush}" />
                                 </DataTrigger>
                                 <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
                                     <Setter TargetName="GroupName" Property="Foreground" Value="{StaticResource TextBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RowHover" Storyboard.TargetProperty="Opacity"
+                                                                 To="1" Duration="0:0:0.12" EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RowHover" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.2" EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                    <Setter TargetName="Row" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
-                                    <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
+                                    <!-- Entrou na sala: o fundo acende e o anel surge em volta do indicador. -->
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RowCurrent" Storyboard.TargetProperty="Opacity"
+                                                                 To="1" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity"
+                                                                 To="1" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.5" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.5" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RowCurrent" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.15" EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.4" Duration="0:0:0.15" EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.4" Duration="0:0:0.15" EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
                                     <Setter TargetName="Dot" Property="Fill" Value="{StaticResource SuccessBrush}" />
                                     <Setter TargetName="Dot" Property="Width" Value="6" />
                                     <Setter TargetName="Dot" Property="Height" Value="6" />
@@ -502,9 +578,9 @@
                         <!-- Avisos: conexão em tempo real e erros -->
                         <StackPanel Grid.Row="2">
                             <TextBlock Text="{Binding RealtimeStatusText}" Style="{StaticResource MutedText}" FontSize="12" Margin="6,0,6,6"
-                                       Visibility="{Binding HasRealtimeStatus, Converter={StaticResource BoolToVisibility}}" />
+                                       views:Motion.IsShown="{Binding HasRealtimeStatus}" views:Motion.Kind="SlideDown" />
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"
-                                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                                    views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                                 <StackPanel>
                                     <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="12" />
                                     <Button Content="Tentar novamente" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
@@ -529,11 +605,11 @@
 
                         <!-- Sala atual -->
                         <Border Grid.Row="4" Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="10,8" Margin="0,8,0,0"
-                                Visibility="{Binding IsInGroup, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding IsInGroup}" views:Motion.Kind="SlideUp">
                             <StackPanel>
                             <!-- Compartilhamento da sua tela -->
                             <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="8,6" Margin="0,0,0,8"
-                                    Visibility="{Binding IsSharing, Converter={StaticResource BoolToVisibility}}">
+                                    views:Motion.IsShown="{Binding IsSharing}" views:Motion.Kind="SlideUp">
                                 <!-- Título na largura toda; abaixo, a configuração à esquerda e as ações à direita. -->
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -574,10 +650,10 @@
                                 </Grid>
                             </Border>
                             <TextBlock Text="{Binding ShareProgressText}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
-                                       Visibility="{Binding IsStartingShare, Converter={StaticResource BoolToVisibility}}" />
+                                       views:Motion.IsShown="{Binding IsStartingShare}" views:Motion.Kind="Reveal" />
                             <TextBlock Text="{Binding ShareMessage}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
                                        Foreground="{StaticResource DangerBrush}"
-                                       Visibility="{Binding HasShareMessage, Converter={StaticResource BoolToVisibility}}" />
+                                       views:Motion.IsShown="{Binding HasShareMessage}" views:Motion.Kind="SlideUp" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -613,8 +689,8 @@
             </Grid>
 
             <!-- Amigos: centralizada sobre a tela esmaecida; clicar fora ou Esc fecha. -->
-            <Grid Background="#BF050508" DataContext="{Binding Friends}"
-                  Visibility="{Binding IsOpen, Converter={StaticResource BoolToVisibility}}"
+            <Grid Background="#BF050508" DataContext="{Binding Friends}" Visibility="Collapsed"
+                  views:Motion.IsShown="{Binding IsOpen}" views:Motion.Kind="Overlay"
                   MouseLeftButtonDown="OnFriendsOverlayMouseDown">
                 <Grid.InputBindings>
                     <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
@@ -645,21 +721,26 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="RadioButton">
-                                        <Border x:Name="Root" Background="Transparent" CornerRadius="4" Padding="10,4"
-                                                BorderThickness="1" BorderBrush="Transparent">
-                                            <ContentPresenter VerticalAlignment="Center" />
-                                        </Border>
+                                        <Grid Background="Transparent">
+                                            <Border x:Name="Hover" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="4" Opacity="0" />
+                                            <Border x:Name="Checked" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="4" Opacity="0" />
+                                            <Border x:Name="FocusRing" BorderBrush="{StaticResource TextBrush}" BorderThickness="1" CornerRadius="4" Opacity="0" />
+                                            <ContentPresenter Margin="10,4" VerticalAlignment="Center" />
+                                        </Grid>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
                                                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource HoverIn}" /></Trigger.EnterActions>
+                                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource HoverOut}" /></Trigger.ExitActions>
                                             </Trigger>
                                             <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
                                                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource CheckedIn}" /></Trigger.EnterActions>
+                                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource CheckedOut}" /></Trigger.ExitActions>
                                             </Trigger>
                                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource FocusIn}" /></Trigger.EnterActions>
+                                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource FocusOut}" /></Trigger.ExitActions>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -755,12 +836,12 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Visibility="{Binding IsInviting, Converter={StaticResource InverseBoolToVisibility}}">
+                            <StackPanel views:Motion.IsShown="{Binding IsInviting, Converter={StaticResource InverseBool}}" views:Motion.Kind="Reveal">
                                 <TextBlock Text="Amigos" FontSize="17" FontWeight="Bold" />
                                 <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
                                            Text="Amigos no ScreenCord: pessoas que também entraram aqui com o Discord. Não é a sua lista de amigos do Discord." />
                             </StackPanel>
-                            <StackPanel Visibility="{Binding IsInviting, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel views:Motion.IsShown="{Binding IsInviting}" views:Motion.Kind="Reveal">
                                 <TextBlock FontSize="17" FontWeight="Bold" TextTrimming="CharacterEllipsis"><Run Text="Convidar para " /><Run Text="{Binding InviteGroup.Name, Mode=OneWay}" /></TextBlock>
                                 <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
                                            Text="Convide seus amigos para o grupo. Quem ainda não é seu amigo pode ser buscado e adicionado aqui." />
@@ -791,13 +872,13 @@
                                     Command="{Binding SearchCommand}" />
                             <Button Grid.Column="2" Content="Voltar aos amigos" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                     Command="{Binding ClearSearchCommand}"
-                                    Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}" />
+                                    views:Motion.IsShown="{Binding ShowSearchResults}" views:Motion.Kind="Pop" RenderTransformOrigin="0.5,0.5" />
                         </Grid>
 
                         <!-- Abas; confirmação de remoção, erro de carregamento ou de uma ação -->
                         <StackPanel Grid.Row="2">
                         <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
-                                    Visibility="{Binding ShowTabs, Converter={StaticResource BoolToVisibility}}">
+                                    views:Motion.IsShown="{Binding ShowTabs}" views:Motion.Kind="Reveal">
                             <RadioButton Content="Amigos" Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
                                          IsChecked="{Binding IsFriendsTab}" />
                             <RadioButton Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
@@ -805,8 +886,8 @@
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Recebidas" />
                                     <Border Background="{StaticResource DangerBrush}" CornerRadius="8" MinWidth="16" Height="16" Padding="4,0" Margin="6,0,0,0"
-                                            VerticalAlignment="Center"
-                                            Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}">
+                                            VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"
+                                            views:Motion.IsShown="{Binding HasIncomingRequests}" views:Motion.Kind="Pop">
                                         <TextBlock Text="{Binding IncomingRequests.Count}" FontSize="11" FontWeight="Bold" Foreground="White"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
@@ -816,11 +897,11 @@
                                          IsChecked="{Binding IsOutgoingTab}" AutomationProperties.Name="Solicitações enviadas" />
                         </StackPanel>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
-                                Visibility="{Binding InviteGroup.HasMembersError, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                                views:Motion.IsShown="{Binding InviteGroup.HasMembersError, FallbackValue=False}" views:Motion.Kind="SlideDown">
                             <TextBlock Text="{Binding InviteGroup.MembersError}" TextWrapping="Wrap" FontSize="13" />
                         </Border>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
-                                Visibility="{Binding HasPendingRemoval, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding HasPendingRemoval}" views:Motion.Kind="SlideDown">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -835,7 +916,7 @@
                             </Grid>
                         </Border>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
-                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -852,7 +933,7 @@
                             <StackPanel>
 
                                 <!-- Resultados da busca -->
-                                <StackPanel Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel views:Motion.IsShown="{Binding ShowSearchResults}" views:Motion.Kind="Reveal">
                                     <TextBlock Text="RESULTADOS DA BUSCA" Style="{StaticResource SectionHeader}" />
                                     <TextBlock Text="Buscando…" Style="{StaticResource MutedText}" Margin="0,8"
                                                Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
@@ -865,7 +946,7 @@
                                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
 
                                 <!-- Aba Amigos (a única no convite para um grupo) -->
-                                <StackPanel Visibility="{Binding ShowFriendsTab, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel views:Motion.IsShown="{Binding ShowFriendsTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
                                                Visibility="{Binding HasFriends, Converter={StaticResource BoolToVisibility}}"><Run Text="SEUS AMIGOS — " /><Run Text="{Binding Friends.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding Friends}" ItemTemplate="{StaticResource PersonTemplate}" />
@@ -875,7 +956,7 @@
                                 </StackPanel>
 
                                 <!-- Aba Recebidas -->
-                                <StackPanel Visibility="{Binding ShowIncomingTab, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel views:Motion.IsShown="{Binding ShowIncomingTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
                                                Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="SOLICITAÇÕES RECEBIDAS — " /><Run Text="{Binding IncomingRequests.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding IncomingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
@@ -885,7 +966,7 @@
                                 </StackPanel>
 
                                 <!-- Aba Enviadas -->
-                                <StackPanel Visibility="{Binding ShowOutgoingTab, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel views:Motion.IsShown="{Binding ShowOutgoingTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
                                                Visibility="{Binding HasOutgoingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="SOLICITAÇÕES ENVIADAS — " /><Run Text="{Binding OutgoingRequests.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding OutgoingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
@@ -901,8 +982,8 @@
             </Grid>
 
             <!-- Criar grupo: centralizada sobre a tela esmaecida; clicar fora ou Esc cancela. -->
-            <Grid Background="#BF050508" DataContext="{Binding Groups}"
-                  Visibility="{Binding IsCreating, Converter={StaticResource BoolToVisibility}}"
+            <Grid Background="#BF050508" DataContext="{Binding Groups}" Visibility="Collapsed"
+                  views:Motion.IsShown="{Binding IsCreating}" views:Motion.Kind="Overlay"
                   MouseLeftButtonDown="OnCreateGroupOverlayMouseDown">
                 <Grid.InputBindings>
                     <KeyBinding Key="Escape" Command="{Binding CancelCreateCommand}" />
@@ -931,7 +1012,7 @@
                             </TextBox.InputBindings>
                         </TextBox>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
-                                Visibility="{Binding HasCreateError, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding HasCreateError}" views:Motion.Kind="SlideDown">
                             <TextBlock Text="{Binding CreateError}" TextWrapping="Wrap" FontSize="12" />
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
@@ -945,8 +1026,9 @@
             </Grid>
 
             <!-- Confirmação de sair do grupo ou de excluí-lo -->
-            <Grid Background="#BF050508" DataContext="{Binding Groups.ConfirmingGroup}"
-                  Visibility="{Binding DataContext.Groups.IsConfirming, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+            <Grid Background="#BF050508" DataContext="{Binding Groups.ConfirmingGroup}" Visibility="Collapsed"
+                  views:Motion.IsShown="{Binding DataContext.Groups.IsConfirming, RelativeSource={RelativeSource AncestorType=Window}}"
+                  views:Motion.Kind="Overlay">
                 <Grid.InputBindings>
                     <KeyBinding Key="Escape" Command="{Binding CancelConfirmationCommand}" />
                 </Grid.InputBindings>
@@ -970,7 +1052,7 @@
                         <TextBlock Style="{StaticResource MutedText}" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}"><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" será excluído para todos os integrantes." /></TextBlock>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,14,0,0"
-                                Visibility="{Binding HasMembersError, Converter={StaticResource BoolToVisibility}}">
+                                views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
                             <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
@@ -988,8 +1070,8 @@
             </Grid>
 
             <!-- Confirmação de desconexão -->
-            <Grid Background="#BF050508"
-                  Visibility="{Binding IsConfirmingDisconnect, Converter={StaticResource BoolToVisibility}}">
+            <Grid Background="#BF050508" Visibility="Collapsed"
+                  views:Motion.IsShown="{Binding IsConfirmingDisconnect}" views:Motion.Kind="Overlay">
                 <Border Style="{StaticResource Card}" Padding="24" Margin="24" MaxWidth="400"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">

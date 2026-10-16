@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:ScreenCord.ViewModels"
+        xmlns:views="clr-namespace:ScreenCord.Views"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:SharePickerViewModel}"
         Title="{Binding HeaderText}"
@@ -11,6 +12,8 @@
         Width="560" Height="600"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
+        AllowsTransparency="True"
+        views:Motion.WindowTransitions="True"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Background="{StaticResource WindowBackgroundBrush}"
@@ -34,20 +37,34 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="6" Padding="12,7"
-                                BorderThickness="1" BorderBrush="Transparent">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform />
+                            </Grid.RenderTransform>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="6" />
+                            <Border x:Name="Hover" Background="#14FFFFFF" CornerRadius="6" Opacity="0" />
+                            <Border x:Name="Checked" Background="{StaticResource AccentBrush}" CornerRadius="6" Opacity="0" />
+                            <Border x:Name="FocusRing" BorderBrush="{StaticResource TextBrush}" BorderThickness="1" CornerRadius="6" Opacity="0" />
+                            <ContentPresenter Margin="12,7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource HoverIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource HoverOut}" /></Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentBrush}" />
                                 <Setter Property="Foreground" Value="White" />
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource CheckedIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource CheckedOut}" /></Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource FocusIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource FocusOut}" /></Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource PressIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource PressOut}" /></Trigger.ExitActions>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -69,17 +86,20 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Root" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,1"
-                                BorderThickness="1" BorderBrush="Transparent">
-                            <ContentPresenter />
-                        </Border>
+                        <Grid Background="Transparent" Margin="0,1" views:Motion.AppearOnLoad="True">
+                            <Border x:Name="Hover" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="6" Opacity="0" />
+                            <Border x:Name="Checked" Background="{StaticResource InfoSurfaceBrush}" BorderBrush="{StaticResource AccentBrush}"
+                                    BorderThickness="1" CornerRadius="6" Opacity="0" />
+                            <ContentPresenter Margin="11,9" />
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource HoverIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource HoverOut}" /></Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{StaticResource InfoSurfaceBrush}" />
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource CheckedIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource CheckedOut}" /></Trigger.ExitActions>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
