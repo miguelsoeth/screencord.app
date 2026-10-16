@@ -31,6 +31,7 @@ public sealed class GroupsViewModel : ObservableObject
     private bool _isCreating;
     private string _newGroupName = "";
     private string? _errorMessage;
+    private string? _createError;
     private IActiveScreenShare? _activeShare;
     private Guid? _shareGroupId;
     private bool _isStartingShare;
@@ -225,6 +226,21 @@ public sealed class GroupsViewModel : ObservableObject
     }
 
     public static int MaxNameLength => GroupsHubContract.MaxNameLength;
+
+    /// <summary>Erro ao criar um grupo, mostrado na própria janela de criação.</summary>
+    public string? CreateError
+    {
+        get => _createError;
+        private set
+        {
+            if (SetProperty(ref _createError, value))
+            {
+                OnPropertyChanged(nameof(HasCreateError));
+            }
+        }
+    }
+
+    public bool HasCreateError => !string.IsNullOrEmpty(CreateError);
 
     public string? ErrorMessage
     {
@@ -471,11 +487,11 @@ public sealed class GroupsViewModel : ObservableObject
         var name = string.Join(' ', NewGroupName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (name.Length == 0)
         {
-            ErrorMessage = "Digite um nome para o grupo.";
+            CreateError = "Digite um nome para o grupo.";
             return;
         }
 
-        ErrorMessage = null;
+        CreateError = null;
         try
         {
             var created = await _groupsService.CreateGroupAsync(name);
@@ -487,13 +503,14 @@ public sealed class GroupsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ErrorMessage = ErrorMessages.For(ex);
+            CreateError = ErrorMessages.For(ex);
         }
     }
 
     private void CancelCreate()
     {
         NewGroupName = "";
+        CreateError = null;
         IsCreating = false;
     }
 

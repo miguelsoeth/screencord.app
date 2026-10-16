@@ -476,35 +476,12 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="GRUPOS" Style="{StaticResource SidebarHeader}" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Style="{StaticResource GhostIconButton}"
+                            <Button Grid.Column="1" Style="{StaticResource AccentGhostIconButton}"
                                     Command="{Binding StartCreateCommand}"
                                     ToolTip="Criar grupo" AutomationProperties.Name="Criar grupo">
                                 <Path Data="{StaticResource PlusIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                             </Button>
                         </Grid>
-
-                        <!-- Criar grupo -->
-                        <StackPanel Grid.Row="1" Margin="0,0,0,8"
-                                    Visibility="{Binding IsCreating, Converter={StaticResource BoolToVisibility}}">
-                            <Grid>
-                                <TextBox x:Name="NewGroupBox" Style="{StaticResource SearchBox}" FontSize="13" Padding="8,6"
-                                         Tag="Nome do grupo"
-                                         MaxLength="{Binding MaxNameLength, Mode=OneTime}"
-                                         Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.Name="Nome do grupo">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding CreateCommand}" />
-                                        <KeyBinding Key="Escape" Command="{Binding CancelCreateCommand}" />
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                            </Grid>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                                <Button Content="Cancelar" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
-                                        Command="{Binding CancelCreateCommand}" />
-                                <Button Content="Criar" Style="{StaticResource PrimaryButton}" Padding="12,4" FontSize="12" Margin="6,0,0,0"
-                                        Command="{Binding CreateCommand}" />
-                            </StackPanel>
-                        </StackPanel>
 
                         <!-- Avisos: conexão em tempo real e erros -->
                         <StackPanel Grid.Row="2">
@@ -904,6 +881,50 @@
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Criar grupo: centralizada sobre a tela esmaecida; clicar fora ou Esc cancela. -->
+            <Grid Background="#B3000000" DataContext="{Binding Groups}"
+                  Visibility="{Binding IsCreating, Converter={StaticResource BoolToVisibility}}"
+                  MouseLeftButtonDown="OnCreateGroupOverlayMouseDown">
+                <Grid.InputBindings>
+                    <KeyBinding Key="Escape" Command="{Binding CancelCreateCommand}" />
+                </Grid.InputBindings>
+                <Border Style="{StaticResource Card}" Padding="24" Margin="24" Width="400"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        TextElement.Foreground="{StaticResource TextBrush}">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.55" Color="Black" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource PlusIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource AccentBrush}" />
+                            <TextBlock Text="Criar grupo" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource MutedText}" Margin="0,8,0,14"
+                                   Text="Dê um nome ao grupo. Depois de criar, você já pode adicionar amigos." />
+                        <TextBox x:Name="NewGroupBox" Style="{StaticResource SearchBox}"
+                                 Tag="Nome do grupo"
+                                 MaxLength="{Binding MaxNameLength, Mode=OneTime}"
+                                 Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="Nome do grupo">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding CreateCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
+                                Visibility="{Binding HasCreateError, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding CreateError}" TextWrapping="Wrap" FontSize="12" />
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                            <Button Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CancelCreateCommand}" />
+                            <Button Content="Criar" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
+                                    Command="{Binding CreateCommand}" />
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
             </Grid>
 

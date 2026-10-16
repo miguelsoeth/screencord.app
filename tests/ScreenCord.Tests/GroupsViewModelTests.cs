@@ -444,7 +444,8 @@ public class GroupsViewModelTests
         await vm.CreateCommand.ExecuteAsync();
 
         Assert.DoesNotContain(_groups.Calls, c => c.StartsWith("create"));
-        Assert.True(vm.HasError);
+        Assert.True(vm.HasCreateError);
+        Assert.False(vm.HasError);
         Assert.True(vm.IsCreating);
     }
 

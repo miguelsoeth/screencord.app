@@ -34,6 +34,12 @@ public partial class MainWindow : Window
             {
                 Dispatcher.BeginInvoke(() => CancelGroupConfirmButton.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
+
+            // Criar grupo: foco no nome ao abrir, para digitar direto, Enter criar e Esc cancelar.
+            if (e.PropertyName == nameof(GroupsViewModel.IsCreating) && viewModel.Groups.IsCreating)
+            {
+                Dispatcher.BeginInvoke(() => NewGroupBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+            }
         };
 
         // Janela de amigos: foco na busca ao abrir, para digitar direto e o Esc fechar.
@@ -83,6 +89,15 @@ public partial class MainWindow : Window
         if (e.OriginalSource == sender)
         {
             _viewModel.Friends.IsOpen = false;
+        }
+    }
+
+    /// <summary>Clique na área esmaecida (fora do cartão) cancela a criação do grupo.</summary>
+    private void OnCreateGroupOverlayMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource == sender)
+        {
+            _viewModel.Groups.CancelCreateCommand.Execute(null);
         }
     }
 
