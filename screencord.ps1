@@ -28,12 +28,15 @@
 
 .EXAMPLE
     .\screencord.ps1 start-app -Environment mockup
+
+.EXAMPLE
+    .\screencord.ps1 rebuild-app
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [ValidateSet('menu', 'status', 'start-api', 'stop-api', 'start-app', 'stop-app', 'restart-app', 'start-all', 'stop-all',
-                 'build', 'rebuild', 'test', 'logs-api', 'logs-app')]
+                 'build', 'build-api', 'build-app', 'rebuild', 'rebuild-api', 'rebuild-app', 'test', 'logs-api', 'logs-app')]
     [string]$Action = 'menu',
 
     # Ambiente do app: 'local' (a API do screencord.api rodando aqui), 'prod' (a API oficial) ou 'mockup' (dados falsos,
@@ -51,8 +54,9 @@ $StateDir = Join-Path $Root '.screencord'
 $LogDir = Join-Path $StateDir 'logs'
 # A API fica no repositório screencord.api, clonado ao lado deste (ou em $env:SCREENCORD_API_ROOT).
 $ApiRoot = if ($env:SCREENCORD_API_ROOT) { $env:SCREENCORD_API_ROOT } else { Join-Path (Split-Path $Root -Parent) 'screencord.api' }
+$ApiSolution = Join-Path $ApiRoot 'ScreenCord.Api.sln'
 $Solutions = @(Join-Path $Root 'ScreenCord.sln')
-if (Test-Path (Join-Path $ApiRoot 'ScreenCord.Api.sln')) { $Solutions += Join-Path $ApiRoot 'ScreenCord.Api.sln' }
+if (Test-Path $ApiSolution) { $Solutions += $ApiSolution }
 $ApiPort = 5080
 $ApiUrl = "http://localhost:$ApiPort"
 
@@ -76,6 +80,7 @@ $LogEncoding = New-Object System.Text.UTF8Encoding($false)
 $Components = [ordered]@{
     api = @{
         Name     = 'API'
+        Solution = $ApiSolution
         WorkDir  = Join-Path $ApiRoot 'src\ScreenCord.Api'
         Output   = Join-Path $ApiRoot 'src\ScreenCord.Api\bin\Debug\net10.0\ScreenCord.Api.dll'
         PidFile  = Join-Path $StateDir 'api.pid'
@@ -84,6 +89,7 @@ $Components = [ordered]@{
     }
     app = @{
         Name     = 'App'
+        Solution = Join-Path $Root 'ScreenCord.sln'
         WorkDir  = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows10.0.22621.0'
         Output   = Join-Path $Root 'src\ScreenCord\bin\Debug\net10.0-windows10.0.22621.0\ScreenCord.exe'
         PidFile  = Join-Path $StateDir 'app.pid'
@@ -217,7 +223,7 @@ function Start-Component([string]$Key) {
 
     if (-not (Test-Path $c.Output)) {
         Write-Host "Compilação não encontrada para $($c.Name); compilando..." -ForegroundColor Cyan
-        if (-not (Invoke-Build)) { return $false }
+        if (-not (Invoke-Build @($Key))) { return $false }
     }
 
     if ($Key -eq 'api') {
@@ -353,9 +359,15 @@ function Invoke-Dotnet([string[]]$Arguments) {
     }
 }
 
-function Invoke-Build {
+# Sem chaves compila tudo; com 'api' e/ou 'app', só as soluções desses componentes.
+function Invoke-Build([string[]]$Keys = @($Components.Keys)) {
     $ok = $true
-    foreach ($solution in $Solutions) {
+    foreach ($key in $Keys) {
+        $solution = $Components[$key].Solution
+        if (-not (Test-Path $solution)) {
+            Set-Message "Solução da $($Components[$key].Name) não encontrada em $solution." 'Red'
+            return $false
+        }
         Write-Host "Compilando $(Split-Path $solution -Leaf)..." -ForegroundColor Cyan
         if (-not (Invoke-Dotnet @('build', $solution, '--nologo', '-v', 'q'))) { $ok = $false }
     }
@@ -364,9 +376,10 @@ function Invoke-Build {
 }
 
 # Para o que estiver rodando (as dlls ficam travadas), compila e sobe de novo o que estava no ar.
-function Invoke-Rebuild {
+# Sem chaves vale para tudo; com 'api' ou 'app', só para esse componente.
+function Invoke-Rebuild([string[]]$Keys = @($Components.Keys)) {
     $wasRunning = @()
-    foreach ($key in $Components.Keys) {
+    foreach ($key in $Keys) {
         if (Get-TrackedProcess $key) {
             $wasRunning += $key
             Write-Host "Parando $($Components[$key].Name)..." -ForegroundColor Cyan
@@ -374,7 +387,7 @@ function Invoke-Rebuild {
         }
     }
 
-    if (-not (Invoke-Build)) { return $false }
+    if (-not (Invoke-Build $Keys)) { return $false }
 
     foreach ($key in $wasRunning) {
         if (-not (Start-Component $key)) { return $false }
@@ -528,6 +541,8 @@ $MenuItems = @(
     @{ Label = 'Reiniciar app';              Run = { Restart-App | Out-Null } }
     @{ Label = { "Ambiente do app: $((Get-ApiTarget).Name)  (Enter alterna: local/produção/mockup)" }; Run = { Switch-ApiTarget }; Inline = $true }
     @{ Label = 'Recompilar tudo';            Run = { Invoke-Rebuild | Out-Null }; Pause = $true }
+    @{ Label = 'Recompilar API';             Run = { Invoke-Rebuild @('api') | Out-Null }; Pause = $true }
+    @{ Label = 'Recompilar app';             Run = { Invoke-Rebuild @('app') | Out-Null }; Pause = $true }
     @{ Label = 'Logs da API (ao vivo)';      Run = { Show-Logs 'api' } }
     @{ Label = 'Logs do app (ao vivo)';      Run = { Show-Logs 'app' } }
     @{ Label = 'Rodar testes';               Run = { Invoke-Tests | Out-Null }; Pause = $true }
@@ -729,7 +744,11 @@ try {
         'start-all'   { if (-not (Start-All)) { $exitCode = 1 } }
         'stop-all'    { Stop-Component 'app'; Stop-Component 'api' }
         'build'       { if (-not (Invoke-Build)) { $exitCode = 1 } }
+        'build-api'   { if (-not (Invoke-Build @('api'))) { $exitCode = 1 } }
+        'build-app'   { if (-not (Invoke-Build @('app'))) { $exitCode = 1 } }
         'rebuild'     { if (-not (Invoke-Rebuild)) { $exitCode = 1 } }
+        'rebuild-api' { if (-not (Invoke-Rebuild @('api'))) { $exitCode = 1 } }
+        'rebuild-app' { if (-not (Invoke-Rebuild @('app'))) { $exitCode = 1 } }
         'test'        { if (-not (Invoke-Tests)) { $exitCode = 1 } }
         'logs-api'    { Show-Logs 'api' }
         'logs-app'    { Show-Logs 'app' }
