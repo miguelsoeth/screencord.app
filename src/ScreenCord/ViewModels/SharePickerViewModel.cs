@@ -5,8 +5,8 @@ using ScreenCord.Media;
 namespace ScreenCord.ViewModels;
 
 /// <summary>
-/// Janela "Compartilhar tela": escolha entre uma tela ou uma janela, resolução, fps, qualidade e áudio.
-/// O padrão é 720p, 30 fps, qualidade média, com áudio.
+/// Janela "Compartilhar tela": escolha entre uma tela ou uma janela, qualidade (resolução e fps) e áudio.
+/// O padrão é 720p, 30 fps, com áudio. A taxa de bits é automática.
 /// </summary>
 public sealed class SharePickerViewModel : ObservableObject
 {
@@ -15,7 +15,6 @@ public sealed class SharePickerViewModel : ObservableObject
     private CaptureSourceKind _kind = CaptureSourceKind.Screen;
     private CaptureSource? _selectedSource;
     private bool _shareAudio;
-    private int _bitrateKbps;
 
     /// <param name="current">Origem do compartilhamento em andamento, quando a escolha é para trocar as configurações dele.</param>
     public SharePickerViewModel(
@@ -35,18 +34,12 @@ public sealed class SharePickerViewModel : ObservableObject
             _selectedSource = current;
         }
 
-        Resolutions = new Choice<ShareResolution>(initial.Resolution,
+        Qualities = new Choice<ShareQuality>(ShareSettings.IsAvailable(initial.Quality) ? initial.Quality : ShareSettings.Default.Quality,
         [
-            new(ShareResolution.P540, "540p"),
-            new(ShareResolution.P720, "720p"),
-            new(ShareResolution.P1080, "1080p"),
+            Option(ShareQuality.P540Fps60),
+            Option(ShareQuality.P720Fps30),
+            Option(ShareQuality.P1080Fps60, "Em breve no plano pago."),
         ]);
-        FrameRates = new Choice<ShareFrameRate>(initial.FrameRate,
-        [
-            new(ShareFrameRate.Fps30, "30 fps"),
-            new(ShareFrameRate.Fps60, "60 fps"),
-        ]);
-        _bitrateKbps = ShareSettings.SnapBitrate(initial.BitrateKbps);
 
         ShowScreensCommand = new RelayCommand(() => Kind = CaptureSourceKind.Screen);
         ShowWindowsCommand = new RelayCommand(() => Kind = CaptureSourceKind.Window);
@@ -128,30 +121,10 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public bool CanShare => SelectedSource is not null;
 
-    public Choice<ShareResolution> Resolutions { get; }
+    public Choice<ShareQuality> Qualities { get; }
 
-    public Choice<ShareFrameRate> FrameRates { get; }
-
-    public int MinBitrateKbps => ScreenShareLimits.MinBitrateKbps;
-
-    public int MaxBitrateKbps => ScreenShareLimits.MaxBitrateKbps;
-
-    public int BitrateStepKbps => ScreenShareLimits.BitrateStepKbps;
-
-    /// <summary>Taxa de bits escolhida no slide (sempre um dos valores válidos).</summary>
-    public int BitrateKbps
-    {
-        get => _bitrateKbps;
-        set
-        {
-            if (SetProperty(ref _bitrateKbps, ShareSettings.SnapBitrate(value)))
-            {
-                OnPropertyChanged(nameof(BitrateText));
-            }
-        }
-    }
-
-    public string BitrateText => $"{BitrateKbps} kbps";
+    /// <summary>Explica a taxa de bits, que não é escolhida.</summary>
+    public string BitrateHint => $"A taxa de bits se ajusta à sua conexão, até {ScreenShareLimits.MaxBitrateKbps / 1000} Mbps.";
 
     public bool ShareAudio
     {
@@ -161,8 +134,12 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public ShareRequest? BuildRequest() =>
         SelectedSource is { } source
-            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, BitrateKbps, ShareAudio))
+            ? new ShareRequest(source, new ShareSettings(Qualities.Selected, ShareAudio))
             : null;
+
+    private static ChoiceOption<ShareQuality> Option(ShareQuality quality, string? unavailableReason = null) =>
+        new(quality, $"{ShareSettings.HeightOf(quality)}p · {ShareSettings.FpsOf(quality)} fps",
+            ShareSettings.IsAvailable(quality) ? null : unavailableReason, ShareSettings.IsAvailable(quality));
 
     private void Refresh()
     {
@@ -191,7 +168,7 @@ public sealed class SharePickerViewModel : ObservableObject
     }
 }
 
-/// <summary>Escolha segmentada (ex.: 540p / 720p / 1080p), exibida como botões de opção.</summary>
+/// <summary>Escolha segmentada (ex.: 540p 60 fps / 720p 30 fps), exibida como botões de opção.</summary>
 public sealed class Choice<T> : ObservableObject
     where T : struct, Enum
 {
@@ -224,7 +201,8 @@ public sealed class Choice<T> : ObservableObject
     }
 }
 
-public sealed class ChoiceOption<T>(T value, string label, string? detail = null) : ObservableObject
+/// <param name="isAvailable">Desligada aparece na escolha, mas não pode ser marcada (ex.: de um plano pago).</param>
+public sealed class ChoiceOption<T>(T value, string label, string? detail = null, bool isAvailable = true) : ObservableObject
     where T : struct, Enum
 {
     internal Choice<T>? Owner { get; set; }
@@ -235,13 +213,15 @@ public sealed class ChoiceOption<T>(T value, string label, string? detail = null
 
     public string? Detail { get; } = detail;
 
+    public bool IsAvailable { get; } = isAvailable;
+
     /// <summary>Marcar escolhe esta opção; desmarcar é ignorado (o botão de opção desmarca os outros sozinho).</summary>
     public bool IsSelected
     {
         get => Owner is not null && EqualityComparer<T>.Default.Equals(Owner.Selected, Value);
         set
         {
-            if (value && Owner is not null)
+            if (value && IsAvailable && Owner is not null)
             {
                 Owner.Selected = Value;
             }

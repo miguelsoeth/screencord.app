@@ -66,6 +66,10 @@
                                 <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource PressIn}" /></Trigger.EnterActions>
                                 <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource PressOut}" /></Trigger.ExitActions>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -202,9 +206,10 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Margin="0,0,24,0">
-                <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
-                <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
+            <!-- 540p a 60 fps ou 720p a 30 fps; 1080p aparece desligado (plano pago). A taxa de bits é automática. -->
+            <StackPanel Grid.ColumnSpan="2">
+                <TextBlock Text="QUALIDADE" Style="{StaticResource FieldLabel}" />
+                <ItemsControl ItemsSource="{Binding Qualities.Options}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
@@ -212,46 +217,14 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Resolution" Content="{Binding Label}"
-                                         IsChecked="{Binding IsSelected}" />
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="Quality" Content="{Binding Label}"
+                                         IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsAvailable, Mode=OneTime}"
+                                         ToolTip="{Binding Detail, Mode=OneTime}" ToolTipService.ShowOnDisabled="True" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1">
-                <TextBlock Text="TAXA DE QUADROS" Style="{StaticResource FieldLabel}" />
-                <ItemsControl ItemsSource="{Binding FrameRates.Options}" Focusable="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="FrameRate" Content="{Binding Label}"
-                                         IsChecked="{Binding IsSelected}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-
-            <!-- Taxa de bits: slide de 500 em 500 kbps, de 2000 a 7000 (10 passos). -->
-            <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
-                <Grid>
-                    <TextBlock Text="QUALIDADE (TAXA DE BITS)" Style="{StaticResource FieldLabel}" />
-                    <TextBlock Text="{Binding BitrateText}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,6"
-                               FontSize="13" FontWeight="SemiBold" />
-                </Grid>
-                <Slider Style="{StaticResource AccentSlider}" Margin="0,4,0,0"
-                        Minimum="{Binding MinBitrateKbps, Mode=OneTime}" Maximum="{Binding MaxBitrateKbps, Mode=OneTime}"
-                        TickFrequency="{Binding BitrateStepKbps, Mode=OneTime}" SmallChange="{Binding BitrateStepKbps, Mode=OneTime}"
-                        LargeChange="{Binding BitrateStepKbps, Mode=OneTime}" IsSnapToTickEnabled="True"
-                        Value="{Binding BitrateKbps}" AutomationProperties.Name="Taxa de bits" />
-                <Grid Margin="0,2,0,0">
-                    <TextBlock Text="{Binding MinBitrateKbps, StringFormat={}{0} kbps}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
-                    <TextBlock Text="{Binding MaxBitrateKbps, StringFormat={}{0} kbps}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
-                </Grid>
+                <TextBlock Text="{Binding BitrateHint, Mode=OneTime}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
+                           Margin="0,6,0,0" TextWrapping="Wrap" />
             </StackPanel>
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
