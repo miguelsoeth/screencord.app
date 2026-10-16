@@ -6,6 +6,8 @@ public enum ShareResolution
 {
     P540 = 540,
     P720 = 720,
+
+    /// <summary>Reservada para um plano pago: aparece desligada na escolha e a API ainda não aceita.</summary>
     P1080 = 1080,
 }
 
@@ -16,34 +18,34 @@ public enum ShareFrameRate
 }
 
 /// <summary>
-/// Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, 4000 kbps, com áudio. A taxa de bits vai
-/// de <see cref="ScreenShareLimits.MinBitrateKbps"/> a <see cref="ScreenShareLimits.MaxBitrateKbps"/>, de
-/// <see cref="ScreenShareLimits.BitrateStepKbps"/> em <see cref="ScreenShareLimits.BitrateStepKbps"/>.
+/// Configuração do compartilhamento de tela. O padrão é 720p, 30 fps, com áudio. 60 fps só em 540p
+/// (<see cref="ScreenShareLimits.IsValidQuality"/>). A taxa de bits não é escolhida: começa no teto
+/// (<see cref="ScreenShareLimits.MaxBitrateKbps"/>) e o <see cref="BitrateController"/> a adapta à rede.
 /// </summary>
 public sealed record ShareSettings(
     ShareResolution Resolution = ShareResolution.P720,
     ShareFrameRate FrameRate = ShareFrameRate.Fps30,
-    int BitrateKbps = ShareSettings.DefaultBitrateKbps,
     bool ShareAudio = true)
 {
-    public const int DefaultBitrateKbps = 4000;
-
     public static ShareSettings Default { get; } = new();
 
     public int Height => (int)Resolution;
 
     public int Fps => (int)FrameRate;
 
-    /// <summary>Leva um valor qualquer (ex.: do slide) para a taxa válida mais próxima.</summary>
-    public static int SnapBitrate(double kbps)
-    {
-        var steps = Math.Round((kbps - ScreenShareLimits.MinBitrateKbps) / ScreenShareLimits.BitrateStepKbps, MidpointRounding.AwayFromZero);
-        var snapped = ScreenShareLimits.MinBitrateKbps + (int)steps * ScreenShareLimits.BitrateStepKbps;
-        return Math.Clamp(snapped, ScreenShareLimits.MinBitrateKbps, ScreenShareLimits.MaxBitrateKbps);
-    }
+    /// <summary>Taxa com que o compartilhamento começa e que é anunciada na sala.</summary>
+    public int BitrateKbps => ScreenShareLimits.MaxBitrateKbps;
 
-    /// <summary>Resumo para a interface: "720p · 30 fps · 4000 kbps".</summary>
-    public string Summary => $"{Height}p · {Fps} fps · {BitrateKbps} kbps";
+    /// <summary>A resolução tem ao menos um fps dentro dos limites da API.</summary>
+    public static bool IsAvailable(ShareResolution resolution) =>
+        Enum.GetValues<ShareFrameRate>().Any(fps => IsAvailable(resolution, fps));
+
+    /// <summary>A combinação está dentro dos limites da API (as outras ficam desligadas na escolha).</summary>
+    public static bool IsAvailable(ShareResolution resolution, ShareFrameRate frameRate) =>
+        ScreenShareLimits.IsValidQuality((int)resolution, (int)frameRate);
+
+    /// <summary>Resumo para a interface: "720p · 30 fps".</summary>
+    public string Summary => $"{Height}p · {Fps} fps";
 }
 
 /// <summary>O que compartilhar e como, escolhido na janela de compartilhamento.</summary>

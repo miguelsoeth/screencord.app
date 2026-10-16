@@ -53,7 +53,7 @@ public sealed class MockupWorld
 
         var games = AddGroup("Jogatina de sexta", Me.Id, [ana, bruno, carla, diego]);
         games.Connected.AddRange([bruno.Id, carla.Id]);
-        games.Shares[bruno.Id] = new ScreenShareDto(bruno.Id, 960, 540, 30, 3500, HasAudio: true);
+        games.Shares[bruno.Id] = new ScreenShareDto(bruno.Id, 960, 540, 60, 3000, HasAudio: true);
 
         var work = AddGroup("Trabalho", ana.Id, [Me, ana, elisa, fabio]);
         work.Connected.Add(elisa.Id);

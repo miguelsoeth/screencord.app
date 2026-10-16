@@ -202,6 +202,11 @@ public sealed class MockupGroupsService(MockupWorld world, MockupGroupsRealtime 
                 throw MockupWorld.Error($"O nome do grupo pode ter no máximo {GroupsHubContract.MaxNameLength} caracteres.");
             }
 
+            if (world.Groups.Count(g => g.OwnerId == world.Me.Id) >= GroupsHubContract.MaxCreatedGroups)
+            {
+                throw MockupWorld.Error($"Você já criou {GroupsHubContract.MaxCreatedGroups} grupos, o limite por conta. Exclua um para criar outro.");
+            }
+
             return Task.FromResult(world.ToGroupDto(world.AddGroup(name, world.Me.Id, [])));
         }
     }
@@ -476,7 +481,7 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
                 if (!group.Shares.Remove(userId))
                 {
                     var height = ScreenShareLimits.Heights[Random.Shared.Next(ScreenShareLimits.Heights.Length)];
-                    group.Shares[userId] = new ScreenShareDto(userId, height * 16 / 9, height, 30, 4000, HasAudio: Random.Shared.Next(2) == 0);
+                    group.Shares[userId] = new ScreenShareDto(userId, height * 16 / 9, height, 30, ScreenShareLimits.MaxBitrateKbps, HasAudio: Random.Shared.Next(2) == 0);
                 }
             }
             else

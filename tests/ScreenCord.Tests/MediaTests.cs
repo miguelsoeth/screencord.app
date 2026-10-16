@@ -22,12 +22,17 @@ public class MediaTests
     [Fact]
     public void TamanhoDeSaida_SempreAceitoPelaApi()
     {
-        foreach (var target in ScreenShareLimits.Heights)
+        var available = from resolution in Enum.GetValues<ShareResolution>()
+                        from frameRate in Enum.GetValues<ShareFrameRate>()
+                        where ShareSettings.IsAvailable(resolution, frameRate)
+                        select new ShareSettings(resolution, frameRate);
+        foreach (var settings in available)
         {
             foreach (var (w, h) in new[] { (7680, 1080), (100, 3000), (5, 5), (1366, 768) })
             {
-                var (width, height) = ScreenCapture.OutputSize(w, h, target);
-                Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(width, height, 30, 4000, false)), $"{w}x{h}@{target} → {width}x{height}");
+                var (width, height) = ScreenCapture.OutputSize(w, h, settings.Height);
+                Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(width, height, settings.Fps, settings.BitrateKbps, false)),
+                    $"{w}x{h}@{settings.Summary} → {width}x{height}");
             }
         }
     }
