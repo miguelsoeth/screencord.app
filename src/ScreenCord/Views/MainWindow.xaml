@@ -92,9 +92,9 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <views:MascotIcon Width="172" Height="126" HorizontalAlignment="Center" Margin="0,0,0,14" />
-                        <TextBlock Style="{StaticResource Wordmark}" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,24">
-                            <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
-                        </TextBlock>
+                        <views:WordmarkText Text="Screen" AccentText="Cord" AccentForeground="{StaticResource WordmarkAccentBrush}"
+                                            Foreground="{StaticResource TextBrush}" FontFamily="Segoe UI Variable Display, Segoe UI" FontWeight="Bold"
+                                            FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,24" />
 
                         <!-- Botão e espera sobrepostos: o que não está ativo fica oculto, mas a célula tem a altura do maior. -->
                         <Grid>
