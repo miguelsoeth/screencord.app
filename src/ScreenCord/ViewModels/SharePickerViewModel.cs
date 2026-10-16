@@ -136,9 +136,6 @@ public sealed class SharePickerViewModel : ObservableObject
     /// <summary>Os fps que a resolução escolhida não permite ficam desligados (ex.: 60 fps em 720p).</summary>
     public Choice<ShareFrameRate> FrameRates { get; }
 
-    /// <summary>Explica a taxa de bits, que não é escolhida.</summary>
-    public string BitrateHint => $"A taxa de bits se ajusta à sua conexão, até {ScreenShareLimits.MaxBitrateKbps / 1000} Mbps.";
-
     public bool ShareAudio
     {
         get => _shareAudio;

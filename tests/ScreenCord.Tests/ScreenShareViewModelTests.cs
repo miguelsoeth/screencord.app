@@ -47,7 +47,6 @@ public class ScreenShareViewModelTests
         Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true), request.Settings);
         Assert.Equal(3000, request.Settings.BitrateKbps);
         Assert.True(picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P720).IsSelected);
-        Assert.Equal("A taxa de bits se ajusta à sua conexão, até 3 Mbps.", picker.BitrateHint);
     }
 
     [Fact]

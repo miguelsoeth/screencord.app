@@ -243,9 +243,6 @@
                 </ItemsControl>
             </StackPanel>
 
-            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding BitrateHint, Mode=OneTime}" FontSize="11"
-                       Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
-
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
@@ -253,7 +250,7 @@
                     <TextBlock Text="Só o áudio do programa da janela." FontSize="11" Foreground="{StaticResource MutedTextBrush}"
                                Visibility="{Binding IsWindowKind, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"
-                               Text="* Compartilha o áudio do computador inteiro, incluindo aplicativos de chamada. Para isolar o áudio, compartilhe a janela de origem."
+                               Text="Todo o áudio do computador, inclusive chamadas."
                                Visibility="{Binding IsScreenKind, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </CheckBox>
