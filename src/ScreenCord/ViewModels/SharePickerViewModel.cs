@@ -7,7 +7,7 @@ namespace ScreenCord.ViewModels;
 
 /// <summary>
 /// Janela "Compartilhar tela": escolha entre uma tela ou uma janela, resolução, fps e áudio.
-/// As opções fora do caminho da mídia aparecem desligadas: pelo servidor só 540p a 30 fps; nas salas locais
+/// As opções fora do caminho da mídia aparecem desligadas: pelo servidor até 720p a 30 fps; nas salas locais
 /// (direto entre os computadores) até 1080p a 60 fps. A taxa de bits é automática, até o teto do caminho.
 /// </summary>
 public sealed class SharePickerViewModel : ObservableObject
@@ -70,7 +70,7 @@ public sealed class SharePickerViewModel : ObservableObject
     /// <summary>A mídia vai direto entre os computadores (sala local), sem passar pelo servidor.</summary>
     public bool IsDirect { get; }
 
-    /// <summary>"Qualidade automática, até 1,5 Mbps · pelo servidor".</summary>
+    /// <summary>"Qualidade automática, até 2,5 Mbps · pelo servidor".</summary>
     public string BitrateText =>
         string.Format(
             Loc.Culture,
