@@ -65,11 +65,14 @@ public sealed class ScreenShareService : IScreenShareService
     private readonly CentralApiClient _api;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<ScreenShareService> _logger;
+    private readonly Local.ILocalRooms? _local;
 
-    public ScreenShareService(IGroupsRealtime realtime, CentralApiClient api, ILoggerFactory loggerFactory)
+    /// <param name="local">Salas locais: nelas a mídia vai direto entre os computadores, sem passar pela API.</param>
+    public ScreenShareService(IGroupsRealtime realtime, CentralApiClient api, ILoggerFactory loggerFactory, Local.ILocalRooms? local = null)
     {
         _realtime = realtime;
         _api = api;
+        _local = local;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<ScreenShareService>();
     }
@@ -92,9 +95,9 @@ public sealed class ScreenShareService : IScreenShareService
         var settings = request.Settings;
         IScreenCapture? capture = null;
         H264Encoder? encoder = null;
-        MediaSocket? socket = null;
+        IMediaSink? socket = null;
         AudioCapture? audio = null;
-        MediaSocket? audioTarget = null;
+        IMediaSink? audioTarget = null;
         string? audioWarning = null;
         var announced = false;
         try
@@ -132,7 +135,9 @@ public sealed class ScreenShareService : IScreenShareService
                 cancellationToken);
             announced = true;
 
-            socket = await MediaSocket.ConnectAsync(_api, groupId, share.UserId, settings.BitrateKbps, cancellationToken);
+            socket = _local?.IsLocal(groupId) == true
+                ? _local.OpenPublisher()
+                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, settings.BitrateKbps, cancellationToken);
             audioTarget = socket;
             var active = new ActiveScreenShare(share, request, capture, encoder, socket, audio, audioWarning, _realtime, _loggerFactory.CreateLogger<ActiveScreenShare>());
             active.Start();
@@ -184,7 +189,9 @@ public sealed class ScreenShareService : IScreenShareService
         var decoder = new H264Decoder();
         try
         {
-            var socket = await MediaSocket.ConnectAsync(_api, groupId, share.UserId, share.BitrateKbps, cancellationToken);
+            var socket = _local?.IsLocal(groupId) == true
+                ? await _local.WatchAsync(groupId, share.UserId, cancellationToken)
+                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, share.BitrateKbps, cancellationToken);
             return new StreamViewer(socket, decoder, share.HasAudio, _loggerFactory.CreateLogger<StreamViewer>());
         }
         catch
@@ -202,7 +209,7 @@ public sealed class ScreenShareService : IScreenShareService
     {
         private readonly IScreenCapture _capture;
         private readonly H264Encoder _encoder;
-        private readonly MediaSocket _socket;
+        private readonly IMediaSink _socket;
         private readonly IGroupsRealtime _realtime;
         private readonly ILogger _logger;
         private readonly CancellationTokenSource _stop = new();
@@ -220,7 +227,7 @@ public sealed class ScreenShareService : IScreenShareService
             ShareRequest request,
             IScreenCapture capture,
             H264Encoder encoder,
-            MediaSocket socket,
+            IMediaSink socket,
             AudioCapture? audio,
             string? audioWarning,
             IGroupsRealtime realtime,

@@ -1,13 +1,15 @@
 namespace ScreenCord.Models;
 
-/// <summary>Perfil pronto para exibição, derivado de <see cref="DiscordUser"/>.</summary>
+/// <summary>Perfil pronto para exibição, derivado de <see cref="DiscordUser"/> (ou o perfil local, sem conta).</summary>
+/// <param name="AvatarHash">Hash do avatar no Discord, para as salas locais mostrarem a foto aos outros.</param>
 public sealed record UserProfile(
     string Id,
     string Username,
     string? GlobalName,
     string? Discriminator,
     string AvatarUrl,
-    bool HasCustomAvatar)
+    bool HasCustomAvatar,
+    string? AvatarHash = null)
 {
     public string DisplayName => string.IsNullOrWhiteSpace(GlobalName) ? Username : GlobalName;
 

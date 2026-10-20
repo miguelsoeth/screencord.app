@@ -43,6 +43,40 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public Guid Id { get; }
 
+    /// <summary>Sala local: hospedada num computador da rede, sem a API; a tela vai direto entre os computadores.</summary>
+    public bool IsLocal { get; private set; }
+
+    public bool IsApiGroup => !IsLocal;
+
+    /// <summary>Este computador hospeda a sala local.</summary>
+    public bool IsLocalHost { get; private set; }
+
+    /// <summary>Para quem hospeda: como os outros entram pelo IP ("Entrem por 25.1.2.3").</summary>
+    public string? LocalAddressText { get; private set; }
+
+    public bool HasLocalAddress => LocalAddressText is not null;
+
+    public string DeleteText => IsLocal ? "Encerrar" : "Excluir";
+
+    public string ConfirmDeleteTitle => IsLocal ? "Encerrar a sala?" : "Excluir o grupo?";
+
+    public string ConfirmDeleteSuffix => IsLocal ? " será encerrada para todos que estão nela." : " será excluído para todos os integrantes.";
+
+    internal void SetLocal(bool isHost, string? address)
+    {
+        IsLocal = true;
+        IsLocalHost = isHost;
+        LocalAddressText = isHost && address is not null ? $"Outros computadores entram pelo IP: {address}" : null;
+        OnPropertyChanged(nameof(IsLocal));
+        OnPropertyChanged(nameof(IsApiGroup));
+        OnPropertyChanged(nameof(IsLocalHost));
+        OnPropertyChanged(nameof(LocalAddressText));
+        OnPropertyChanged(nameof(HasLocalAddress));
+        OnPropertyChanged(nameof(DeleteText));
+        OnPropertyChanged(nameof(ConfirmDeleteTitle));
+        OnPropertyChanged(nameof(ConfirmDeleteSuffix));
+    }
+
     /// <summary>Versão da presença já aplicada; notificações mais antigas são ignoradas.</summary>
     public long PresenceVersion { get; private set; } = -1;
 

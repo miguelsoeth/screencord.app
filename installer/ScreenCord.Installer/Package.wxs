@@ -69,6 +69,17 @@
     <Property Id="WixShellExecTarget" Value="[#ScreenCordExe]" />
     <CustomAction Id="LaunchApplication" DllEntry="WixShellExec" Impersonate="yes" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
 
+    <!--
+      Salas locais: na primeira instalação (não nas atualizações, que rodam sem janela), o próprio exe cria a regra
+      do Firewall do Windows pedindo a permissão do Windows (UAC). Se a pessoa recusar, a instalação segue e o app
+      oferece "Liberar no firewall" quando ela criar uma sala ou compartilhar numa.
+    -->
+    <CustomAction Id="ConfigureFirewall" Directory="INSTALLFOLDER" Execute="immediate" Impersonate="yes" Return="ignore"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command &quot;Start-Process -FilePath '[INSTALLFOLDER]ScreenCord.exe' -ArgumentList '--configure-firewall' -Verb RunAs -WindowStyle Hidden -Wait&quot;" />
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureFirewall" After="InstallFinalize" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND UILevel &gt;= 4" />
+    </InstallExecuteSequence>
+
     <UI>
       <ui:WixUI Id="WixUI_Minimal" />
       <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"

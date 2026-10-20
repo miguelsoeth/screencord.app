@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using ScreenCord.Infrastructure;
+using ScreenCord.Local;
 using ScreenCord.Mockup;
 using ScreenCord.Services;
 using ScreenCord.Views;
@@ -22,6 +23,13 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Iniciado elevado (pelo instalador ou pelo "Liberar no firewall") só para criar a regra do firewall.
+        if (e.Args.Contains(FirewallRule.CommandLineFlag) && Environment.ProcessPath is { } exe)
+        {
+            Shutdown(FirewallRule.Apply(exe));
+            return;
+        }
 
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {

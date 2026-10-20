@@ -50,6 +50,15 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() => SearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
         };
+        // Usar sem conta: foco no nome, para digitar direto e o Enter entrar.
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsLocalForm) && viewModel.IsLocalForm)
+            {
+                Dispatcher.BeginInvoke(() => LocalNameBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        };
+
         Loaded += async (_, _) => await viewModel.InitializeAsync();
 
         RootGrid.SizeChanged += (_, _) => UpdateStageSize();

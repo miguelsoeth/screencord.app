@@ -6,6 +6,7 @@ public static class ErrorMessages
     public static string For(Exception exception) => exception switch
     {
         DiscordException discord => For(discord),
+        Local.LocalNetworkException local => local.Message,
         OperationCanceledException => "Operação cancelada.",
         _ => "Ocorreu um erro inesperado. Tente novamente.",
     };

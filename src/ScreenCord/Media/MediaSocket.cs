@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Net.WebSockets;
 using System.Threading.Channels;
@@ -12,7 +13,7 @@ namespace ScreenCord.Media;
 /// Quem compartilha envia por <see cref="SendVideo"/>/<see cref="SendAudio"/>; quem assiste recebe por
 /// <see cref="PacketReceived"/>.
 /// </summary>
-public sealed class MediaSocket : IAsyncDisposable
+public sealed class MediaSocket : IMediaSink
 {
     private readonly ClientWebSocket _socket;
     private readonly Channel<byte[]> _outgoing = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
@@ -25,10 +26,13 @@ public sealed class MediaSocket : IAsyncDisposable
     private volatile bool _waitingForKeyframe;
     private int _closedRaised;
     private volatile bool _disposing;
+    private readonly string _peer;
 
-    private MediaSocket(ClientWebSocket socket, int bitrateKbps)
+    /// <param name="peer">Com quem é a conexão, para as mensagens ("com a API central", "com o computador de Ana").</param>
+    private MediaSocket(ClientWebSocket socket, int bitrateKbps, string peer = "com a API central")
     {
         _socket = socket;
+        _peer = peer;
 
         // Cerca de 1 s de vídeo na fila de saída: mais que isso, a rede não está acompanhando.
         _queueLimitBytes = Math.Max(512 * 1024, bitrateKbps * 1000 / 8);
@@ -91,6 +95,66 @@ public sealed class MediaSocket : IAsyncDisposable
                     _ => CentralApiClient.Error(DiscordErrorKind.Network, "Não foi possível abrir o canal de vídeo com a API central.", ex, status),
                 };
             }
+        }
+    }
+
+    /// <summary>
+    /// Conecta direto ao computador de quem compartilha numa sala local, tentando todos os endereços ao mesmo tempo;
+    /// fica com o primeiro que responder.
+    /// </summary>
+    public static async Task<MediaSocket> ConnectDirectAsync(
+        IReadOnlyList<string> endpoints, Guid mediaId, string key, int bitrateKbps, string sharerName, CancellationToken cancellationToken)
+    {
+        using var attempts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        attempts.CancelAfter(TimeSpan.FromSeconds(6));
+        var pending = endpoints.Select(endpoint => TryConnectDirectAsync(endpoint, mediaId, key, attempts.Token)).ToList();
+        ClientWebSocket? winner = null;
+        while (pending.Count > 0)
+        {
+            var done = await Task.WhenAny(pending).ConfigureAwait(false);
+            pending.Remove(done);
+            if (await done.ConfigureAwait(false) is { } socket)
+            {
+                winner = socket;
+                break;
+            }
+        }
+
+        // As tentativas que ainda estão abrindo são canceladas e descartadas.
+        attempts.Cancel();
+        foreach (var other in pending)
+        {
+            _ = other.ContinueWith(t => t.Result?.Dispose(), TaskScheduler.Default);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return winner is not null
+            ? new MediaSocket(winner, bitrateKbps, $"com o computador de {sharerName}")
+            : throw new Local.LocalNetworkException(
+                $"Não foi possível conectar direto ao computador de {sharerName}. Confira se vocês estão na mesma rede (LAN, Hamachi, Radmin ou Tailscale) " +
+                "e se o Firewall do Windows de quem compartilha liberou o ScreenCord.");
+    }
+
+    private static async Task<ClientWebSocket?> TryConnectDirectAsync(string endpoint, Guid mediaId, string key, CancellationToken cancellationToken)
+    {
+        if (!Local.LocalNetwork.TryParseAddress(endpoint, out var host, out var port))
+        {
+            return null;
+        }
+
+        var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader(Local.LocalMediaHost.KeyHeader, key);
+        socket.Options.SetRequestHeader(ClientVersionContract.Header, AppVersion.Current);
+        socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        try
+        {
+            await socket.ConnectAsync(new Uri($"ws://{host}:{port}/media/{mediaId}"), cancellationToken).ConfigureAwait(false);
+            return socket;
+        }
+        catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException)
+        {
+            socket.Dispose();
+            return null;
         }
     }
 
@@ -204,7 +268,7 @@ public sealed class MediaSocket : IAsyncDisposable
         }
         catch (WebSocketException)
         {
-            RaiseClosed("A conexão de vídeo com a API central caiu.");
+            RaiseClosed($"A conexão de vídeo {_peer} caiu.");
         }
     }
 
@@ -223,7 +287,7 @@ public sealed class MediaSocket : IAsyncDisposable
                     {
                         if (buffer.Length >= MediaContract.MaxPacketSize)
                         {
-                            RaiseClosed("A API central enviou um pacote grande demais.");
+                            RaiseClosed($"A conexão de vídeo {_peer} enviou um pacote grande demais.");
                             return;
                         }
 
@@ -261,7 +325,7 @@ public sealed class MediaSocket : IAsyncDisposable
         }
         catch (WebSocketException)
         {
-            RaiseClosed("A conexão de vídeo com a API central caiu.");
+            RaiseClosed($"A conexão de vídeo {_peer} caiu.");
         }
     }
 

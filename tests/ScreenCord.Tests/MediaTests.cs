@@ -22,16 +22,17 @@ public class MediaTests
     [Fact]
     public void TamanhoDeSaida_SempreAceitoPelaApi()
     {
-        var available = from resolution in Enum.GetValues<ShareResolution>()
+        var available = from limits in new[] { StreamLimits.Relay, StreamLimits.Direct }
+                        from resolution in Enum.GetValues<ShareResolution>()
                         from frameRate in Enum.GetValues<ShareFrameRate>()
-                        where ShareSettings.IsAvailable(resolution, frameRate)
-                        select new ShareSettings(resolution, frameRate);
-        foreach (var settings in available)
+                        where ShareSettings.IsAvailable(resolution, frameRate, limits)
+                        select (Limits: limits, Settings: new ShareSettings(resolution, frameRate, false, limits.MaxBitrateKbps));
+        foreach (var (limits, settings) in available)
         {
             foreach (var (w, h) in new[] { (7680, 1080), (100, 3000), (5, 5), (1366, 768) })
             {
                 var (width, height) = ScreenCapture.OutputSize(w, h, settings.Height);
-                Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(width, height, settings.Fps, settings.BitrateKbps, false)),
+                Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(width, height, settings.Fps, settings.BitrateKbps, false), limits),
                     $"{w}x{h}@{settings.Summary} → {width}x{height}");
             }
         }

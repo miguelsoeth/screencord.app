@@ -51,6 +51,7 @@ public sealed class ProfileService : IProfileService
             user.GlobalName,
             user.Discriminator,
             AvatarUrlBuilder.Build(user),
-            HasCustomAvatar: !string.IsNullOrEmpty(user.Avatar));
+            HasCustomAvatar: !string.IsNullOrEmpty(user.Avatar),
+            AvatarHash: user.Avatar);
     }
 }

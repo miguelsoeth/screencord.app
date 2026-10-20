@@ -98,9 +98,37 @@
 
                         <!-- Botão e espera sobrepostos: o que não está ativo fica oculto, mas a célula tem a altura do maior. -->
                         <Grid>
-                            <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11" VerticalAlignment="Center"
-                                    Command="{Binding ConnectCommand}"
-                                    Visibility="{Binding ShowConnectButton, Converter={StaticResource BoolToVisibleOrHidden}}" />
+                            <StackPanel VerticalAlignment="Center"
+                                        Visibility="{Binding ShowConnectButton, Converter={StaticResource BoolToVisibleOrHidden}}">
+                                <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11"
+                                        Command="{Binding ConnectCommand}" />
+                                <!-- Sem conta: só as salas locais, que funcionam mesmo sem o servidor. -->
+                                <Button Content="Usar sem conta (só salas locais)" Style="{StaticResource SecondaryButton}" Padding="16,8" Margin="0,10,0,0"
+                                        Command="{Binding StartLocalCommand}"
+                                        Visibility="{Binding ShowLocalLink, Converter={StaticResource BoolToVisibleOrHidden}}" />
+                            </StackPanel>
+
+                            <StackPanel VerticalAlignment="Center"
+                                        Visibility="{Binding IsLocalForm, Converter={StaticResource BoolToVisibleOrHidden}}">
+                                <TextBox x:Name="LocalNameBox" Style="{StaticResource SearchBox}" Tag="Seu nome nas salas locais"
+                                         MaxLength="{Binding MaxLocalNameLength, Mode=OneTime}"
+                                         Text="{Binding LocalName, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="Seu nome nas salas locais">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding ConfirmLocalCommand}" />
+                                        <KeyBinding Key="Escape" Command="{Binding CancelLocalCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Content="Voltar" Style="{StaticResource SecondaryButton}" Command="{Binding CancelLocalCommand}" />
+                                    <Button Grid.Column="2" Content="Entrar" Style="{StaticResource PrimaryButton}" Command="{Binding ConfirmLocalCommand}" />
+                                </Grid>
+                            </StackPanel>
 
                             <StackPanel Visibility="{Binding IsSigningIn, Converter={StaticResource BoolToVisibleOrHidden}}">
                                 <ProgressBar IsIndeterminate="True" Height="4"
@@ -170,7 +198,7 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                     <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="Conta conectada" Margin="5,0,0,0" FontSize="12" Foreground="{StaticResource SuccessBrush}" />
+                                    <TextBlock Text="{Binding AccountStatusText}" Margin="5,0,0,0" FontSize="12" Foreground="{StaticResource SuccessBrush}" />
                                 </StackPanel>
                             </StackPanel>
 
@@ -178,8 +206,8 @@
                             <Border Grid.Column="2" Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="3"
                                     VerticalAlignment="Center" Margin="12,0,0,0">
                             <StackPanel Orientation="Horizontal">
-                                <!-- Amigos no ScreenCord (API central), numa janela sobre a tela principal. -->
-                                <Grid>
+                                <!-- Amigos no ScreenCord (API central), numa janela sobre a tela principal. Sem conta, não há amigos. -->
+                                <Grid Visibility="{Binding IsDiscordSession, Converter={StaticResource BoolToVisibility}}">
                                     <ToggleButton x:Name="FriendsToggle" Style="{StaticResource HeaderIconToggleButton}"
                                                   IsChecked="{Binding Friends.IsOpen}"
                                                   ToolTip="Amigos"
@@ -364,8 +392,16 @@
                                                 </Ellipse>
                                                 <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource IdleDotBrush}" />
                                             </Grid>
-                                            <TextBlock x:Name="GroupName" Grid.Column="1" Text="{Binding Name}" Margin="8,0,0,0"
-                                                       TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                                            <DockPanel Grid.Column="1" Margin="8,0,0,0" LastChildFill="True">
+                                                <!-- Sala local: a tela vai direto entre os computadores. -->
+                                                <Border DockPanel.Dock="Right" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="4" Padding="4,0" Margin="6,0,0,0"
+                                                        VerticalAlignment="Center" ToolTip="Sala local: a tela vai direto entre os computadores da rede"
+                                                        Visibility="{Binding IsLocal, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="LOCAL" FontSize="9" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
+                                                </Border>
+                                                <TextBlock x:Name="GroupName" Text="{Binding Name}"
+                                                           TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                                            </DockPanel>
                                         </Grid>
                                     </Button>
 
@@ -397,6 +433,8 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
+                                                <TextBlock Text="{Binding LocalAddressText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"
+                                                           TextWrapping="Wrap" Visibility="{Binding HasLocalAddress, Converter={StaticResource BoolToVisibility}}" />
 
                                                 <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
                                                         views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
@@ -413,10 +451,12 @@
                                                 <!-- Convidar (abre a janela de amigos), sair do grupo e excluir o grupo (só quem criou), à direita -->
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                                                     <Button Content="Convidar" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
-                                                            Command="{Binding InviteCommand}" />
+                                                            Command="{Binding InviteCommand}"
+                                                            Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
                                                     <Button Content="Sair" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
-                                                            Command="{Binding ConfirmLeaveCommand}" />
-                                                    <Button Content="Excluir" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                            Command="{Binding ConfirmLeaveCommand}"
+                                                            Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Button Content="{Binding DeleteText}" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                             Command="{Binding ConfirmDeleteCommand}"
                                                             Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibility}}" />
                                                 </StackPanel>
@@ -582,7 +622,7 @@
                             <TextBlock Text="GRUPOS" Style="{StaticResource SidebarHeader}" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}"
                                     Command="{Binding StartCreateCommand}"
-                                    ToolTip="Criar grupo" AutomationProperties.Name="Criar grupo">
+                                    ToolTip="Criar grupo ou sala local" AutomationProperties.Name="Criar grupo">
                                 <Path Data="{StaticResource PlusIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                             </Button>
                         </Grid>
@@ -591,6 +631,21 @@
                         <StackPanel Grid.Row="2">
                             <TextBlock Text="{Binding RealtimeStatusText}" Style="{StaticResource MutedText}" FontSize="12" Margin="6,0,6,6"
                                        views:Motion.IsShown="{Binding HasRealtimeStatus}" views:Motion.Kind="SlideDown" />
+                            <!-- Sem a regra do firewall, os outros computadores podem não alcançar a sala local ou a sua tela. -->
+                            <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                    views:Motion.IsShown="{Binding ShowFirewallWarning}" views:Motion.Kind="SlideDown">
+                                <StackPanel>
+                                    <TextBlock TextWrapping="Wrap" FontSize="12"
+                                               Text="O Firewall do Windows pode impedir que os outros entrem na sua sala ou vejam a sua tela. Libere o ScreenCord para as redes locais e VPNs (o Windows vai pedir permissão)." />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="Liberar no firewall" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                Command="{Binding ConfigureFirewallCommand}"
+                                                IsEnabled="{Binding IsConfiguringFirewall, Converter={StaticResource InverseBool}}" />
+                                        <Button Content="Agora não" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                Command="{Binding DismissFirewallWarningCommand}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"
                                     views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                                 <StackPanel>
@@ -610,7 +665,7 @@
                                 <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource GroupRowTemplate}"
                                               KeyboardNavigation.TabNavigation="Continue" />
                                 <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="6,4"
-                                           Text="Nenhum grupo ainda. Clique em + para criar um e adicionar amigos."
+                                           Text="{Binding EmptyText}"
                                            Visibility="{Binding ShowNoGroups, Converter={StaticResource BoolToVisibility}}" />
                             </StackPanel>
                         </ScrollViewer>
@@ -1000,7 +1055,7 @@
                 <Grid.InputBindings>
                     <KeyBinding Key="Escape" Command="{Binding CancelCreateCommand}" />
                 </Grid.InputBindings>
-                <Border Style="{StaticResource Card}" Padding="24" Margin="24" Width="400"
+                <Border Style="{StaticResource Card}" Padding="24" Margin="24" Width="440"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                         TextElement.Foreground="{StaticResource TextBrush}">
@@ -1010,15 +1065,24 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource PlusIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource AccentBrush}" />
-                            <TextBlock Text="Criar grupo" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CreateTitle}" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                        <TextBlock Style="{StaticResource MutedText}" Margin="0,8,0,14"
-                                   Text="Dê um nome ao grupo. Depois de criar, você já pode adicionar amigos." />
+                        <!-- Grupo com amigos (pelo servidor) ou sala local (direto entre os computadores). -->
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
+                                    Visibility="{Binding HasLocalRooms, Converter={StaticResource BoolToVisibility}}">
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="Grupo com amigos"
+                                         IsChecked="{Binding NewGroupIsGroup}" IsEnabled="{Binding CanCreateGroup}"
+                                         ToolTip="Precisa de conta do Discord." ToolTipService.ShowOnDisabled="True" />
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="Sala local"
+                                         IsChecked="{Binding NewGroupIsLocal}" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource MutedText}" Margin="0,10,0,14" TextWrapping="Wrap"
+                                   Text="{Binding CreateHint}" />
                         <TextBox x:Name="NewGroupBox" Style="{StaticResource SearchBox}"
-                                 Tag="Nome do grupo"
+                                 Tag="Nome"
                                  MaxLength="{Binding MaxNameLength, Mode=OneTime}"
                                  Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="Nome do grupo">
+                                 AutomationProperties.Name="Nome do grupo ou da sala">
                             <TextBox.InputBindings>
                                 <KeyBinding Key="Enter" Command="{Binding CreateCommand}" />
                             </TextBox.InputBindings>
@@ -1032,6 +1096,30 @@
                                     Command="{Binding CancelCreateCommand}" />
                             <Button Content="Criar" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
                                     Command="{Binding CreateCommand}" />
+                        </StackPanel>
+
+                        <!-- Entrar numa sala local pelo IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios). -->
+                        <StackPanel Visibility="{Binding HasLocalRooms, Converter={StaticResource BoolToVisibility}}">
+                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,20,0,14" />
+                            <TextBlock Text="Entrar numa sala local pelo IP" FontWeight="SemiBold" />
+                            <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"
+                                       Text="As salas da mesma rede aparecem sozinhas na lista. Se a sua não aparecer, peça o IP a quem hospeda." />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Style="{StaticResource SearchBox}" Tag="Ex.: 25.1.2.3 ou 192.168.0.10"
+                                         Text="{Binding JoinAddress, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="IP de quem hospeda a sala">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding JoinByAddressCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                                <Button Grid.Column="1" Content="Entrar" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0"
+                                        Command="{Binding JoinByAddressCommand}"
+                                        IsEnabled="{Binding IsJoiningByAddress, Converter={StaticResource InverseBool}}" />
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -1057,12 +1145,12 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}">
                             <Path Data="{StaticResource DeleteIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource DangerBrush}" />
-                            <TextBlock Text="Excluir o grupo?" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ConfirmDeleteTitle}" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource MutedText}" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}"><Run Text="Você sai de " /><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=". Para voltar, alguém do grupo precisa convidar você." /></TextBlock>
                         <TextBlock Style="{StaticResource MutedText}" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}"><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" será excluído para todos os integrantes." /></TextBlock>
+                                   Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}"><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding ConfirmDeleteSuffix, Mode=OneWay}" /></TextBlock>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,14,0,0"
                                 views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
                             <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
@@ -1073,7 +1161,7 @@
                             <Button Content="Sair" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
                                     Command="{Binding LeaveGroupCommand}"
                                     Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}" />
-                            <Button Content="Excluir" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
+                            <Button Content="{Binding DeleteText}" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
                                     Command="{Binding DeleteGroupCommand}"
                                     Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
