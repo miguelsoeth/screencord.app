@@ -103,6 +103,44 @@ public sealed class LocalRoomsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Enderecos_QuemEntrouVeOEnderecoDaSala_QuemHospedaVeOsDele()
+    {
+        var (ana, bruno, roomId) = await RoomWithTwoAsync();
+
+        var info = bruno.Info(roomId)!;
+        Assert.False(info.IsHost);
+        Assert.Equal([new LocalAddress($"127.0.0.1:{ana.ListeningPort}", "Este computador")], info.Addresses);
+
+        var host = ana.Info(roomId)!;
+        Assert.True(host.IsHost);
+        Assert.All(host.Addresses, a => Assert.EndsWith($":{ana.ListeningPort}", a.Address));
+        Assert.Equal(
+            LocalNetwork.Interfaces().Select(i => i.Address.ToString()).Distinct().Order(),
+            host.Addresses.Select(a => a.Address.Split(':')[0]).Order());
+    }
+
+    [Fact]
+    public async Task Grupos_SalaLocal_MostraOsEnderecosNaLinha()
+    {
+        var ana = Create("Ana");
+        var bruno = Create("Bruno");
+        var room = await ana.CreateRoomAsync("Jogatina");
+        await ana.JoinAsync(room.Id);
+        bruno.IsLocalOnly = true;
+        var vm = new GroupsViewModel(new FakeGroupsService(), new RoutedGroupsRealtime(new ApiRealtime(new FakeGroupsRealtime()), bruno), new FakeScreenShareService(), new FakeScreenShareUi(), bruno);
+        await vm.LoadAsync();
+        vm.JoinAddress = $"127.0.0.1:{ana.ListeningPort}";
+
+        await vm.JoinByAddressCommand.ExecuteAsync();
+
+        var item = Assert.Single(vm.Groups);
+        Assert.Equal(item, vm.CurrentGroup);
+        Assert.False(item.IsLocalHost);
+        Assert.Equal("Endereço da sala:", item.LocalAddressesHeader);
+        Assert.Equal([$"127.0.0.1:{ana.ListeningPort}"], item.LocalAddresses.Select(a => a.Address));
+    }
+
+    [Fact]
     public async Task Compartilhar_QuemAssisteRecebeDiretoDeQuemCompartilha()
     {
         var (ana, bruno, roomId) = await RoomWithTwoAsync();
@@ -403,6 +441,24 @@ public class LocalNetworkTests
     public void Endereco_Invalido(string text)
     {
         Assert.False(LocalNetwork.TryParseAddress(text, out _, out _));
+    }
+
+    [Theory]
+    [InlineData("25.1.2.3", "Hamachi")]
+    [InlineData("26.1.2.3", "Radmin")]
+    [InlineData("100.101.1.2", "Tailscale")]
+    [InlineData("192.168.0.10", "Rede local")]
+    [InlineData("127.0.0.1", "Este computador")]
+    public void NomeDaRede_PeloEndereco(string address, string network)
+    {
+        Assert.Equal(network, LocalNetwork.NetworkName(IPAddress.Parse(address)));
+    }
+
+    [Fact]
+    public void Endereco_SemPortaQuandoEhAPadrao()
+    {
+        Assert.Equal("25.1.2.3", LocalNetwork.FormatAddress("25.1.2.3", LocalNetwork.RoomPort));
+        Assert.Equal("25.1.2.3:5000", LocalNetwork.FormatAddress("25.1.2.3", 5000));
     }
 
     [Fact]

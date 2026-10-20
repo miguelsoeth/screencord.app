@@ -133,6 +133,32 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Copia o IP da sala local; o ícone vira um "certo" por um instante para confirmar.</summary>
+    private async void OnCopyAddressClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string address } button ||
+            button.Content is not System.Windows.Shapes.Path icon)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(address);
+        }
+        catch (COMException)
+        {
+            // A área de transferência estava em uso por outro programa; o IP continua selecionável.
+            return;
+        }
+
+        icon.Data = (System.Windows.Media.Geometry)FindResource("CheckIcon");
+        button.ToolTip = "Copiado";
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        icon.Data = (System.Windows.Media.Geometry)FindResource("CopyIcon");
+        button.ToolTip = "Copiar o IP";
+    }
+
     /// <summary>Clique na área esmaecida (fora do cartão) cancela a criação do grupo.</summary>
     private void OnCreateGroupOverlayMouseDown(object sender, MouseButtonEventArgs e)
     {

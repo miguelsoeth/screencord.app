@@ -432,9 +432,41 @@
                                             </Border.Effect>
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
-                                                <TextBlock Text="{Binding LocalAddressText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"
-                                                           TextWrapping="Wrap" Visibility="{Binding HasLocalAddress, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"
+                                                           Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
+                                                <!-- Sala local: os IPs para entrar, um por linha, selecionáveis e com botão de copiar. -->
+                                                <StackPanel Margin="0,4,0,0" Visibility="{Binding HasLocalAddresses, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding LocalAddressesHeader}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                    <ItemsControl ItemsSource="{Binding LocalAddresses}" Focusable="False" Margin="0,4,0,0">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid Margin="0,1">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="•" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="2,0,6,0" />
+                                                                    <!-- Somente leitura, mas dá para selecionar e copiar com Ctrl+C. -->
+                                                                    <TextBox Grid.Column="1" Text="{Binding Address, Mode=OneWay}" IsReadOnly="True" IsReadOnlyCaretVisible="False"
+                                                                             Background="Transparent" BorderThickness="0" Padding="0" FontSize="13" FontWeight="SemiBold"
+                                                                             Foreground="{StaticResource TextBrush}" CaretBrush="{StaticResource TextBrush}"
+                                                                             SelectionBrush="{StaticResource AccentBrush}" VerticalAlignment="Center"
+                                                                             AutomationProperties.Name="{Binding Address}" />
+                                                                    <TextBlock Grid.Column="2" Text="{Binding Network, StringFormat=· {0}}" FontSize="12" Margin="6,0,0,0"
+                                                                               Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                                    <Button Grid.Column="3" Style="{StaticResource GhostIconButton}" Width="24" Height="22"
+                                                                            Tag="{Binding Address}" Click="OnCopyAddressClick"
+                                                                            ToolTip="Copiar o IP"
+                                                                            AutomationProperties.Name="{Binding Address, StringFormat=Copiar {0}}">
+                                                                        <Path Data="{StaticResource CopyIcon}" Style="{StaticResource IconPath}" Width="13" Height="13" />
+                                                                    </Button>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
 
                                                 <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
                                                         views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">

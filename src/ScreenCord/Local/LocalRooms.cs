@@ -1,3 +1,4 @@
+using System.Net;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
 using ScreenCord.Models;
@@ -6,9 +7,15 @@ using Microsoft.Extensions.Logging;
 
 namespace ScreenCord.Local;
 
+/// <summary>Um endereço para entrar na sala pelo IP, com a rede dele ("Hamachi", "Rede local"...).</summary>
+public sealed record LocalAddress(string Address, string Network);
+
 /// <summary>Como a sala local aparece para quem está nela.</summary>
-/// <param name="Address">Endereços para os outros entrarem pelo IP (só para quem hospeda), ex.: "25.1.2.3:47830".</param>
-public sealed record LocalRoomInfo(bool IsHost, string? Address);
+/// <param name="Addresses">
+/// Por onde entrar na sala pelo IP: para quem hospeda, todos os endereços de rede local e VPN deste computador;
+/// para os outros, o endereço em que a sala foi encontrada.
+/// </param>
+public sealed record LocalRoomInfo(bool IsHost, IReadOnlyList<LocalAddress> Addresses);
 
 /// <summary>
 /// Salas locais: funcionam sem a API (e sem conta do Discord). Uma sala é hospedada no computador de quem a cria;
@@ -187,13 +194,24 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     {
         if (_hosted is { } hosted && hosted.Id == roomId)
         {
-            var addresses = LocalNetwork.Interfaces().Select(i => i.Address.ToString()).Distinct().ToList();
             var port = _server?.Port ?? _port;
-            var suffix = port == LocalNetwork.RoomPort ? "" : $":{port}";
-            return new LocalRoomInfo(true, addresses.Count == 0 ? null : string.Join(" ou ", addresses.Select(a => a + suffix)));
+            var addresses = LocalNetwork.Interfaces()
+                .Select(i => i.Address)
+                .Distinct()
+                .Select(a => new LocalAddress(LocalNetwork.FormatAddress(a.ToString(), port), LocalNetwork.NetworkName(a)))
+                .ToList();
+            return new LocalRoomInfo(true, addresses);
         }
 
-        return IsLocal(roomId) ? new LocalRoomInfo(false, null) : null;
+        var client = _client?.State.Id == roomId ? _client : _pending?.State.Id == roomId ? _pending : null;
+        if (client is not null)
+        {
+            return new LocalRoomInfo(false, [Describe(client.Host, client.Port)]);
+        }
+
+        return _discovery.Rooms.FirstOrDefault(r => r.Beacon.RoomId == roomId) is { } found
+            ? new LocalRoomInfo(false, [Describe(found.Host, found.Beacon.Port)])
+            : null;
     }
 
     public void Start()
@@ -567,6 +585,9 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             _client?.Unshare();
         }
     }
+
+    private static LocalAddress Describe(string host, int port) =>
+        new(LocalNetwork.FormatAddress(host, port), IPAddress.TryParse(host, out var ip) ? LocalNetwork.NetworkName(ip) : "Nome do computador");
 
     private static GroupDto ToGroup(RoomBeacon beacon) =>
         new(beacon.RoomId, beacon.Name, beacon.Members.Count, beacon.Members.Select(m => m.ToPresence()).ToList(), beacon.Version, []);

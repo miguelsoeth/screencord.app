@@ -51,6 +51,31 @@ public static class LocalNetwork
         };
     }
 
+    /// <summary>Nome da rede de um endereço, para exibição: "Hamachi", "Radmin", "Tailscale" ou "Rede local".</summary>
+    public static string NetworkName(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        if (IPAddress.IsLoopback(address))
+        {
+            return "Este computador";
+        }
+
+        var b = address.GetAddressBytes();
+        return address.AddressFamily != AddressFamily.InterNetwork ? "Rede"
+            : b[0] == 25 ? "Hamachi"
+            : b[0] == 26 ? "Radmin"
+            : b[0] == 100 && b[1] is >= 64 and <= 127 ? "Tailscale"
+            : IsLocal(address) ? "Rede local"
+            : "Internet";
+    }
+
+    /// <summary>"25.1.2.3" (porta padrão) ou "25.1.2.3:5000".</summary>
+    public static string FormatAddress(string host, int port) => port == RoomPort ? host : $"{host}:{port}";
+
     /// <summary>Endereços IPv4 locais deste computador, com o broadcast da sub-rede de cada um.</summary>
     public static IReadOnlyList<(IPAddress Address, IPAddress Broadcast)> Interfaces()
     {

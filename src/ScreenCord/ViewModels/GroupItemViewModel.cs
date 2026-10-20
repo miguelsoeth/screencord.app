@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
+using ScreenCord.Local;
 using ScreenCord.Models;
 using ScreenCord.Services;
 
@@ -51,10 +52,14 @@ public sealed class GroupItemViewModel : ObservableObject
     /// <summary>Este computador hospeda a sala local.</summary>
     public bool IsLocalHost { get; private set; }
 
-    /// <summary>Para quem hospeda: como os outros entram pelo IP ("Entrem por 25.1.2.3").</summary>
-    public string? LocalAddressText { get; private set; }
+    /// <summary>Por onde entrar na sala pelo IP (para copiar e passar a quem não vê a sala na lista).</summary>
+    public ObservableCollection<LocalAddress> LocalAddresses { get; } = [];
 
-    public bool HasLocalAddress => LocalAddressText is not null;
+    public bool HasLocalAddresses => LocalAddresses.Count > 0;
+
+    public string LocalAddressesHeader => IsLocalHost
+        ? "Quem não vê a sala na lista entra por um destes IPs:"
+        : "Endereço da sala:";
 
     public string DeleteText => IsLocal ? "Encerrar" : "Excluir";
 
@@ -62,16 +67,24 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public string ConfirmDeleteSuffix => IsLocal ? " será encerrada para todos que estão nela." : " será excluído para todos os integrantes.";
 
-    internal void SetLocal(bool isHost, string? address)
+    internal void SetLocal(bool isHost, IReadOnlyList<LocalAddress> addresses)
     {
         IsLocal = true;
         IsLocalHost = isHost;
-        LocalAddressText = isHost && address is not null ? $"Outros computadores entram pelo IP: {address}" : null;
+        if (!LocalAddresses.SequenceEqual(addresses))
+        {
+            LocalAddresses.Clear();
+            foreach (var address in addresses)
+            {
+                LocalAddresses.Add(address);
+            }
+        }
+
         OnPropertyChanged(nameof(IsLocal));
         OnPropertyChanged(nameof(IsApiGroup));
         OnPropertyChanged(nameof(IsLocalHost));
-        OnPropertyChanged(nameof(LocalAddressText));
-        OnPropertyChanged(nameof(HasLocalAddress));
+        OnPropertyChanged(nameof(HasLocalAddresses));
+        OnPropertyChanged(nameof(LocalAddressesHeader));
         OnPropertyChanged(nameof(DeleteText));
         OnPropertyChanged(nameof(ConfirmDeleteTitle));
         OnPropertyChanged(nameof(ConfirmDeleteSuffix));

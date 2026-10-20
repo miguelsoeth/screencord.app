@@ -437,6 +437,7 @@ public sealed class GroupsViewModel : ObservableObject
         try
         {
             var details = _localRooms?.IsLocal(group.Id) == true ? _localRooms.Details(group.Id) : await _groupsService.GetGroupAsync(group.Id);
+            RefreshLocal(group);
 
             group.Name = details.Name;
             group.MemberCount = details.Members.Count;
@@ -843,11 +844,7 @@ public sealed class GroupsViewModel : ObservableObject
         if (item is null)
         {
             item = new GroupItemViewModel(this, group);
-            if (_localRooms?.IsLocal(group.Id) == true)
-            {
-                var info = _localRooms.Info(group.Id);
-                item.SetLocal(info?.IsHost == true, info?.Address);
-            }
+            RefreshLocal(item);
 
             var index = 0;
             while (index < Groups.Count && string.Compare(Groups[index].Name, group.Name, StringComparison.CurrentCultureIgnoreCase) <= 0)
@@ -862,12 +859,22 @@ public sealed class GroupsViewModel : ObservableObject
 
         item.Name = group.Name;
         item.MemberCount = group.MemberCount;
+        RefreshLocal(item);
         if (item.ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares))
         {
             SyncViewers(item);
         }
 
         return item;
+    }
+
+    /// <summary>Sala local: marca a linha e atualiza os endereços para entrar pelo IP.</summary>
+    private void RefreshLocal(GroupItemViewModel item)
+    {
+        if (_localRooms?.Info(item.Id) is { } info)
+        {
+            item.SetLocal(info.IsHost, info.Addresses);
+        }
     }
 
     private void RemoveGroup(Guid groupId)
