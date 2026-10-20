@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
 using ScreenCord.Media;
@@ -58,7 +59,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 
     public Guid SharerId => Sharer.UserId;
 
-    public string Title => $"Tela de {Sharer.DisplayName} · {GroupName}";
+    public string Title => string.Format(Loc.Culture, Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
 
     public RelayCommand ToggleMuteCommand { get; }
 
@@ -86,9 +87,9 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 
     public string StatusText => State switch
     {
-        StreamViewerState.Connecting => "Conectando…",
-        StreamViewerState.Ended => _message ?? "Compartilhamento encerrado.",
-        _ => "Aguardando imagem…",
+        StreamViewerState.Connecting => Strings.Connecting,
+        StreamViewerState.Ended => _message ?? Strings.ShareEnded,
+        _ => Strings.WaitingForImage,
     };
 
     /// <summary>"1280 × 720 · 30 fps · 4000 kbps".</summary>

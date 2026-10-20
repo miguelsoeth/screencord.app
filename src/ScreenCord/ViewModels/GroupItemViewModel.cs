@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
 using ScreenCord.Local;
@@ -58,14 +59,14 @@ public sealed class GroupItemViewModel : ObservableObject
     public bool HasLocalAddresses => LocalAddresses.Count > 0;
 
     public string LocalAddressesHeader => IsLocalHost
-        ? "Quem não vê a sala na lista entra por um destes IPs:"
-        : "Endereço da sala:";
+        ? Strings.LocalAddressesHeader
+        : Strings.LocalAddressHeader;
 
-    public string DeleteText => IsLocal ? "Encerrar" : "Excluir";
+    public string DeleteText => IsLocal ? Strings.EndRoom : Strings.DeleteGroup;
 
-    public string ConfirmDeleteTitle => IsLocal ? "Encerrar a sala?" : "Excluir o grupo?";
+    public string ConfirmDeleteTitle => IsLocal ? Strings.EndRoomQuestion : Strings.DeleteGroupQuestion;
 
-    public string ConfirmDeleteSuffix => IsLocal ? " será encerrada para todos que estão nela." : " será excluído para todos os integrantes.";
+    public string ConfirmDeleteSuffix => IsLocal ? Strings.EndRoomSuffix : Strings.DeleteGroupSuffix;
 
     internal void SetLocal(bool isHost, IReadOnlyList<LocalAddress> addresses)
     {
@@ -165,9 +166,7 @@ public sealed class GroupItemViewModel : ObservableObject
     }
 
     /// <summary>Texto do tooltip da contagem: "3 integrantes · 1 conectado".</summary>
-    public string Summary =>
-        $"{MemberCount} {(MemberCount == 1 ? "integrante" : "integrantes")} · " +
-        (ConnectedCount == 0 ? "ninguém conectado" : $"{ConnectedCount} {(ConnectedCount == 1 ? "conectado" : "conectados")}");
+    public string Summary => Strings.MembersSummary(MemberCount, ConnectedCount);
 
     public bool IsMembersOpen
     {

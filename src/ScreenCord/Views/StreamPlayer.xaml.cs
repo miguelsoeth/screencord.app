@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -11,9 +12,9 @@ namespace ScreenCord.Views;
 
 public static class ViewerCommands
 {
-    public static RoutedUICommand ToggleFullScreen { get; } = new("Tela cheia", nameof(ToggleFullScreen), typeof(ViewerCommands));
+    public static RoutedUICommand ToggleFullScreen { get; } = new(Strings.FullScreen, nameof(ToggleFullScreen), typeof(ViewerCommands));
 
-    public static RoutedUICommand ExitFullScreen { get; } = new("Sair da tela cheia", nameof(ExitFullScreen), typeof(ViewerCommands));
+    public static RoutedUICommand ExitFullScreen { get; } = new(Strings.ExitFullScreen, nameof(ExitFullScreen), typeof(ViewerCommands));
 }
 
 /// <summary>
@@ -37,6 +38,9 @@ public partial class StreamPlayer : UserControl
     private Window? _fullScreenWindow;
     private Point _lastMouse;
 
+    private void UpdateFullScreenTooltip() =>
+        FullScreenButton.ToolTip = IsFullScreen ? Strings.ExitFullScreenTooltip : Strings.FullScreenTooltip;
+
     public StreamPlayer()
         : this(isFullScreen: false)
     {
@@ -49,7 +53,15 @@ public partial class StreamPlayer : UserControl
 
         // Em tela cheia, sair é pelo Esc/F11/duplo clique; parar de assistir fica na janela principal.
         CloseButton.Visibility = isFullScreen ? Visibility.Collapsed : Visibility.Visible;
-        FullScreenButton.ToolTip = isFullScreen ? "Sair da tela cheia (Esc)" : "Tela cheia (F11)";
+        // O tooltip muda com o idioma enquanto o player está na tela.
+        UpdateFullScreenTooltip();
+        Loaded += (_, _) =>
+        {
+            Loc.LanguageChanged -= UpdateFullScreenTooltip;
+            Loc.LanguageChanged += UpdateFullScreenTooltip;
+            UpdateFullScreenTooltip();
+        };
+        Unloaded += (_, _) => Loc.LanguageChanged -= UpdateFullScreenTooltip;
 
         CommandBindings.Add(new CommandBinding(ViewerCommands.ToggleFullScreen, (_, _) => ToggleFullScreen()));
         CommandBindings.Add(new CommandBinding(ViewerCommands.ExitFullScreen, (_, _) => ExitFullScreen()));

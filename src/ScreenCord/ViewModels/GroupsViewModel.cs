@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
@@ -109,8 +110,8 @@ public sealed class GroupsViewModel : ObservableObject
 
     /// <summary>Texto da lista vazia.</summary>
     public string EmptyText => IsLocalOnly
-        ? "Nenhuma sala local na rede. Clique em + para criar uma ou entrar numa pelo IP."
-        : "Nenhum grupo ou sala ainda. Clique em + para criar um grupo com amigos, criar uma sala local ou entrar numa pelo IP.";
+        ? Strings.NoLocalRooms
+        : Strings.NoGroups;
 
     /// <summary>Na janela de criar: sala local (verdadeiro) ou grupo com amigos.</summary>
     public bool NewGroupIsLocal
@@ -133,11 +134,11 @@ public sealed class GroupsViewModel : ObservableObject
         set => NewGroupIsLocal = !value;
     }
 
-    public string CreateTitle => NewGroupIsLocal ? "Criar sala local" : "Criar grupo";
+    public string CreateTitle => NewGroupIsLocal ? Strings.CreateLocalRoom : Strings.CreateGroup;
 
     public string CreateHint => NewGroupIsLocal
-        ? "Para quem está na mesma rede. A tela vai direto entre os computadores e funciona mesmo sem o servidor. Ela fica aberta enquanto você estiver nela."
-        : "Possibilita compartilhar a tela para qualquer amigo online, de qualquer lugar. Qualidade limitada.";
+        ? Strings.LocalRoomHint
+        : Strings.GroupHint;
 
     /// <summary>Endereço digitado para entrar numa sala local (ex.: 25.1.2.3).</summary>
     public string JoinAddress
@@ -195,7 +196,7 @@ public sealed class GroupsViewModel : ObservableObject
     public bool CanChangeShare => IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
 
     /// <summary>Aviso enquanto o compartilhamento começa ou recomeça com as novas configurações.</summary>
-    public string ShareProgressText => IsSharing ? "Aplicando as novas configurações…" : "Iniciando o compartilhamento…";
+    public string ShareProgressText => IsSharing ? Strings.ApplyingSettings : Strings.StartingShare;
 
     /// <summary>Você está compartilhando a tela na sala atual.</summary>
     public bool IsSharing => _activeShare is not null;
@@ -220,7 +221,7 @@ public sealed class GroupsViewModel : ObservableObject
     /// <summary>"1280 × 720 · 30 fps · Médio (4000 kbps) · com áudio".</summary>
     public string? ShareDetailText => _activeShare is { } active
         ? $"{active.Share.Width} × {active.Share.Height} · {active.Share.FrameRate} fps · {active.Share.BitrateKbps} kbps" +
-          (active.Share.HasAudio ? " · com áudio" : "")
+          (active.Share.HasAudio ? Strings.WithAudioSuffix : "")
         : null;
 
     /// <summary>Aviso sobre o compartilhamento (ex.: a janela compartilhada foi fechada).</summary>
@@ -292,9 +293,9 @@ public sealed class GroupsViewModel : ObservableObject
     /// <summary>Aviso sobre a conexão em tempo real; nulo quando está tudo certo.</summary>
     public string? RealtimeStatusText => !_isActive ? null : RealtimeState switch
     {
-        RealtimeState.Connecting => "Conectando ao servidor…",
-        RealtimeState.Reconnecting => "Conexão perdida. Reconectando…",
-        RealtimeState.Disconnected => "Sem conexão em tempo real.",
+        RealtimeState.Connecting => Strings.ConnectingToServer,
+        RealtimeState.Reconnecting => Strings.Reconnecting,
+        RealtimeState.Disconnected => Strings.NoRealtime,
         _ => null,
     };
 
@@ -615,7 +616,7 @@ public sealed class GroupsViewModel : ObservableObject
         var name = string.Join(' ', NewGroupName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (name.Length == 0)
         {
-            CreateError = "Digite um nome para o grupo.";
+            CreateError = Strings.EnterGroupName;
             return;
         }
 
@@ -716,7 +717,7 @@ public sealed class GroupsViewModel : ObservableObject
             }
             else
             {
-                ErrorMessage = "A regra do firewall não foi criada. Aceite o pedido de permissão do Windows para liberar as salas locais.";
+                ErrorMessage = Strings.FirewallNotCreated;
             }
         }
         finally
@@ -746,7 +747,7 @@ public sealed class GroupsViewModel : ObservableObject
             // A conexão caiu: o servidor já encerrou o compartilhamento junto com ela.
             if (IsSharing)
             {
-                await EndShareAsync("O compartilhamento de tela parou porque a conexão com o servidor caiu.");
+                await EndShareAsync(Strings.ShareStoppedServerLost);
             }
 
             return;
@@ -929,7 +930,7 @@ public sealed class GroupsViewModel : ObservableObject
 
         if (!group.Shares.TryGetValue(sharer.UserId, out var share))
         {
-            ErrorMessage = $"{sharer.DisplayName} não está mais compartilhando a tela.";
+            ErrorMessage = string.Format(Loc.Culture, Strings.NotSharingAnymoreFormat, sharer.DisplayName);
             return;
         }
 

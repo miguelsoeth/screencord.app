@@ -1,6 +1,7 @@
 <Window x:Class="ScreenCord.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:ScreenCord.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:ScreenCord.ViewModels"
@@ -65,11 +66,11 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="OnMinimizeClick"
-                        ToolTip="Minimizar" AutomationProperties.Name="Minimizar" />
+                        ToolTip="{l:Tr Minimize}" AutomationProperties.Name="{l:Tr Minimize}" />
                 <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="OnMaximizeClick"
-                        ToolTip="Maximizar" AutomationProperties.Name="Maximizar" />
+                        ToolTip="{l:Tr Maximize}" AutomationProperties.Name="{l:Tr Maximize}" />
                 <Button Style="{StaticResource CaptionCloseButton}" Content="&#xE8BB;" Click="OnCloseClick"
-                        ToolTip="Fechar" AutomationProperties.Name="Fechar" />
+                        ToolTip="{l:Tr Close}" AutomationProperties.Name="{l:Tr Close}" />
             </StackPanel>
         </Grid>
 
@@ -78,7 +79,7 @@
             <!-- Verificação da sessão salva -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                         views:Motion.IsShown="{Binding IsInitializing}">
-                <TextBlock Text="Carregando sessão…" Style="{StaticResource MutedText}" HorizontalAlignment="Center" />
+                <TextBlock Text="{l:Tr LoadingSession}" Style="{StaticResource MutedText}" HorizontalAlignment="Center" />
                 <ProgressBar IsIndeterminate="True" Width="200" Height="4" Margin="0,12,0,0"
                              Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0" />
             </StackPanel>
@@ -90,6 +91,7 @@
                      conectar, cancelar ou mostrar um erro. -->
                 <Border Style="{StaticResource Card}" Padding="36,32" Margin="24" Width="440"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid>
                     <StackPanel>
                         <views:MascotIcon Width="172" Height="126" HorizontalAlignment="Center" Margin="0,0,0,14" />
                         <views:WordmarkText Text="Screen" AccentText="Cord" AccentForeground="{StaticResource WordmarkAccentBrush}"
@@ -100,20 +102,20 @@
                         <Grid>
                             <StackPanel VerticalAlignment="Center"
                                         Visibility="{Binding ShowConnectButton, Converter={StaticResource BoolToVisibleOrHidden}}">
-                                <Button Content="Conectar com Discord" Style="{StaticResource PrimaryButton}" Padding="16,11"
+                                <Button Content="{l:Tr ConnectWithDiscord}" Style="{StaticResource PrimaryButton}" Padding="16,11"
                                         Command="{Binding ConnectCommand}" />
                                 <!-- Sem conta: só as salas locais, que funcionam mesmo sem o servidor. -->
-                                <Button Content="Usar sem conta (só salas locais)" Style="{StaticResource SecondaryButton}" Padding="16,8" Margin="0,10,0,0"
+                                <Button Content="{l:Tr UseWithoutAccount}" Style="{StaticResource SecondaryButton}" Padding="16,8" Margin="0,10,0,0"
                                         Command="{Binding StartLocalCommand}"
                                         Visibility="{Binding ShowLocalLink, Converter={StaticResource BoolToVisibleOrHidden}}" />
                             </StackPanel>
 
                             <StackPanel VerticalAlignment="Center"
                                         Visibility="{Binding IsLocalForm, Converter={StaticResource BoolToVisibleOrHidden}}">
-                                <TextBox x:Name="LocalNameBox" Style="{StaticResource SearchBox}" Tag="Seu nome nas salas locais"
+                                <TextBox x:Name="LocalNameBox" Style="{StaticResource SearchBox}" Tag="{l:Tr LocalNamePlaceholder}"
                                          MaxLength="{Binding MaxLocalNameLength, Mode=OneTime}"
                                          Text="{Binding LocalName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.Name="Seu nome nas salas locais">
+                                         AutomationProperties.Name="{l:Tr LocalNamePlaceholder}">
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding ConfirmLocalCommand}" />
                                         <KeyBinding Key="Escape" Command="{Binding CancelLocalCommand}" />
@@ -125,8 +127,8 @@
                                         <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Button Content="Voltar" Style="{StaticResource SecondaryButton}" Command="{Binding CancelLocalCommand}" />
-                                    <Button Grid.Column="2" Content="Entrar" Style="{StaticResource PrimaryButton}" Command="{Binding ConfirmLocalCommand}" />
+                                    <Button Content="{l:Tr Back}" Style="{StaticResource SecondaryButton}" Command="{Binding CancelLocalCommand}" />
+                                    <Button Grid.Column="2" Content="{l:Tr Join}" Style="{StaticResource PrimaryButton}" Command="{Binding ConfirmLocalCommand}" />
                                 </Grid>
                             </StackPanel>
 
@@ -134,8 +136,8 @@
                                 <ProgressBar IsIndeterminate="True" Height="4"
                                              Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0" />
                                 <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,14"
-                                           Text="Aguardando a autorização no navegador…" />
-                                <Button Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                                           Text="{l:Tr WaitingForBrowser}" />
+                                <Button Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}"
                                         Command="{Binding CancelConnectCommand}" />
                             </StackPanel>
                         </Grid>
@@ -143,14 +145,28 @@
                         <!-- Rodapé com altura reservada para até três linhas de erro; sem erro, mostra um texto de apoio. -->
                         <Grid Margin="0,18,0,0" MinHeight="76">
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" VerticalAlignment="Center"
-                                       Text="Entre com a sua conta do Discord para assistir e compartilhar telas com seus amigos."
+                                       Text="{l:Tr LoginHint}"
                                        views:Motion.IsShown="{Binding HasError, Converter={StaticResource InverseBool}}" />
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" VerticalAlignment="Center"
                                     views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                                 <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" />
                             </Border>
                         </Grid>
+
+                        <!-- Apoio ao projeto: pequeno, abaixo de tudo, para não disputar com o "Conectar". -->
+                        <Button Style="{StaticResource KofiButton}" HorizontalAlignment="Center" Margin="0,14,0,0"
+                                Command="{Binding OpenSupportCommand}"
+                                ToolTip="{l:Tr OpensKofi}"
+                                AutomationProperties.Name="{l:Tr SupportScreenCordOnKofi}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource CoffeeIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                                <TextBlock Text="{l:Tr SupportOnKofi}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
+                    <!-- Idioma também antes de entrar, no canto do cartão. -->
+                    <views:LanguagePicker HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-20,-24,0" />
+                    </Grid>
                 </Border>
             </ScrollViewer>
 
@@ -202,16 +218,26 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Ações da conta, agrupadas numa barra no canto superior direito do bloco -->
-                            <Border Grid.Column="2" Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="3"
-                                    VerticalAlignment="Center" Margin="12,0,0,0">
+                            <!-- Ações da conta, agrupadas numa barra no canto superior direito do bloco, com o apoio no Ko-fi antes -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource KofiButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                    Command="{Binding OpenSupportCommand}"
+                                    ToolTip="{l:Tr SupportScreenCordOnKofiTooltip}"
+                                    AutomationProperties.Name="{l:Tr SupportScreenCordOnKofi}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource CoffeeIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                                    <TextBlock Text="{l:Tr Support}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Border Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="3"
+                                    VerticalAlignment="Center" Margin="8,0,0,0">
                             <StackPanel Orientation="Horizontal">
                                 <!-- Amigos no ScreenCord (API central), numa janela sobre a tela principal. Sem conta, não há amigos. -->
                                 <Grid Visibility="{Binding IsDiscordSession, Converter={StaticResource BoolToVisibility}}">
                                     <ToggleButton x:Name="FriendsToggle" Style="{StaticResource HeaderIconToggleButton}"
                                                   IsChecked="{Binding Friends.IsOpen}"
-                                                  ToolTip="Amigos"
-                                                  AutomationProperties.Name="Amigos">
+                                                  ToolTip="{l:Tr Friends}"
+                                                  AutomationProperties.Name="{l:Tr Friends}">
                                         <Path Data="{StaticResource FriendsIcon}" Style="{StaticResource IconPath}" />
                                     </ToggleButton>
                                     <!-- Solicitações recebidas esperando resposta. -->
@@ -222,8 +248,8 @@
                                 </Grid>
                                 <Button Margin="2,0,0,0"
                                         Command="{Binding RefreshProfileCommand}"
-                                        ToolTip="Atualizar perfil"
-                                        AutomationProperties.Name="Atualizar perfil">
+                                        ToolTip="{l:Tr RefreshProfile}"
+                                        AutomationProperties.Name="{l:Tr RefreshProfile}">
                                     <!-- Desabilitado enquanto atualiza, mas sem esmaecer: o ícone girando na cor de destaque mostra o progresso. -->
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
@@ -261,16 +287,19 @@
                                         </Path.Style>
                                     </Path>
                                 </Button>
+                                <!-- Idioma do app: troca na hora. -->
+                                <views:LanguagePicker Margin="2,0,0,0" />
                                 <!-- Separa a ação destrutiva das demais. -->
                                 <Rectangle Width="1" Margin="5,8" Fill="{StaticResource BorderBrush}" />
                                 <Button Style="{StaticResource HeaderDangerIconButton}"
                                         Command="{Binding DisconnectCommand}"
-                                        ToolTip="Desconectar"
-                                        AutomationProperties.Name="Desconectar">
+                                        ToolTip="{l:Tr Disconnect}"
+                                        AutomationProperties.Name="{l:Tr Disconnect}">
                                     <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" />
                                 </Button>
                             </StackPanel>
                             </Border>
+                            </StackPanel>
                     </Grid>
                 </Border>
 
@@ -286,9 +315,9 @@
                     <Grid views:RoundedClip.CornerRadius="11">
                         <StackPanel x:Name="NoStreamPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380" Margin="24">
                             <Path Data="{StaticResource MonitorIcon}" Fill="{StaticResource MutedTextBrush}" Width="44" Height="44" Stretch="Uniform" />
-                            <TextBlock Text="Nenhuma tela aberta" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
+                            <TextBlock Text="{l:Tr NoScreenOpen}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,6,0,0"
-                                       Text="Quando alguém da sala compartilhar a tela, clique em AO VIVO ao lado do nome para assistir aqui." />
+                                       Text="{l:Tr NoScreenHint}" />
                         </StackPanel>
                         <views:StreamPlayer x:Name="Player" Visibility="Collapsed" />
                     </Grid>
@@ -327,13 +356,13 @@
                                     <DockPanel HorizontalAlignment="Left">
                                         <Path DockPanel.Dock="Right" Data="{StaticResource CrownIcon}" Fill="{StaticResource CrownBrush}"
                                               Width="12" Height="12" Stretch="Uniform" Margin="5,1,0,0" VerticalAlignment="Center"
-                                              ToolTip="Criador do grupo"
+                                              ToolTip="{l:Tr GroupCreator}"
                                               Visibility="{Binding IsOwner, Converter={StaticResource BoolToVisibility}}" />
                                         <TextBlock Text="{Binding Person.DisplayName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </DockPanel>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Person.Handle}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text=" · conectado" FontSize="11" Foreground="{StaticResource SuccessBrush}"
+                                        <TextBlock Text="{l:Tr ConnectedSuffix}" FontSize="11" Foreground="{StaticResource SuccessBrush}"
                                                    Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -361,8 +390,8 @@
                                     <!-- Recolhe/expande a lista de conectados; só aparece quando há alguém na sala. -->
                                     <Button x:Name="ExpandButton" Style="{StaticResource GhostIconButton}" Width="18" Height="22" Margin="2,0,0,0"
                                             Command="{Binding ToggleExpandCommand}"
-                                            ToolTip="Mostrar ou esconder quem está conectado"
-                                            AutomationProperties.Name="Mostrar ou esconder conectados"
+                                            ToolTip="{l:Tr ToggleConnected}"
+                                            AutomationProperties.Name="{l:Tr ToggleConnected}"
                                             Visibility="Hidden">
                                         <Path x:Name="ExpandChevron" Data="{StaticResource ChevronDownIcon}" Style="{StaticResource IconPath}"
                                               Width="14" Height="14" RenderTransformOrigin="0.5,0.5">
@@ -375,7 +404,7 @@
                                     <Button x:Name="JoinButton" Grid.Column="1" Style="{StaticResource RowButton}" Padding="4,6,8,6"
                                             Command="{Binding DataContext.JoinCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
-                                            AutomationProperties.Name="{Binding Name, StringFormat=Conectar ao grupo {0}}">
+                                            AutomationProperties.Name="{l:Tr JoinGroupFormat, Path=Name}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -395,7 +424,7 @@
                                             <DockPanel Grid.Column="1" Margin="8,0,0,0" LastChildFill="True">
                                                 <!-- Sala local: a tela vai direto entre os computadores. -->
                                                 <Border DockPanel.Dock="Right" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="4" Padding="4,0" Margin="6,0,0,0"
-                                                        VerticalAlignment="Center" ToolTip="Sala local: a tela vai direto entre os computadores da rede"
+                                                        VerticalAlignment="Center" ToolTip="{l:Tr LocalBadgeTooltip}"
                                                         Visibility="{Binding IsLocal, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="LOCAL" FontSize="9" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
                                                 </Border>
@@ -410,7 +439,7 @@
                                                   IsChecked="{Binding IsMembersOpen}"
                                                   IsHitTestVisible="{Binding IsOpen, ElementName=MembersPopup, Converter={StaticResource InverseBool}}"
                                                   ToolTip="{Binding Summary}"
-                                                  AutomationProperties.Name="Ver integrantes">
+                                                  AutomationProperties.Name="{l:Tr ViewMembers}">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource AccountIcon}" Style="{StaticResource IconPath}" Width="12" Height="12"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
@@ -458,8 +487,8 @@
                                                                                Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                                     <Button Grid.Column="3" Style="{StaticResource GhostIconButton}" Width="24" Height="22"
                                                                             Tag="{Binding Address}" Click="OnCopyAddressClick"
-                                                                            ToolTip="Copiar o IP"
-                                                                            AutomationProperties.Name="{Binding Address, StringFormat=Copiar {0}}">
+                                                                            ToolTip="{l:Tr CopyIp}"
+                                                                            AutomationProperties.Name="{l:Tr CopyFormat, Path=Address}">
                                                                         <Path Data="{StaticResource CopyIcon}" Style="{StaticResource IconPath}" Width="13" Height="13" />
                                                                     </Button>
                                                                 </Grid>
@@ -473,8 +502,8 @@
                                                     <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
                                                 </Border>
 
-                                                <TextBlock Text="INTEGRANTES" Style="{StaticResource SidebarHeader}" Margin="0,12,0,2" />
-                                                <TextBlock Text="Carregando…" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4"
+                                                <TextBlock Text="{l:Tr MembersHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,2" />
+                                                <TextBlock Text="{l:Tr Loading}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4"
                                                            Visibility="{Binding IsLoadingMembers, Converter={StaticResource BoolToVisibility}}" />
                                                 <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                                     <ItemsControl ItemsSource="{Binding Members}" ItemTemplate="{StaticResource GroupMemberTemplate}" />
@@ -482,10 +511,10 @@
 
                                                 <!-- Convidar (abre a janela de amigos), sair do grupo e excluir o grupo (só quem criou), à direita -->
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                                                    <Button Content="Convidar" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                    <Button Content="{l:Tr Invite}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
                                                             Command="{Binding InviteCommand}"
                                                             Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
-                                                    <Button Content="Sair" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                    <Button Content="{l:Tr Leave}" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                             Command="{Binding ConfirmLeaveCommand}"
                                                             Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
                                                     <Button Content="{Binding DeleteText}" Style="{StaticResource DangerButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
@@ -522,11 +551,11 @@
                                                        Foreground="{StaticResource MutedTextBrush}" />
                                             <!-- Compartilhando a tela: clicar abre a transmissão. -->
                                             <Button Grid.Column="2" Style="{StaticResource LivePill}" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                    Content="AO VIVO"
+                                                    Content="{l:Tr Live}"
                                                     Command="{Binding DataContext.WatchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}"
-                                                    ToolTip="{Binding DisplayName, StringFormat=Assistir à tela de {0}}"
-                                                    AutomationProperties.Name="{Binding DisplayName, StringFormat=Assistir à tela de {0}}">
+                                                    ToolTip="{l:Tr WatchScreenOfFormat, Path=DisplayName}"
+                                                    AutomationProperties.Name="{l:Tr WatchScreenOfFormat, Path=DisplayName}">
                                                 <Button.Visibility>
                                                     <MultiBinding Converter="{StaticResource IsSharingToVisibility}">
                                                         <Binding Path="UserId" />
@@ -627,7 +656,7 @@
                                     <Setter TargetName="Dot" Property="Width" Value="6" />
                                     <Setter TargetName="Dot" Property="Height" Value="6" />
                                     <Setter TargetName="GroupName" Property="Foreground" Value="{StaticResource TextBrush}" />
-                                    <Setter TargetName="JoinButton" Property="ToolTip" Value="Você está conectado a esta sala" />
+                                    <Setter TargetName="JoinButton" Property="ToolTip" Value="{l:Tr YouAreInThisRoom}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsJoining}" Value="True">
                                     <Setter TargetName="Row" Property="Opacity" Value="0.6" />
@@ -651,10 +680,10 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="GRUPOS" Style="{StaticResource SidebarHeader}" VerticalAlignment="Center" />
+                            <TextBlock Text="{l:Tr GroupsHeader}" Style="{StaticResource SidebarHeader}" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}"
                                     Command="{Binding StartCreateCommand}"
-                                    ToolTip="Criar grupo ou sala local" AutomationProperties.Name="Criar grupo">
+                                    ToolTip="{l:Tr CreateGroupOrRoom}" AutomationProperties.Name="{l:Tr CreateGroup}">
                                 <Path Data="{StaticResource PlusIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                             </Button>
                         </Grid>
@@ -668,12 +697,12 @@
                                     views:Motion.IsShown="{Binding ShowFirewallWarning}" views:Motion.Kind="SlideDown">
                                 <StackPanel>
                                     <TextBlock TextWrapping="Wrap" FontSize="12"
-                                               Text="O Firewall do Windows pode impedir que os outros entrem na sua sala ou vejam a sua tela. Libere o ScreenCord para as redes locais e VPNs (o Windows vai pedir permissão)." />
+                                               Text="{l:Tr FirewallWarning}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <Button Content="Liberar no firewall" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                        <Button Content="{l:Tr AllowInFirewall}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
                                                 Command="{Binding ConfigureFirewallCommand}"
                                                 IsEnabled="{Binding IsConfiguringFirewall, Converter={StaticResource InverseBool}}" />
-                                        <Button Content="Agora não" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                        <Button Content="{l:Tr NotNow}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                 Command="{Binding DismissFirewallWarningCommand}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -682,7 +711,7 @@
                                     views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
                                 <StackPanel>
                                     <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="12" />
-                                    <Button Content="Tentar novamente" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
+                                    <Button Content="{l:Tr TryAgain}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
                                             HorizontalAlignment="Left" Margin="0,8,0,0"
                                             Command="{Binding ReloadCommand}" />
                                 </StackPanel>
@@ -692,7 +721,7 @@
                         <!-- Lista de grupos -->
                         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
-                                <TextBlock Text="Carregando…" Style="{StaticResource MutedText}" FontSize="12" Margin="6,4"
+                                <TextBlock Text="{l:Tr Loading}" Style="{StaticResource MutedText}" FontSize="12" Margin="6,4"
                                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
                                 <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource GroupRowTemplate}"
                                               KeyboardNavigation.TabNavigation="Continue" />
@@ -720,7 +749,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
-                                        <TextBlock Text="AO VIVO" FontSize="9" FontWeight="Bold" Foreground="White" />
+                                        <TextBlock Text="{l:Tr Live}" FontSize="9" FontWeight="Bold" Foreground="White" />
                                     </Border>
                                     <TextBlock Grid.Column="1" Text="{Binding ShareSourceText}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShareSourceText}" />
@@ -736,13 +765,13 @@
                                         <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="30" Height="30" Margin="6,0,0,0"
                                                 VerticalAlignment="Center"
                                                 Command="{Binding ChangeShareCommand}"
-                                                ToolTip="Alterar configurações" AutomationProperties.Name="Alterar configurações do compartilhamento">
+                                                ToolTip="{l:Tr ChangeSettings}" AutomationProperties.Name="{l:Tr ChangeShareSettings}">
                                             <Path Data="{StaticResource SettingsIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                                         </Button>
                                         <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="4,0,0,0"
                                                 VerticalAlignment="Center"
                                                 Command="{Binding StopShareCommand}"
-                                                ToolTip="Parar de compartilhar" AutomationProperties.Name="Parar de compartilhar">
+                                                ToolTip="{l:Tr StopSharing}" AutomationProperties.Name="{l:Tr StopSharing}">
                                             <Path Data="{StaticResource StopShareIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
                                         </Button>
                                     </Grid>
@@ -762,7 +791,7 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
-                                        <TextBlock Text="Conectado" FontSize="13" FontWeight="SemiBold" Margin="6,0,0,0"
+                                        <TextBlock Text="{l:Tr Connected}" FontSize="13" FontWeight="SemiBold" Margin="6,0,0,0"
                                                    Foreground="{StaticResource SuccessBrush}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding CurrentGroup.Name}" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
@@ -771,12 +800,12 @@
                                 <Button Grid.Column="1" Style="{StaticResource PrimaryIconButton}" Width="30" Height="30" Margin="0,0,6,0"
                                         Command="{Binding StartShareCommand}"
                                         Visibility="{Binding IsSharing, Converter={StaticResource InverseBoolToVisibility}}"
-                                        ToolTip="Compartilhar tela" AutomationProperties.Name="Compartilhar tela">
+                                        ToolTip="{l:Tr ShareScreen}" AutomationProperties.Name="{l:Tr ShareScreen}">
                                     <Path Data="{StaticResource ScreenShareIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                                 </Button>
                                 <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30"
                                         Command="{Binding LeaveCurrentCommand}"
-                                        ToolTip="Sair da sala" AutomationProperties.Name="Sair da sala">
+                                        ToolTip="{l:Tr LeaveRoom}" AutomationProperties.Name="{l:Tr LeaveRoom}">
                                     <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />
                                 </Button>
                             </Grid>
@@ -868,24 +897,24 @@
                                     <TextBlock Text="{Binding Handle}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Content="Adicionar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
+                                    <Button Content="{l:Tr Add}" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
                                             Visibility="{Binding CanAdd, Converter={StaticResource BoolToVisibility}}"
                                             Command="{Binding DataContext.AddCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Aceitar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
+                                    <Button Content="{l:Tr Accept}" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
                                             Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
                                             Command="{Binding DataContext.AcceptCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Recusar" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="8,0,0,0"
+                                    <Button Content="{l:Tr Decline}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="8,0,0,0"
                                             Visibility="{Binding CanAccept, Converter={StaticResource BoolToVisibility}}"
                                             Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Cancelar pedido" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
+                                    <Button Content="{l:Tr CancelRequest}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
                                             Visibility="{Binding IsPendingOutgoing, Converter={StaticResource BoolToVisibility}}"
                                             Command="{Binding DataContext.DeclineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
                                     <!-- Aberta pelo "Convidar" de um grupo: convidar no lugar de remover. -->
-                                    <Button Content="Convidar" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
+                                    <Button Content="{l:Tr Invite}" Style="{StaticResource PrimaryButton}" Padding="12,5" FontSize="12"
                                             Command="{Binding DataContext.InviteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}">
                                         <Button.Visibility>
@@ -895,7 +924,7 @@
                                             </MultiBinding>
                                         </Button.Visibility>
                                     </Button>
-                                    <Button Content="Convidado" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" IsEnabled="False">
+                                    <Button Content="{l:Tr Invited}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" IsEnabled="False">
                                         <Button.Visibility>
                                             <MultiBinding Converter="{StaticResource InviteStateToVisibility}" ConverterParameter="Invited">
                                                 <Binding />
@@ -903,7 +932,7 @@
                                             </MultiBinding>
                                         </Button.Visibility>
                                     </Button>
-                                    <Button Content="Remover" Padding="12,5" FontSize="12"
+                                    <Button Content="{l:Tr Remove}" Padding="12,5" FontSize="12"
                                             Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}">
                                         <Button.Style>
@@ -936,17 +965,18 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel views:Motion.IsShown="{Binding IsInviting, Converter={StaticResource InverseBool}}" views:Motion.Kind="Reveal">
-                                <TextBlock Text="Amigos" FontSize="17" FontWeight="Bold" />
+                                <TextBlock Text="{l:Tr Friends}" FontSize="17" FontWeight="Bold" />
                                 <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
-                                           Text="Amigos no ScreenCord: pessoas que também entraram aqui com o Discord. Não é a sua lista de amigos do Discord." />
+                                           Text="{l:Tr FriendsDescription}" />
                             </StackPanel>
                             <StackPanel views:Motion.IsShown="{Binding IsInviting}" views:Motion.Kind="Reveal">
-                                <TextBlock FontSize="17" FontWeight="Bold" TextTrimming="CharacterEllipsis"><Run Text="Convidar para " /><Run Text="{Binding InviteGroup.Name, Mode=OneWay}" /></TextBlock>
+                                <TextBlock FontSize="17" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                           Text="{l:Tr InviteToFormat, Path=InviteGroup.Name}" />
                                 <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,2,0,0"
-                                           Text="Convide seus amigos para o grupo. Quem ainda não é seu amigo pode ser buscado e adicionado aqui." />
+                                           Text="{l:Tr InviteDescription}" />
                             </StackPanel>
                             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32" Margin="8,-6,-8,0"
-                                    VerticalAlignment="Top" Command="{Binding CloseCommand}" ToolTip="Fechar" AutomationProperties.Name="Fechar">
+                                    VerticalAlignment="Top" Command="{Binding CloseCommand}" ToolTip="{l:Tr Close}" AutomationProperties.Name="{l:Tr Close}">
                                 <Path Data="{StaticResource CloseIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                             </Button>
                         </Grid>
@@ -959,17 +989,17 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="SearchBox" Style="{StaticResource SearchBox}"
-                                     Tag="Buscar usuário para adicionar (ex.: @fulano)"
+                                     Tag="{l:Tr SearchPlaceholder}"
                                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.Name="Buscar usuários">
+                                     AutomationProperties.Name="{l:Tr SearchUsers}">
                                 <TextBox.InputBindings>
                                     <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
                                     <KeyBinding Key="Escape" Command="{Binding EscapeCommand}" />
                                 </TextBox.InputBindings>
                             </TextBox>
-                            <Button Grid.Column="1" Content="Buscar" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Content="{l:Tr Search}" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
                                     Command="{Binding SearchCommand}" />
-                            <Button Grid.Column="2" Content="Voltar aos amigos" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                            <Button Grid.Column="2" Content="{l:Tr BackToFriends}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                     Command="{Binding ClearSearchCommand}"
                                     views:Motion.IsShown="{Binding ShowSearchResults}" views:Motion.Kind="Pop" RenderTransformOrigin="0.5,0.5" />
                         </Grid>
@@ -978,12 +1008,12 @@
                         <StackPanel Grid.Row="2">
                         <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
                                     views:Motion.IsShown="{Binding ShowTabs}" views:Motion.Kind="Reveal">
-                            <RadioButton Content="Amigos" Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
+                            <RadioButton Content="{l:Tr Friends}" Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
                                          IsChecked="{Binding IsFriendsTab}" />
                             <RadioButton Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
-                                         IsChecked="{Binding IsIncomingTab}" AutomationProperties.Name="Solicitações recebidas">
+                                         IsChecked="{Binding IsIncomingTab}" AutomationProperties.Name="{l:Tr IncomingRequests}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Recebidas" />
+                                    <TextBlock Text="{l:Tr IncomingTab}" />
                                     <Border Background="{StaticResource DangerBrush}" CornerRadius="8" MinWidth="16" Height="16" Padding="4,0" Margin="6,0,0,0"
                                             VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"
                                             views:Motion.IsShown="{Binding HasIncomingRequests}" views:Motion.Kind="Pop">
@@ -992,8 +1022,8 @@
                                     </Border>
                                 </StackPanel>
                             </RadioButton>
-                            <RadioButton Content="Enviadas" Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
-                                         IsChecked="{Binding IsOutgoingTab}" AutomationProperties.Name="Solicitações enviadas" />
+                            <RadioButton Content="{l:Tr OutgoingTab}" Style="{StaticResource FriendsTabButton}" GroupName="FriendsTabs"
+                                         IsChecked="{Binding IsOutgoingTab}" AutomationProperties.Name="{l:Tr OutgoingRequests}" />
                         </StackPanel>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" Margin="0,12,0,0"
                                 views:Motion.IsShown="{Binding InviteGroup.HasMembersError, FallbackValue=False}" views:Motion.Kind="SlideDown">
@@ -1007,10 +1037,10 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"><Run Text="Remover " /><Run Text="{Binding PendingRemoval.DisplayName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" dos seus amigos?" /></TextBlock>
-                                <Button Grid.Column="1" Content="Cancelar" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
+                                <TextBlock TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"><Run Text="{l:Tr RemoveFriendPrefix}" /><Run Text="{Binding PendingRemoval.DisplayName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{l:Tr RemoveFriendSuffix}" /></TextBlock>
+                                <Button Grid.Column="1" Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12"
                                         Command="{Binding CancelRemoveCommand}" />
-                                <Button Grid.Column="2" Content="Remover" Style="{StaticResource DangerFilledButton}" Padding="12,5" FontSize="12" Margin="6,0,0,0"
+                                <Button Grid.Column="2" Content="{l:Tr Remove}" Style="{StaticResource DangerFilledButton}" Padding="12,5" FontSize="12" Margin="6,0,0,0"
                                         Command="{Binding ConfirmRemoveCommand}" />
                             </Grid>
                         </Border>
@@ -1022,7 +1052,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="Tentar novamente" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0"
+                                <Button Grid.Column="1" Content="{l:Tr TryAgain}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0"
                                         Command="{Binding ReloadCommand}" />
                             </Grid>
                         </Border>
@@ -1033,44 +1063,44 @@
 
                                 <!-- Resultados da busca -->
                                 <StackPanel views:Motion.IsShown="{Binding ShowSearchResults}" views:Motion.Kind="Reveal">
-                                    <TextBlock Text="RESULTADOS DA BUSCA" Style="{StaticResource SectionHeader}" />
-                                    <TextBlock Text="Buscando…" Style="{StaticResource MutedText}" Margin="0,8"
+                                    <TextBlock Text="{l:Tr SearchResultsHeader}" Style="{StaticResource SectionHeader}" />
+                                    <TextBlock Text="{l:Tr Searching}" Style="{StaticResource MutedText}" Margin="0,8"
                                                Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
                                     <TextBlock Text="{Binding SearchMessage}" Style="{StaticResource MutedText}" Margin="0,8"
                                                Visibility="{Binding HasSearchMessage, Converter={StaticResource BoolToVisibility}}" />
                                     <ItemsControl ItemsSource="{Binding SearchResults}" ItemTemplate="{StaticResource PersonTemplate}" />
                                 </StackPanel>
 
-                                <TextBlock Text="Carregando…" Style="{StaticResource MutedText}" Margin="0,8"
+                                <TextBlock Text="{l:Tr Loading}" Style="{StaticResource MutedText}" Margin="0,8"
                                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
 
                                 <!-- Aba Amigos (a única no convite para um grupo) -->
                                 <StackPanel views:Motion.IsShown="{Binding ShowFriendsTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
-                                               Visibility="{Binding HasFriends, Converter={StaticResource BoolToVisibility}}"><Run Text="SEUS AMIGOS — " /><Run Text="{Binding Friends.Count, Mode=OneWay}" /></TextBlock>
+                                               Visibility="{Binding HasFriends, Converter={StaticResource BoolToVisibility}}"><Run Text="{l:Tr YourFriendsHeader}" /><Run Text="{Binding Friends.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding Friends}" ItemTemplate="{StaticResource PersonTemplate}" />
                                     <TextBlock Style="{StaticResource MutedText}" Margin="0,14,0,0"
-                                               Text="Você ainda não tem amigos aqui. Busque alguém pelo nome de usuário para enviar uma solicitação."
+                                               Text="{l:Tr NoFriends}"
                                                Visibility="{Binding ShowNoFriends, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
 
                                 <!-- Aba Recebidas -->
                                 <StackPanel views:Motion.IsShown="{Binding ShowIncomingTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
-                                               Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="SOLICITAÇÕES RECEBIDAS — " /><Run Text="{Binding IncomingRequests.Count, Mode=OneWay}" /></TextBlock>
+                                               Visibility="{Binding HasIncomingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="{l:Tr IncomingHeader}" /><Run Text="{Binding IncomingRequests.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding IncomingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
                                     <TextBlock Style="{StaticResource MutedText}" Margin="0,14,0,0"
-                                               Text="Nenhuma solicitação de amizade recebida."
+                                               Text="{l:Tr NoIncoming}"
                                                Visibility="{Binding ShowNoIncomingRequests, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
 
                                 <!-- Aba Enviadas -->
                                 <StackPanel views:Motion.IsShown="{Binding ShowOutgoingTab}" views:Motion.Kind="Reveal">
                                     <TextBlock Style="{StaticResource SectionHeader}"
-                                               Visibility="{Binding HasOutgoingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="SOLICITAÇÕES ENVIADAS — " /><Run Text="{Binding OutgoingRequests.Count, Mode=OneWay}" /></TextBlock>
+                                               Visibility="{Binding HasOutgoingRequests, Converter={StaticResource BoolToVisibility}}"><Run Text="{l:Tr OutgoingHeader}" /><Run Text="{Binding OutgoingRequests.Count, Mode=OneWay}" /></TextBlock>
                                     <ItemsControl ItemsSource="{Binding OutgoingRequests}" ItemTemplate="{StaticResource PersonTemplate}" />
                                     <TextBlock Style="{StaticResource MutedText}" Margin="0,14,0,0"
-                                               Text="Nenhuma solicitação pendente. Busque alguém pelo nome de usuário para enviar uma."
+                                               Text="{l:Tr NoOutgoing}"
                                                Visibility="{Binding ShowNoOutgoingRequests, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
 
@@ -1102,19 +1132,19 @@
                         <!-- Grupo com amigos (pelo servidor) ou sala local (direto entre os computadores). -->
                         <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
                                     Visibility="{Binding HasLocalRooms, Converter={StaticResource BoolToVisibility}}">
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="Grupo com amigos"
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="{l:Tr GroupWithFriends}"
                                          IsChecked="{Binding NewGroupIsGroup}" IsEnabled="{Binding CanCreateGroup}"
-                                         ToolTip="Precisa de conta do Discord." ToolTipService.ShowOnDisabled="True" />
-                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="Sala local"
+                                         ToolTip="{l:Tr NeedsDiscordAccount}" ToolTipService.ShowOnDisabled="True" />
+                            <RadioButton Style="{StaticResource SegmentRadio}" GroupName="CreateKind" Content="{l:Tr LocalRoom}"
                                          IsChecked="{Binding NewGroupIsLocal}" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource MutedText}" Margin="0,10,0,14" TextWrapping="Wrap"
                                    Text="{Binding CreateHint}" />
                         <TextBox x:Name="NewGroupBox" Style="{StaticResource SearchBox}"
-                                 Tag="Nome"
+                                 Tag="{l:Tr NamePlaceholder}"
                                  MaxLength="{Binding MaxNameLength, Mode=OneTime}"
                                  Text="{Binding NewGroupName, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="Nome do grupo ou da sala">
+                                 AutomationProperties.Name="{l:Tr GroupOrRoomName}">
                             <TextBox.InputBindings>
                                 <KeyBinding Key="Enter" Command="{Binding CreateCommand}" />
                             </TextBox.InputBindings>
@@ -1124,31 +1154,31 @@
                             <TextBlock Text="{Binding CreateError}" TextWrapping="Wrap" FontSize="12" />
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
-                            <Button Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                            <Button Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}"
                                     Command="{Binding CancelCreateCommand}" />
-                            <Button Content="Criar" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
+                            <Button Content="{l:Tr Create}" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
                                     Command="{Binding CreateCommand}" />
                         </StackPanel>
 
                         <!-- Entrar numa sala local pelo IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios). Só na aba "Sala local". -->
                         <StackPanel Visibility="{Binding NewGroupIsLocal, Converter={StaticResource BoolToVisibility}}">
                             <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,20,0,14" />
-                            <TextBlock Text="Entrar numa sala local pelo IP" FontWeight="SemiBold" />
+                            <TextBlock Text="{l:Tr JoinByIpTitle}" FontWeight="SemiBold" />
                             <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"
-                                       Text="As salas da mesma rede aparecem sozinhas na lista. Se a sua não aparecer, peça o IP a quem hospeda." />
+                                       Text="{l:Tr JoinByIpHint}" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox Style="{StaticResource SearchBox}" Tag="Ex.: 25.1.2.3 ou 192.168.0.10"
+                                <TextBox Style="{StaticResource SearchBox}" Tag="{l:Tr JoinByIpPlaceholder}"
                                          Text="{Binding JoinAddress, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.Name="IP de quem hospeda a sala">
+                                         AutomationProperties.Name="{l:Tr HostIp}">
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding JoinByAddressCommand}" />
                                     </TextBox.InputBindings>
                                 </TextBox>
-                                <Button Grid.Column="1" Content="Entrar" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0"
+                                <Button Grid.Column="1" Content="{l:Tr Join}" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0"
                                         Command="{Binding JoinByAddressCommand}"
                                         IsEnabled="{Binding IsJoiningByAddress, Converter={StaticResource InverseBool}}" />
                             </Grid>
@@ -1173,14 +1203,14 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}">
                             <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource DangerBrush}" />
-                            <TextBlock Text="Sair do grupo?" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{l:Tr LeaveGroupQuestion}" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}">
                             <Path Data="{StaticResource DeleteIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource DangerBrush}" />
                             <TextBlock Text="{Binding ConfirmDeleteTitle}" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource MutedText}" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"
-                                   Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}"><Run Text="Você sai de " /><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=". Para voltar, alguém do grupo precisa convidar você." /></TextBlock>
+                                   Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}"><Run Text="{l:Tr LeaveGroupPrefix}" /><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{l:Tr LeaveGroupSuffix}" /></TextBlock>
                         <TextBlock Style="{StaticResource MutedText}" FontSize="13" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}"><Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding ConfirmDeleteSuffix, Mode=OneWay}" /></TextBlock>
                         <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,14,0,0"
@@ -1188,9 +1218,9 @@
                             <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
                         </Border>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
-                            <Button x:Name="CancelGroupConfirmButton" Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                            <Button x:Name="CancelGroupConfirmButton" Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}"
                                     Command="{Binding CancelConfirmationCommand}" />
-                            <Button Content="Sair" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
+                            <Button Content="{l:Tr Leave}" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
                                     Command="{Binding LeaveGroupCommand}"
                                     Visibility="{Binding IsConfirmingLeave, Converter={StaticResource BoolToVisibility}}" />
                             <Button Content="{Binding DeleteText}" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
@@ -1213,12 +1243,12 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Fill="{StaticResource DangerBrush}" />
-                            <TextBlock Text="Desconectar conta?" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{l:Tr DisconnectQuestion}" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
-                            <Button x:Name="CancelDisconnectButton" Content="Cancelar" Style="{StaticResource SecondaryButton}"
+                            <Button x:Name="CancelDisconnectButton" Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}"
                                     Command="{Binding CancelDisconnectCommand}" IsCancel="True" />
-                            <Button Content="Desconectar" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
+                            <Button Content="{l:Tr Disconnect}" Style="{StaticResource DangerFilledButton}" Margin="10,0,0,0"
                                     Command="{Binding ConfirmDisconnectCommand}" />
                         </StackPanel>
                     </StackPanel>

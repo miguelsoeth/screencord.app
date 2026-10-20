@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
@@ -29,10 +30,10 @@ public sealed class MediaSocket : IMediaSink
     private readonly string _peer;
 
     /// <param name="peer">Com quem é a conexão, para as mensagens ("com a API central", "com o computador de Ana").</param>
-    private MediaSocket(ClientWebSocket socket, int bitrateKbps, string peer = "com a API central")
+    private MediaSocket(ClientWebSocket socket, int bitrateKbps, string? peer = null)
     {
         _socket = socket;
-        _peer = peer;
+        _peer = peer ?? Strings.MediaPeerServer;
 
         // Cerca de 1 s de vídeo na fila de saída: mais que isso, a rede não está acompanhando.
         _queueLimitBytes = Math.Max(512 * 1024, bitrateKbps * 1000 / 8);
@@ -88,11 +89,11 @@ public sealed class MediaSocket : IMediaSink
 
                 throw status switch
                 {
-                    HttpStatusCode.NotFound => CentralApiClient.Error(DiscordErrorKind.Rejected, "Este compartilhamento de tela já terminou.", ex, status),
-                    HttpStatusCode.Forbidden => CentralApiClient.Error(DiscordErrorKind.Rejected, "Entre na sala do grupo para assistir.", ex, status),
-                    HttpStatusCode.Conflict => CentralApiClient.Error(DiscordErrorKind.Rejected, "O compartilhamento não foi iniciado no servidor.", ex, status),
+                    HttpStatusCode.NotFound => CentralApiClient.Error(DiscordErrorKind.Rejected, Strings.ShareAlreadyEnded, ex, status),
+                    HttpStatusCode.Forbidden => CentralApiClient.Error(DiscordErrorKind.Rejected, Strings.JoinGroupRoomToWatch, ex, status),
+                    HttpStatusCode.Conflict => CentralApiClient.Error(DiscordErrorKind.Rejected, Strings.ShareNotStartedOnServer, ex, status),
                     HttpStatusCode.Unauthorized => CentralApiClient.Error(DiscordErrorKind.Unauthorized, "A API central recusou a sessão.", ex, status),
-                    _ => CentralApiClient.Error(DiscordErrorKind.Network, "Não foi possível abrir o canal de vídeo com a API central.", ex, status),
+                    _ => CentralApiClient.Error(DiscordErrorKind.Network, Strings.MediaChannelFailed, ex, status),
                 };
             }
         }
@@ -129,10 +130,9 @@ public sealed class MediaSocket : IMediaSink
 
         cancellationToken.ThrowIfCancellationRequested();
         return winner is not null
-            ? new MediaSocket(winner, bitrateKbps, $"com o computador de {sharerName}")
+            ? new MediaSocket(winner, bitrateKbps, string.Format(Loc.Culture, Strings.MediaPeerComputerFormat, sharerName))
             : throw new Local.LocalNetworkException(
-                $"Não foi possível conectar direto ao computador de {sharerName}. Confira se vocês estão na mesma rede (LAN, Hamachi, Radmin ou Tailscale) " +
-                "e se o Firewall do Windows de quem compartilha liberou o ScreenCord.");
+                string.Format(Loc.Culture, Strings.DirectConnectFailedFormat, sharerName));
     }
 
     private static async Task<ClientWebSocket?> TryConnectDirectAsync(string endpoint, Guid mediaId, string key, string fingerprint, CancellationToken cancellationToken)
@@ -269,7 +269,7 @@ public sealed class MediaSocket : IMediaSink
         }
         catch (WebSocketException)
         {
-            RaiseClosed($"A conexão de vídeo {_peer} caiu.");
+            RaiseClosed(string.Format(Loc.Culture, Strings.MediaDroppedFormat, _peer));
         }
     }
 
@@ -288,7 +288,7 @@ public sealed class MediaSocket : IMediaSink
                     {
                         if (buffer.Length >= MediaContract.MaxPacketSize)
                         {
-                            RaiseClosed($"A conexão de vídeo {_peer} enviou um pacote grande demais.");
+                            RaiseClosed(string.Format(Loc.Culture, Strings.MediaPacketTooLargeFormat, _peer));
                             return;
                         }
 
@@ -326,7 +326,7 @@ public sealed class MediaSocket : IMediaSink
         }
         catch (WebSocketException)
         {
-            RaiseClosed($"A conexão de vídeo {_peer} caiu.");
+            RaiseClosed(string.Format(Loc.Culture, Strings.MediaDroppedFormat, _peer));
         }
     }
 

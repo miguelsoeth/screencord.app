@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Net;
 using System.Text;
 using ScreenCord.Infrastructure;
@@ -76,7 +77,7 @@ public sealed class LoopbackCallbackListener : IAuthorizationCallbackListener
             var request = context.Request;
             if (request.HttpMethod != "GET" || request.Url?.AbsolutePath != redirectUri.AbsolutePath)
             {
-                Respond(context.Response, HttpStatusCode.NotFound, "Não encontrado", "Este endereço não existe.");
+                Respond(context.Response, HttpStatusCode.NotFound, Strings.BrowserNotFoundTitle, Strings.BrowserNotFound);
                 continue;
             }
 
@@ -84,17 +85,17 @@ public sealed class LoopbackCallbackListener : IAuthorizationCallbackListener
             var error = request.QueryString["error"];
             if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(error))
             {
-                Respond(context.Response, HttpStatusCode.BadRequest, "Requisição inválida", "Nenhum dado de autorização foi recebido.");
+                Respond(context.Response, HttpStatusCode.BadRequest, Strings.BrowserBadRequestTitle, Strings.BrowserBadRequest);
                 continue;
             }
 
             if (string.IsNullOrEmpty(error))
             {
-                Respond(context.Response, HttpStatusCode.OK, "Tudo certo", "Você já pode fechar esta aba e voltar ao aplicativo ScreenCord.");
+                Respond(context.Response, HttpStatusCode.OK, Strings.BrowserDoneTitle, Strings.BrowserDone);
             }
             else
             {
-                Respond(context.Response, HttpStatusCode.OK, "Autorização não concluída", "Você pode fechar esta aba e voltar ao aplicativo ScreenCord.");
+                Respond(context.Response, HttpStatusCode.OK, Strings.BrowserNotCompletedTitle, Strings.BrowserNotCompleted);
             }
 
             return new AuthorizationCallback(
@@ -109,7 +110,7 @@ public sealed class LoopbackCallbackListener : IAuthorizationCallbackListener
     {
         var html = $$"""
             <!DOCTYPE html>
-            <html lang="pt-BR">
+            <html lang="{{Loc.Culture.Name}}">
             <head>
             <meta charset="utf-8">
             <title>ScreenCord</title>

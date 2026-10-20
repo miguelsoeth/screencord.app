@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.IO;
 using System.Net.WebSockets;
 using System.Threading.Channels;
@@ -57,12 +58,12 @@ public sealed class LocalRoomClient : IAsyncDisposable
             var first = await LocalMessage.ReceiveAsync(socket, timeout.Token).ConfigureAwait(false);
             if (first is { Type: LocalMessage.Closed })
             {
-                throw new LocalNetworkException(first.Reason ?? "A sala recusou a entrada.");
+                throw new LocalNetworkException(first.Reason ?? Strings.RoomRefusedEntry);
             }
 
             if (first is not { Type: LocalMessage.State, Room: { } room } || Sanitize(room) is not { } state)
             {
-                throw new LocalNetworkException("O outro computador não respondeu como uma sala do ScreenCord.");
+                throw new LocalNetworkException(Strings.NotAScreenCordRoom);
             }
 
             var client = new LocalRoomClient(socket, host, port, state);
@@ -84,15 +85,13 @@ public sealed class LocalRoomClient : IAsyncDisposable
         {
             socket.Dispose();
             throw new LocalNetworkException(
-                $"O computador em {host}:{port} não é o que anunciou a sala (o certificado não confere). " +
-                "Peça o endereço para quem hospeda e entre pelo IP.", ex);
+                string.Format(Loc.Culture, Strings.CertificateMismatchFormat, $"{host}:{port}"), ex);
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or InvalidDataException or IOException)
         {
             socket.Dispose();
             throw new LocalNetworkException(
-                $"Não foi possível entrar na sala em {host}:{port}. Confira o endereço, se vocês estão na mesma rede (LAN, Hamachi, Radmin ou Tailscale) " +
-                "e se o Firewall do Windows de quem hospeda liberou o ScreenCord.", ex);
+                string.Format(Loc.Culture, Strings.JoinRoomFailedFormat, $"{host}:{port}"), ex);
         }
     }
 
@@ -142,14 +141,14 @@ public sealed class LocalRoomClient : IAsyncDisposable
 
     private async Task ReceiveLoopAsync()
     {
-        string reason = "A conexão com a sala caiu.";
+        string? reason = null;
         try
         {
             while (await LocalMessage.ReceiveAsync(_socket, _lifetime.Token).ConfigureAwait(false) is { } message)
             {
                 if (message.Type == LocalMessage.Closed)
                 {
-                    reason = message.Reason ?? "A sala foi encerrada.";
+                    reason = message.Reason ?? Strings.RoomClosed;
                     break;
                 }
 
@@ -160,10 +159,7 @@ public sealed class LocalRoomClient : IAsyncDisposable
                 }
             }
 
-            if (reason == "A conexão com a sala caiu.")
-            {
-                reason = "Quem hospedava saiu, e a sala foi encerrada.";
-            }
+            reason ??= Strings.HostLeftRoomClosed;
         }
         catch (Exception ex) when (ex is OperationCanceledException or WebSocketException or ObjectDisposedException or InvalidDataException or IOException)
         {
@@ -171,7 +167,7 @@ public sealed class LocalRoomClient : IAsyncDisposable
 
         if (!_disposing && Interlocked.Exchange(ref _closedRaised, 1) == 0)
         {
-            Closed?.Invoke(reason);
+            Closed?.Invoke(reason ?? Strings.RoomConnectionDropped);
         }
     }
 

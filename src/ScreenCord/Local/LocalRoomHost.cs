@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.IO;
 using System.Net.WebSockets;
 using System.Threading.Channels;
@@ -84,8 +85,8 @@ public sealed class LocalRoomHost
             if (member is null || member.Id == HostId)
             {
                 var reason = message is { Type: LocalMessage.Hello } && message.Protocol != LocalMessage.CurrentProtocol
-                    ? "Quem hospeda a sala usa outra versão do ScreenCord. Atualizem o app."
-                    : "Pedido de entrada inválido.";
+                    ? Strings.HostOtherVersion
+                    : Strings.InvalidJoinRequest;
                 await LocalMessage.SendAsync(socket, new LocalMessage(LocalMessage.Closed, Reason: reason), cancellationToken).ConfigureAwait(false);
                 await LocalMessage.CloseAsync(socket);
                 return;
@@ -104,11 +105,11 @@ public sealed class LocalRoomHost
         {
             if (_closed)
             {
-                refusal = "A sala foi encerrada.";
+                refusal = Strings.RoomClosed;
             }
             else if (_members.All(m => m.Id != member.Id) && _members.Count >= MaxMembers)
             {
-                refusal = $"A sala está cheia ({MaxMembers} pessoas).";
+                refusal = string.Format(Loc.Culture, Strings.RoomFullFormat, MaxMembers);
             }
             else
             {

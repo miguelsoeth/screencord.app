@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using ScreenCord.Infrastructure;
 using ScreenCord.Local;
 using ScreenCord.Models;
@@ -23,6 +24,7 @@ public sealed class MainViewModel : ObservableObject
     private string? _errorMessage;
     private readonly ILocalRooms? _localRooms;
     private readonly ILocalIdentityStore? _localIdentity;
+    private readonly IBrowserLauncher? _browser;
     private bool _isLocalSession;
     private bool _isLocalForm;
     private string _localName = "";
@@ -34,8 +36,10 @@ public sealed class MainViewModel : ObservableObject
         GroupsViewModel groups,
         ILogger<MainViewModel> logger,
         ILocalRooms? localRooms = null,
-        ILocalIdentityStore? localIdentity = null)
+        ILocalIdentityStore? localIdentity = null,
+        IBrowserLauncher? browser = null)
     {
+        _browser = browser;
         _localRooms = localRooms;
         _localIdentity = localIdentity;
         _session = session;
@@ -54,6 +58,25 @@ public sealed class MainViewModel : ObservableObject
         StartLocalCommand = new RelayCommand(StartLocal, () => ShowConnectButton && CanUseLocal);
         CancelLocalCommand = new RelayCommand(() => IsLocalForm = false);
         ConfirmLocalCommand = new AsyncRelayCommand(ConfirmLocalAsync);
+        OpenSupportCommand = new RelayCommand(OpenSupport, () => _browser is not null);
+    }
+
+    /// <summary>Página de apoio ao projeto no Ko-fi.</summary>
+    public static readonly Uri SupportUrl = new("https://ko-fi.com/miguelsoeth");
+
+    /// <summary>Abre a página do Ko-fi no navegador (no login e no cabeçalho da tela principal).</summary>
+    public RelayCommand OpenSupportCommand { get; }
+
+    private void OpenSupport()
+    {
+        try
+        {
+            _browser?.Open(SupportUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Falha ao abrir a página de apoio ({ExceptionType}).", ex.GetType().Name);
+        }
     }
 
     /// <summary>Abre o "Usar sem conta": só o nome, e o app entra nas salas locais.</summary>
@@ -81,7 +104,7 @@ public sealed class MainViewModel : ObservableObject
 
     public bool IsDiscordSession => !IsLocalSession;
 
-    public string AccountStatusText => IsLocalSession ? "Sem conta · só salas locais" : "Conta conectada";
+    public string AccountStatusText => IsLocalSession ? Strings.NoAccountLocalOnly : Strings.AccountConnected;
 
     /// <summary>A tela inicial mostra o campo de nome do "Usar sem conta".</summary>
     public bool IsLocalForm
@@ -300,7 +323,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_localIdentity is null || LocalIdentityStore.Clean(LocalName) is not { } name)
         {
-            ErrorMessage = "Digite um nome para os outros verem nas salas locais.";
+            ErrorMessage = Strings.EnterLocalName;
             return;
         }
 

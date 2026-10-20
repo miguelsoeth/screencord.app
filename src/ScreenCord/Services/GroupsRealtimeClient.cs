@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Net;
 using System.Net.Http;
 using ScreenCord.Contracts;
@@ -149,7 +150,7 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
         var presence = await InvokeAsync(
             connection => connection.InvokeAsync<GroupPresenceDto?>(GroupsHubContract.JoinGroup, groupId, cancellationToken),
             cancellationToken).ConfigureAwait(false);
-        return presence ?? throw new DiscordException(DiscordErrorKind.Rejected, "Você não faz parte deste grupo.") { Source = ErrorSource.CentralApi };
+        return presence ?? throw new DiscordException(DiscordErrorKind.Rejected, Strings.NotInGroup) { Source = ErrorSource.CentralApi };
     }
 
     public Task LeaveAsync(CancellationToken cancellationToken = default) =>
@@ -166,7 +167,7 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
         var share = await InvokeAsync(
             connection => connection.InvokeAsync<ScreenShareDto?>(GroupsHubContract.StartScreenShare, start, cancellationToken),
             cancellationToken).ConfigureAwait(false);
-        return share ?? throw new DiscordException(DiscordErrorKind.Rejected, "Entre na sala de um grupo para compartilhar a tela.") { Source = ErrorSource.CentralApi };
+        return share ?? throw new DiscordException(DiscordErrorKind.Rejected, Strings.JoinGroupRoomToShare) { Source = ErrorSource.CentralApi };
     }
 
     public Task StopScreenShareAsync(CancellationToken cancellationToken = default) =>

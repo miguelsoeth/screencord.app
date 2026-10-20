@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Collections.ObjectModel;
 using ScreenCord.Infrastructure;
 using ScreenCord.Models;
@@ -375,7 +376,7 @@ public sealed class FriendsViewModel : ObservableObject
         if (query.Length < MinSearchLength)
         {
             _activeQuery = "";
-            SearchMessage = $"Digite pelo menos {MinSearchLength} caracteres para buscar.";
+            SearchMessage = string.Format(Loc.Culture, Strings.SearchMinLengthFormat, MinSearchLength);
             return;
         }
 
@@ -492,7 +493,7 @@ public sealed class FriendsViewModel : ObservableObject
         var results = await _friendsService.SearchUsersAsync(_activeQuery);
         Replace(SearchResults, results);
         SearchMessage = results.Count == 0
-            ? $"Nenhum usuário do ScreenCord encontrado para \"{_activeQuery}\". A pessoa precisa ter entrado no sistema com o Discord."
+            ? string.Format(Loc.Culture, Strings.NoUserFoundFormat, _activeQuery)
             : null;
     }
 

@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -36,7 +37,7 @@ public static class CaptureSources
                 screens.Add((new CaptureSource(
                     CaptureSourceKind.Screen,
                     monitor,
-                    $"Tela {screens.Count + 1}{(primary ? " (principal)" : "")}",
+                    string.Format(Loc.Culture, Strings.ScreenNameFormat, screens.Count + 1) + (primary ? Strings.PrimarySuffix : ""),
                     "",
                     width,
                     height,

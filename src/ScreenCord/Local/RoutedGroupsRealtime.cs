@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using ScreenCord.Contracts;
 using ScreenCord.Services;
 
@@ -87,7 +88,7 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
 
         if (_local.IsLocalOnly)
         {
-            throw new LocalNetworkException("Sem conta do Discord, só as salas locais estão disponíveis.");
+            throw new LocalNetworkException(Strings.LocalOnlyWithoutAccount);
         }
 
         var joined = await _api.JoinAsync(groupId, cancellationToken);

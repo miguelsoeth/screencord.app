@@ -1,7 +1,8 @@
 <Window x:Class="ScreenCord.Views.UpdateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Atualizando o ScreenCord"
+        xmlns:l="clr-namespace:ScreenCord.Localization"
+        Title="{l:Tr UpdatingTitle}"
         Icon="/ScreenCord;component/Assets/screencord.ico"
         Width="400" SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
@@ -22,7 +23,7 @@
             <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
         </TextBlock>
         <TextBlock x:Name="StatusText" Margin="0,14,0,10" FontSize="13" TextWrapping="Wrap"
-                   Text="Procurando atualizações…" />
+                   Text="{l:Tr CheckingForUpdates}" />
         <ProgressBar x:Name="Progress" Height="6" Minimum="0" Maximum="1" IsIndeterminate="True"
                      Background="{StaticResource SurfaceRaisedBrush}" Foreground="{StaticResource AccentBrush}" BorderThickness="0" />
     </StackPanel>

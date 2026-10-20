@@ -1,6 +1,7 @@
 <Window x:Class="ScreenCord.Views.SharePickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:ScreenCord.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:ScreenCord.ViewModels"
@@ -84,7 +85,7 @@
                            Visibility="{Binding IsChange, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32" Margin="0,-6,-8,0"
-                    VerticalAlignment="Top" Click="OnCloseClick" ToolTip="Fechar" AutomationProperties.Name="Fechar">
+                    VerticalAlignment="Top" Click="OnCloseClick" ToolTip="{l:Tr Close}" AutomationProperties.Name="{l:Tr Close}">
                 <Path Data="{StaticResource CloseIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
             </Button>
         </Grid>
@@ -96,13 +97,13 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal">
-                <RadioButton Content="Tela" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="Compartilhar uma tela" />
-                <RadioButton Content="Janela" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="Compartilhar uma janela" />
+                <RadioButton Content="{l:Tr ScreenKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="{l:Tr ShareAScreen}" />
+                <RadioButton Content="{l:Tr WindowKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="{l:Tr ShareAWindow}" />
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
-                    Command="{Binding RefreshCommand}" ToolTip="Atualizar lista" AutomationProperties.Name="Atualizar lista">
+                    Command="{Binding RefreshCommand}" ToolTip="{l:Tr RefreshList}" AutomationProperties.Name="{l:Tr RefreshList}">
                 <Path Data="{StaticResource RefreshIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
             </Button>
         </Grid>
@@ -113,7 +114,7 @@
                          Background="Transparent" BorderThickness="0"
                          ItemContainerStyle="{StaticResource SourceItem}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         AutomationProperties.Name="O que compartilhar"
+                         AutomationProperties.Name="{l:Tr WhatToShare}"
                          MouseDoubleClick="OnSourceDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -159,7 +160,7 @@
 
             <!-- Pelo servidor só 540p a 30 fps; nas salas locais até 1080p a 60 fps. A taxa de bits é automática. -->
             <StackPanel Margin="0,0,24,0">
-                <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
+                <TextBlock Text="{l:Tr ResolutionHeader}" Style="{StaticResource FieldLabel}" />
                 <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -177,7 +178,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1">
-                <TextBlock Text="TAXA DE QUADROS" Style="{StaticResource FieldLabel}" />
+                <TextBlock Text="{l:Tr FrameRateHeader}" Style="{StaticResource FieldLabel}" />
                 <ItemsControl ItemsSource="{Binding FrameRates.Options}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -199,18 +200,18 @@
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
-                    <TextBlock Text="Compartilhar áudio" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="Só o áudio do programa da janela." FontSize="11" Foreground="{StaticResource MutedTextBrush}"
+                    <TextBlock Text="{l:Tr ShareAudio}" FontSize="13" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:Tr WindowAudioHint}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
                                Visibility="{Binding IsWindowKind, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"
-                               Text="Todo o áudio do computador, inclusive chamadas."
+                               Text="{l:Tr ScreenAudioHint}"
                                Visibility="{Binding IsScreenKind, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </CheckBox>
         </Grid>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Cancelar" Style="{StaticResource SecondaryButton}" IsCancel="True" />
+            <Button Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}" IsCancel="True" />
             <Button Content="{Binding ConfirmText}" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" IsDefault="True"
                     IsEnabled="{Binding CanShare}" Click="OnShareClick" />
         </StackPanel>
