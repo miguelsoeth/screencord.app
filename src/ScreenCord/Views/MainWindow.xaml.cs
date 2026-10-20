@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Loc.LanguageChanged += () => OnWindowStateChanged(this, EventArgs.Empty);
 
         // Confirmação de sair/excluir grupo: foco no "Cancelar", para Enter não confirmar por acidente e Esc fechar.
         viewModel.Groups.PropertyChanged += (_, e) =>
@@ -153,10 +155,10 @@ public partial class MainWindow : Window
         }
 
         icon.Data = (System.Windows.Media.Geometry)FindResource("CheckIcon");
-        button.ToolTip = "Copiado";
+        button.ToolTip = Strings.Copied;
         await Task.Delay(TimeSpan.FromSeconds(1.5));
         icon.Data = (System.Windows.Media.Geometry)FindResource("CopyIcon");
-        button.ToolTip = "Copiar o IP";
+        button.ToolTip = Strings.CopyIp;
     }
 
     /// <summary>Clique na área esmaecida (fora do cartão) cancela a criação do grupo.</summary>
@@ -177,7 +179,7 @@ public partial class MainWindow : Window
         var maximized = WindowState == WindowState.Maximized;
         WindowRoot.Margin = maximized ? MaximizedOverflow() : new Thickness(0);
         MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
-        MaximizeButton.ToolTip = maximized ? "Restaurar" : "Maximizar";
+        MaximizeButton.ToolTip = maximized ? Strings.Restore : Strings.Maximize;
         System.Windows.Automation.AutomationProperties.SetName(MaximizeButton, (string)MaximizeButton.ToolTip);
     }
 

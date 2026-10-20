@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -61,15 +62,15 @@ public static class LocalNetwork
 
         if (IPAddress.IsLoopback(address))
         {
-            return "Este computador";
+            return Strings.ThisComputer;
         }
 
         var b = address.GetAddressBytes();
-        return address.AddressFamily != AddressFamily.InterNetwork ? "Rede"
+        return address.AddressFamily != AddressFamily.InterNetwork ? Strings.Network
             : b[0] == 25 ? "Hamachi"
             : b[0] == 26 ? "Radmin"
             : b[0] == 100 && b[1] is >= 64 and <= 127 ? "Tailscale"
-            : IsLocal(address) ? "Rede local"
+            : IsLocal(address) ? Strings.LocalNetwork
             : "Internet";
     }
 

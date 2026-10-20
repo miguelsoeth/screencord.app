@@ -73,6 +73,13 @@ Não crie tags para testar o pipeline: cada tag gera uma release visível para q
 
 O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais downloads).
 
+## Idiomas
+
+- O app tem português, inglês e espanhol. Todo texto da interface fica em `src/ScreenCord/Localization/Strings.cs`, com as três traduções lado a lado (`T("pt", "en", "es")`). No XAML: `{l:Tr Chave}` (ou `{l:Tr ChaveFormat, Path=Nome}` para textos com `{0}`); no C#: `Strings.Chave`. Nada de texto fixo nas telas. Logs ficam em português.
+- A troca é ao vivo (botão de idioma no cabeçalho e no login): o `{l:Tr}` se atualiza sozinho e todo `ObservableObject` avisa a interface. Texto montado em code-behind precisa ouvir `Loc.LanguageChanged`.
+- A escolha fica em `HKCU\Software\ScreenCord\Language` (`pt`, `en`, `es`). O instalador mostra a tela "Idioma" na primeira instalação, grava o mesmo valor e o lê de volta nas atualizações (inclusive a automática). Sem valor, vale o idioma do Windows (senão, inglês).
+- Os testes rodam em português (o padrão do `Loc`). Testes que trocam o idioma ficam na coleção `LanguageCollection`, que não roda em paralelo; o `LocalizationTests` confere que toda chave do XAML existe e que as três línguas têm os mesmos `{0}`.
+
 ## Salas locais
 
 - Ficam em `src/ScreenCord/Local`: funcionam sem a API (e sem conta do Discord, no "Usar sem conta"). A tela de grupos usa o `RoutedGroupsRealtime`, que manda entrar, sair e anunciar compartilhamento para a API ou para a sala local conforme o grupo; os amigos usam só a conexão da API (`ApiRealtime`).

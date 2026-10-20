@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -229,7 +230,7 @@ public sealed class CentralApiClient
         return Error(DiscordErrorKind.ClientOutdated, message, inner, HttpStatusCode.UpgradeRequired);
     }
 
-    public const string OutdatedMessage = "Esta versão do ScreenCord não é mais aceita pelo servidor. Atualize o aplicativo.";
+    public static string OutdatedMessage => Strings.ClientOutdated;
 
     public static DiscordException Error(DiscordErrorKind kind, string message, Exception? inner = null, HttpStatusCode? status = null) =>
         new(kind, message, inner) { Source = ErrorSource.CentralApi, StatusCode = status };

@@ -215,6 +215,29 @@
 
     <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource BaseButton}" />
 
+    <!-- Apoio no Ko-fi: pílula pequena no coral do Ko-fi, com brilho próprio para chamar atenção sem competir com o
+         botão principal. -->
+    <LinearGradientBrush x:Key="KofiBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FF5E5B" Offset="0" />
+        <GradientStop Color="#FF8A4C" Offset="1" />
+    </LinearGradientBrush>
+    <Style x:Key="KofiButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+        <Style.Resources>
+            <DropShadowEffect x:Key="ButtonHoverGlow" Color="#FF5E5B" BlurRadius="20" ShadowDepth="0" Opacity="0.85" />
+        </Style.Resources>
+        <Setter Property="Background" Value="{StaticResource KofiBrush}" />
+        <Setter Property="BorderBrush" Value="#55FFFFFF" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#FF5E5B" BlurRadius="12" ShadowDepth="0" Opacity="0.5" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
         <Style.Resources>
             <SolidColorBrush x:Key="ButtonGlossBrush" Color="Transparent" />
@@ -258,6 +281,8 @@
     <Geometry x:Key="CrownIcon">M5,16L3,5L8.5,10L12,4L15.5,10L21,5L19,16H5M19,19A1,1 0 0,1 18,20H6A1,1 0 0,1 5,19V18H19V19Z</Geometry>
     <Geometry x:Key="CopyIcon">M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z</Geometry>
     <Geometry x:Key="CheckIcon">M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z</Geometry>
+    <Geometry x:Key="CoffeeIcon">M2,21H20V19H2M20,8H18V5H20M20,3H4V13A4,4 0 0,0 8,17H14A4,4 0 0,0 18,13V10H20A2,2 0 0,0 22,8V5C22,3.89 21.1,3 20,3Z</Geometry>
+    <Geometry x:Key="TranslateIcon">M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z</Geometry>
     <Geometry x:Key="AccountIcon">M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z</Geometry>
 
     <Style x:Key="IconPath" TargetType="Path">

@@ -1,6 +1,7 @@
 <UserControl x:Class="ScreenCord.Views.StreamPlayer"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:ScreenCord.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:ScreenCord.ViewModels"
@@ -50,7 +51,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
                             Visibility="{Binding IsEnded, Converter={StaticResource InverseBoolToVisibility}}">
-                        <TextBlock Text="AO VIVO" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        <TextBlock Text="{l:Tr Live}" FontSize="10" FontWeight="Bold" Foreground="White" />
                     </Border>
                     <TextBlock Text="{Binding Sharer.DisplayName}" FontSize="13" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding QualityText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
@@ -58,7 +59,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <StackPanel Orientation="Horizontal" Visibility="{Binding HasAudio, Converter={StaticResource BoolToVisibility}}">
                         <Button Style="{StaticResource GhostIconButton}" Width="32" Height="32"
-                                Command="{Binding ToggleMuteCommand}" ToolTip="Silenciar (M)" AutomationProperties.Name="Silenciar">
+                                Command="{Binding ToggleMuteCommand}" ToolTip="{l:Tr MuteTooltip}" AutomationProperties.Name="{l:Tr Mute}">
                             <Path Width="18" Height="18">
                                 <Path.Style>
                                     <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
@@ -76,14 +77,14 @@
                         <Slider x:Name="VolumeSlider" Width="100" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1"
                                 IsMoveToPointEnabled="True" Value="{Binding Volume}" VerticalAlignment="Center" Margin="6,0,12,0"
                                 PreviewMouseWheel="OnVolumeMouseWheel"
-                                AutomationProperties.Name="Volume" IsEnabled="{Binding IsMuted, Converter={StaticResource InverseBool}}" />
+                                AutomationProperties.Name="{l:Tr Volume}" IsEnabled="{Binding IsMuted, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
                     <Button x:Name="FullScreenButton" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
-                            Command="{x:Static views:ViewerCommands.ToggleFullScreen}" ToolTip="Tela cheia (F11)" AutomationProperties.Name="Tela cheia">
+                            Command="{x:Static views:ViewerCommands.ToggleFullScreen}" ToolTip="{l:Tr FullScreenTooltip}" AutomationProperties.Name="{l:Tr FullScreen}">
                         <Path Data="{StaticResource FullscreenIcon}" Style="{StaticResource IconPath}" Width="18" Height="18" />
                     </Button>
                     <Button x:Name="CloseButton" Style="{StaticResource GhostIconButton}" Width="32" Height="32" Margin="4,0,0,0"
-                            Click="OnCloseClick" ToolTip="Parar de assistir" AutomationProperties.Name="Parar de assistir">
+                            Click="OnCloseClick" ToolTip="{l:Tr StopWatching}" AutomationProperties.Name="{l:Tr StopWatching}">
                         <Path Data="{StaticResource CloseIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                     </Button>
                 </StackPanel>

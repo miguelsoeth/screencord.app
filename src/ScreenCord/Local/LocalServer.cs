@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.IO;
 using System.Net;
 using System.Net.Security;
@@ -66,7 +67,7 @@ public sealed class LocalServer : IAsyncDisposable
         catch (SocketException ex)
         {
             throw new LocalNetworkException(
-                $"A porta {port} deste computador está em uso por outro programa, e o ScreenCord não consegue abrir a sala local.", ex);
+                string.Format(Loc.Culture, Strings.PortInUseFormat, port), ex);
         }
 
         _listener = listener;

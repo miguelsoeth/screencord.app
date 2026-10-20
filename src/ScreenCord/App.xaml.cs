@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Windows;
 using System.Windows.Threading;
 using ScreenCord.Infrastructure;
@@ -30,6 +31,9 @@ public partial class App : Application
             Shutdown(FirewallRule.Apply(exe));
             return;
         }
+
+        // Escolhido no instalador ou no app (HKCU\Software\ScreenCord\Language); sem escolha, o idioma do Windows.
+        Loc.SetLanguage(LanguagePreference.Load());
 
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -169,13 +173,13 @@ public partial class App : Application
     {
         var version = update.Version.ToString(3);
         var window = new UpdateWindow();
-        window.SetStatus($"Baixando a versão {version}…", 0);
+        window.SetStatus(string.Format(Loc.Culture, Strings.DownloadingVersionFormat, version), 0);
         window.Show();
         try
         {
-            var progress = new Progress<double>(value => window.SetStatus($"Baixando a versão {version}… {value:P0}", value));
+            var progress = new Progress<double>(value => window.SetStatus(string.Format(Loc.Culture, Strings.DownloadingVersionFormat, version) + " " + value.ToString("P0", Loc.Culture), value));
             await updater.DownloadAndScheduleInstallAsync(update, progress);
-            window.SetStatus($"Instalando a versão {version}. O ScreenCord abre de novo em seguida.");
+            window.SetStatus(string.Format(Loc.Culture, Strings.InstallingVersionFormat, version));
             return true;
         }
         catch (Exception ex)

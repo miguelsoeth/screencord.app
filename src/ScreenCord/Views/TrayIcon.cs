@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Windows;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
@@ -14,6 +15,7 @@ public sealed class TrayIcon : IDisposable
     private readonly Forms.ContextMenuStrip _menu;
     private readonly Drawing.Icon _icon;
     private readonly Drawing.Bitmap _menuImage;
+    private readonly Action _updateTexts;
 
     public TrayIcon(Action show, Action exit)
     {
@@ -29,7 +31,10 @@ public sealed class TrayIcon : IDisposable
         title.Font = new Drawing.Font(title.Font, Drawing.FontStyle.Bold);
         _menu.Items.Add(title);
         _menu.Items.Add(new Forms.ToolStripSeparator());
-        _menu.Items.Add(new Forms.ToolStripMenuItem("Sair", null, (_, _) => exit()));
+        var exitItem = new Forms.ToolStripMenuItem(Strings.Exit, null, (_, _) => exit());
+        _menu.Items.Add(exitItem);
+        _updateTexts = () => exitItem.Text = Strings.Exit;
+        Loc.LanguageChanged += _updateTexts;
 
         _notifyIcon = new Forms.NotifyIcon
         {
@@ -49,6 +54,8 @@ public sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
+        Loc.LanguageChanged -= _updateTexts;
+
         // Sem esconder antes, o ícone fica "fantasma" na bandeja até o mouse passar por cima.
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();

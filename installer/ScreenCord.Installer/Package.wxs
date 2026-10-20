@@ -21,6 +21,26 @@
     <Icon Id="ScreenCordIcon" SourceFile="..\..\src\ScreenCord\Assets\screencord.ico" />
     <Property Id="ARPPRODUCTICON" Value="ScreenCordIcon" />
 
+    <!--
+      Idioma do app (pt, en ou es), escolhido na tela "Idioma" e gravado em HKCU\Software\ScreenCord\Language, que o
+      app lê ao abrir e grava quando a pessoa troca o idioma lá dentro. Numa atualização (inclusive a automática, que
+      roda sem telas), o valor salvo é lido de volta e mantido. Sem valor salvo, vem do idioma do Windows.
+    -->
+    <Property Id="SCLANGUAGE" Value="en" Secure="yes" />
+    <Property Id="SCSAVEDLANGUAGE">
+      <RegistrySearch Id="SavedLanguage" Root="HKCU" Key="Software\ScreenCord" Name="Language" Type="raw" />
+    </Property>
+    <SetProperty Id="SCLANGUAGE" Action="DefaultLanguagePt" Value="pt" After="AppSearch" Sequence="both"
+                 Condition="UserLanguageID = 1046 OR UserLanguageID = 2070" />
+    <SetProperty Id="SCLANGUAGE" Action="DefaultLanguageEs1" Value="es" After="DefaultLanguagePt" Sequence="both"
+                 Condition="UserLanguageID = 1034 OR UserLanguageID = 3082 OR UserLanguageID = 2058 OR UserLanguageID = 11274 OR UserLanguageID = 13322 OR UserLanguageID = 9226 OR UserLanguageID = 5130 OR UserLanguageID = 7178" />
+    <SetProperty Id="SCLANGUAGE" Action="DefaultLanguageEs2" Value="es" After="DefaultLanguageEs1" Sequence="both"
+                 Condition="UserLanguageID = 12298 OR UserLanguageID = 17418 OR UserLanguageID = 4106 OR UserLanguageID = 18442 OR UserLanguageID = 6154 OR UserLanguageID = 15370 OR UserLanguageID = 10250 OR UserLanguageID = 20490" />
+    <SetProperty Id="SCLANGUAGE" Action="DefaultLanguageEs3" Value="es" After="DefaultLanguageEs2" Sequence="both"
+                 Condition="UserLanguageID = 21514 OR UserLanguageID = 14346 OR UserLanguageID = 8202 OR UserLanguageID = 16394 OR UserLanguageID = 19466 OR UserLanguageID = 22538" />
+    <SetProperty Id="SCLANGUAGE" Action="SavedLanguage" Value="[SCSAVEDLANGUAGE]" After="DefaultLanguageEs3" Sequence="both"
+                 Condition="SCSAVEDLANGUAGE = &quot;pt&quot; OR SCSAVEDLANGUAGE = &quot;en&quot; OR SCSAVEDLANGUAGE = &quot;es&quot;" />
+
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserProgramsFolder" Name="Programs">
         <Directory Id="INSTALLFOLDER" Name="ScreenCord" />
@@ -33,6 +53,9 @@
         <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="App" Type="integer" Value="1" KeyPath="yes" />
         <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
         <RemoveFolder Id="RemoveUserProgramsFolder" Directory="UserProgramsFolder" On="uninstall" />
+      </Component>
+      <Component Id="LanguagePreference" Guid="2EE13A66-AF6D-4ACF-B7CA-9B94D364309F">
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord" Name="Language" Type="string" Value="[SCLANGUAGE]" KeyPath="yes" />
       </Component>
       <Component Id="AppSettings" Guid="F02E0D4F-AED4-4C11-9A7B-40853EF150D2">
         <File Id="AppSettingsJson" Source="$(var.AppPublishDir)appsettings.json" />
@@ -80,8 +103,38 @@
       <Custom Action="ConfigureFirewall" After="InstallFinalize" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND UILevel &gt;= 4" />
     </InstallExecuteSequence>
 
+    <!-- Antes dos termos, só na instalação com telas (a atualização automática é /passive e não mostra nenhuma). -->
+    <InstallUISequence>
+      <Show Dialog="LanguageDlg" Before="WelcomeEulaDlg" Condition="NOT Installed" />
+    </InstallUISequence>
+
     <UI>
       <ui:WixUI Id="WixUI_Minimal" />
+      <!-- No mesmo formato das telas do WixUI (370x270, faixa no topo, botões embaixo). Os nomes ficam no próprio idioma. -->
+      <Dialog Id="LanguageDlg" Width="370" Height="270" Title="!(loc.WelcomeEulaDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="290" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WixUI_Font_Title}Idioma · Language · Idioma" />
+        <Control Id="Description" Type="Text" X="25" Y="22" Width="290" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="Escolha o idioma do ScreenCord. Dá para trocar depois, no próprio app." />
+        <Control Id="Choice" Type="RadioButtonGroup" X="30" Y="64" Width="300" Height="66" Property="SCLANGUAGE">
+          <RadioButtonGroup Property="SCLANGUAGE">
+            <RadioButton Value="pt" X="0" Y="0" Width="300" Height="18" Text="Português" />
+            <RadioButton Value="en" X="0" Y="24" Width="300" Height="18" Text="English" />
+            <RadioButton Value="es" X="0" Y="48" Width="300" Height="18" Text="Español" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="Hint" Type="Text" X="30" Y="146" Width="310" Height="40" Transparent="yes" NoPrefix="yes"
+                 Text="Choose the ScreenCord language. You can change it later in the app.&#13;&#10;Elige el idioma de ScreenCord. Puedes cambiarlo después en la aplicación." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
       <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
                Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
     </UI>

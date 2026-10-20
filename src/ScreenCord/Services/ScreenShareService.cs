@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ScreenCord.Contracts;
@@ -84,12 +85,12 @@ public sealed class ScreenShareService : IScreenShareService
         var previous = replacing as ActiveScreenShare;
         if (!ScreenCapture.IsSupported)
         {
-            throw new InvalidOperationException("Este Windows não permite capturar a tela (é preciso o Windows 10 versão 1903 ou mais recente).");
+            throw new InvalidOperationException(Strings.CaptureNotSupported);
         }
 
         if (!CaptureSources.IsAlive(request.Source))
         {
-            throw new InvalidOperationException("A janela escolhida foi fechada.");
+            throw new InvalidOperationException(Strings.ChosenWindowClosed);
         }
 
         var settings = request.Settings;
@@ -123,7 +124,7 @@ public sealed class ScreenShareService : IScreenShareService
                     // Sem áudio o vídeo continua; quem compartilha é avisado.
                     _logger.LogWarning(ex, "Captura de áudio indisponível para {Kind} (processo {ProcessId}); compartilhando sem som.",
                         request.Source.Kind, request.Source.ProcessId);
-                    audioWarning = "Não foi possível capturar o áudio: o compartilhamento segue sem som.";
+                    audioWarning = Strings.AudioCaptureFailed;
                 }
             }
 
@@ -173,7 +174,7 @@ public sealed class ScreenShareService : IScreenShareService
                     _logger.LogDebug("Falha ao desfazer o anúncio do compartilhamento ({ExceptionType}).", ex.GetType().Name);
                 }
 
-                previous?.Fail("Não foi possível aplicar as novas configurações, e o compartilhamento parou.");
+                previous?.Fail(Strings.NewSettingsFailed);
             }
             else
             {
@@ -258,8 +259,8 @@ public sealed class ScreenShareService : IScreenShareService
                 _logger.LogDebug("Quadro-chave pedido.");
                 _encoder.RequestKeyframe();
             };
-            _socket.Closed += reason => End(reason ?? "O servidor encerrou o compartilhamento.");
-            _capture.Closed += (_, _) => End(request.Source.IsScreen ? "A tela compartilhada foi desconectada." : "A janela compartilhada foi fechada.");
+            _socket.Closed += reason => End(reason ?? Strings.ServerEndedShare);
+            _capture.Closed += (_, _) => End(request.Source.IsScreen ? Strings.SharedScreenDisconnected : Strings.SharedWindowClosed);
             _videoThread = new Thread(VideoLoop) { IsBackground = true, Name = "Compartilhamento de tela", Priority = ThreadPriority.AboveNormal };
             _socket.Start();
         }
@@ -409,7 +410,7 @@ public sealed class ScreenShareService : IScreenShareService
             catch (Exception ex) when (!_stop.IsCancellationRequested)
             {
                 _logger.LogError(ex, "O compartilhamento de tela parou por um erro.");
-                End("O compartilhamento parou por um erro na captura ou no encoder de vídeo.");
+                End(Strings.CaptureOrEncoderFailed);
             }
             finally
             {

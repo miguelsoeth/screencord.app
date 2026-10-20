@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
@@ -62,7 +63,7 @@ public sealed class SharePickerViewModel : ObservableObject
         Refresh();
     }
 
-    private const string DirectOnly = "Só nas salas locais, com a mídia direto entre os computadores.";
+    private static string DirectOnly => Strings.DirectOnly;
 
     public ObservableCollection<CaptureSource> Sources { get; } = [];
 
@@ -71,19 +72,21 @@ public sealed class SharePickerViewModel : ObservableObject
 
     /// <summary>"Qualidade automática, até 1,5 Mbps · pelo servidor".</summary>
     public string BitrateText =>
-        "Qualidade automática, até " +
-        (_limits.MaxBitrateKbps / 1000.0).ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")) +
-        " Mbps · " + (IsDirect ? "direto entre os computadores" : "pelo servidor");
+        string.Format(
+            Loc.Culture,
+            Strings.AutoQualityFormat,
+            (_limits.MaxBitrateKbps / 1000.0).ToString("0.#", Loc.Culture),
+            IsDirect ? Strings.DirectBetweenComputers : Strings.ThroughServer);
 
     /// <summary>Troca das configurações de um compartilhamento em andamento.</summary>
     public bool IsChange { get; }
 
-    public string HeaderText => IsChange ? "Alterar compartilhamento" : "Compartilhar tela";
+    public string HeaderText => IsChange ? Strings.ChangeSharing : Strings.ShareScreen;
 
-    public string ConfirmText => IsChange ? "Aplicar" : "Compartilhar";
+    public string ConfirmText => IsChange ? Strings.Apply : Strings.Share;
 
     /// <summary>Dica abaixo do título; só aparece ao alterar um compartilhamento em andamento.</summary>
-    public string HintText => "Quem está assistindo continua vendo, já com as novas configurações.";
+    public string HintText => Strings.ChangeShareHint;
 
     public RelayCommand ShowScreensCommand { get; }
 
@@ -143,7 +146,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public bool HasNoSources => Sources.Count == 0;
 
-    public string EmptyText => Kind == CaptureSourceKind.Screen ? "Nenhuma tela encontrada." : "Nenhuma janela aberta para compartilhar.";
+    public string EmptyText => Kind == CaptureSourceKind.Screen ? Strings.NoScreensFound : Strings.NoWindowsToShare;
 
     public bool CanShare => SelectedSource is not null;
 

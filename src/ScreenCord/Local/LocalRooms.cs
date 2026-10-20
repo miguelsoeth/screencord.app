@@ -1,3 +1,4 @@
+using ScreenCord.Localization;
 using System.Net;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
@@ -260,7 +261,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     {
         _discovery.Stop();
         _media?.Stop();
-        _ = _hosted?.CloseAsync("Quem hospedava saiu, e a sala foi encerrada.");
+        _ = _hosted?.CloseAsync(Strings.HostLeftRoomClosed);
         _ = _client?.DisposeAsync().AsTask();
         _ = _pending?.DisposeAsync().AsTask();
         _ = _server?.DisposeAsync().AsTask().ContinueWith(_ => _certificate?.Dispose(), TaskScheduler.Default);
@@ -274,7 +275,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             EnsureServer();
             if (_hosted is not null)
             {
-                throw new LocalNetworkException("Você já está hospedando uma sala. Saia dela para criar outra.");
+                throw new LocalNetworkException(Strings.AlreadyHosting);
             }
 
             var host = new LocalRoomHost(Guid.NewGuid(), name, _me, _logger);
@@ -302,14 +303,14 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     {
         if (!LocalNetwork.TryParseAddress(address, out var host, out var port))
         {
-            throw new LocalNetworkException("Endereço inválido. Use o IP de quem hospeda, como 25.1.2.3 ou 192.168.0.10:47830.");
+            throw new LocalNetworkException(Strings.InvalidAddress);
         }
 
         var client = await LocalRoomClient.ConnectAsync(host, port, _me, fingerprint: null, cancellationToken);
         if (client.State.Id == _hosted?.Id)
         {
             await client.DisposeAsync();
-            throw new LocalNetworkException("Esse é o endereço da sala que você está hospedando.");
+            throw new LocalNetworkException(Strings.OwnRoomAddress);
         }
 
         var previous = Interlocked.Exchange(ref _pending, client);
@@ -329,7 +330,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         {
             if (_currentRoomId == roomId)
             {
-                return CurrentPresence() ?? throw new LocalNetworkException("A sala não está mais disponível.");
+                return CurrentPresence() ?? throw new LocalNetworkException(Strings.RoomNoLongerAvailable);
             }
 
             if (_hosted is { } hosted && hosted.Id == roomId)
@@ -352,7 +353,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             }
             else
             {
-                throw new LocalNetworkException("Essa sala não está mais na rede.");
+                throw new LocalNetworkException(Strings.RoomNoLongerOnNetwork);
             }
 
             await LeaveLockedAsync();
@@ -386,7 +387,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             : _pending?.State.Id == roomId ? _pending.State
             : _discovery.Rooms.FirstOrDefault(r => r.Beacon.RoomId == roomId) is { } found
                 ? new LocalRoomState(roomId, found.Beacon.Name, Guid.Empty, found.Beacon.Version, found.Beacon.Members, [])
-                : throw new LocalNetworkException("Essa sala não está mais na rede.");
+                : throw new LocalNetworkException(Strings.RoomNoLongerOnNetwork);
 
         var connected = _currentRoomId == roomId;
         var members = state.Members
@@ -405,14 +406,14 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         {
             if (_currentRoomId is null)
             {
-                throw new LocalNetworkException("Entre numa sala local para compartilhar.");
+                throw new LocalNetworkException(Strings.JoinLocalRoomToShare);
             }
 
             EnsureServer();
             var endpoints = _endpoints(_server!.Port);
             if (endpoints.Count == 0)
             {
-                throw new LocalNetworkException("Este computador não está em nenhuma rede local (LAN, Hamachi, Radmin ou Tailscale): ninguém conseguiria assistir.");
+                throw new LocalNetworkException(Strings.NoLocalNetwork);
             }
 
             // Trocar as configurações mantém o mesmo canal: quem assiste continua conectado.
@@ -420,7 +421,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             var share = new LocalShare(_me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, _media.Id, endpoints, _media.Key, _certificate!.Fingerprint);
             if (!share.IsValid)
             {
-                throw new LocalNetworkException("Configuração de compartilhamento fora dos limites das salas locais.");
+                throw new LocalNetworkException(Strings.ShareSettingsOutOfLimits);
             }
 
             if (_hosted is { } hosted && hosted.Id == _currentRoomId)
@@ -454,17 +455,17 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     }
 
     public IMediaSink OpenPublisher() =>
-        _media?.Acquire() ?? throw new LocalNetworkException("O compartilhamento não foi anunciado na sala.");
+        _media?.Acquire() ?? throw new LocalNetworkException(Strings.ShareNotAnnounced);
 
     public async Task<MediaSocket> WatchAsync(Guid roomId, Guid sharerId, CancellationToken cancellationToken = default)
     {
         var state = _currentRoomId == roomId ? CurrentState() : null;
         if (state?.Shares.FirstOrDefault(s => s.UserId == sharerId) is not { } share)
         {
-            throw new LocalNetworkException("Este compartilhamento de tela já terminou.");
+            throw new LocalNetworkException(Strings.ShareAlreadyEnded);
         }
 
-        var name = state.Members.FirstOrDefault(m => m.Id == sharerId)?.Name ?? "quem compartilha";
+        var name = state.Members.FirstOrDefault(m => m.Id == sharerId)?.Name ?? Strings.SomeoneSharing;
         return await MediaSocket.ConnectDirectAsync(share.Endpoints, share.MediaId, share.Key, share.Fingerprint, share.BitrateKbps, name, cancellationToken);
     }
 
@@ -578,7 +579,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         {
             _hosted = null;
             _discovery.Announce(null);
-            await hosted.CloseAsync("Quem hospedava saiu, e a sala foi encerrada.");
+            await hosted.CloseAsync(Strings.HostLeftRoomClosed);
             RoomRemoved?.Invoke(hosted.Id);
         }
 
@@ -605,7 +606,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     }
 
     private static LocalAddress Describe(string host, int port) =>
-        new(LocalNetwork.FormatAddress(host, port), IPAddress.TryParse(host, out var ip) ? LocalNetwork.NetworkName(ip) : "Nome do computador");
+        new(LocalNetwork.FormatAddress(host, port), IPAddress.TryParse(host, out var ip) ? LocalNetwork.NetworkName(ip) : Strings.ComputerName);
 
     private static GroupDto ToGroup(RoomBeacon beacon) =>
         new(beacon.RoomId, beacon.Name, beacon.Members.Count, beacon.Members.Select(m => m.ToPresence()).ToList(), beacon.Version, []);
