@@ -1098,8 +1098,8 @@
                                     Command="{Binding CreateCommand}" />
                         </StackPanel>
 
-                        <!-- Entrar numa sala local pelo IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios). -->
-                        <StackPanel Visibility="{Binding HasLocalRooms, Converter={StaticResource BoolToVisibility}}">
+                        <!-- Entrar numa sala local pelo IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios). Só na aba "Sala local". -->
+                        <StackPanel Visibility="{Binding NewGroupIsLocal, Converter={StaticResource BoolToVisibility}}">
                             <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,20,0,14" />
                             <TextBlock Text="Entrar numa sala local pelo IP" FontWeight="SemiBold" />
                             <TextBlock Style="{StaticResource MutedText}" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"

@@ -136,7 +136,7 @@ public sealed class GroupsViewModel : ObservableObject
     public string CreateTitle => NewGroupIsLocal ? "Criar sala local" : "Criar grupo";
 
     public string CreateHint => NewGroupIsLocal
-        ? "Para quem está na mesma rede (LAN, Hamachi, Radmin ou Tailscale). A tela vai direto entre os computadores, até 1080p a 60 fps, e a sala funciona mesmo sem o servidor. Ela fica aberta enquanto você estiver nela."
+        ? "Para quem está na mesma rede. A tela vai direto entre os computadores e funciona mesmo sem o servidor. Ela fica aberta enquanto você estiver nela."
         : "Com seus amigos do Discord. A tela passa pelo servidor, em 540p a 30 fps. Depois de criar, você já pode adicionar amigos.";
 
     /// <summary>Endereço digitado para entrar numa sala local (ex.: 25.1.2.3).</summary>
