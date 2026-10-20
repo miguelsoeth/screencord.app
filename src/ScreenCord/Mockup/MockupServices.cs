@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
+using ScreenCord.Local;
 using ScreenCord.Media;
 using ScreenCord.Models;
 using ScreenCord.Security;
@@ -24,7 +25,7 @@ public static class MockupServiceCollectionExtensions
         services.AddSingleton<IFriendsService, MockupFriendsService>();
         services.AddSingleton<IGroupsService, MockupGroupsService>();
         services.AddSingleton<MockupGroupsRealtime>();
-        services.AddSingleton<IGroupsRealtime>(sp => sp.GetRequiredService<MockupGroupsRealtime>());
+        services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<MockupGroupsRealtime>()));
         services.AddSingleton<IScreenShareService, MockupScreenShareService>();
         return services;
     }

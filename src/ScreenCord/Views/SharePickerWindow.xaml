@@ -26,55 +26,6 @@
 
     <Window.Resources>
         <!-- Escolha segmentada: uma pílula por opção, a marcada em destaque. -->
-        <Style x:Key="SegmentRadio" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
-            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Margin" Value="0,0,6,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
-                            <Grid.RenderTransform>
-                                <ScaleTransform />
-                            </Grid.RenderTransform>
-                            <Border Background="{TemplateBinding Background}" CornerRadius="6" />
-                            <Border x:Name="Hover" Background="#14FFFFFF" CornerRadius="6" Opacity="0" />
-                            <Border x:Name="Checked" Background="{StaticResource AccentBrush}" CornerRadius="6" Opacity="0" />
-                            <Border x:Name="FocusRing" BorderBrush="{StaticResource TextBrush}" BorderThickness="1" CornerRadius="6" Opacity="0" />
-                            <ContentPresenter Margin="12,7" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource HoverIn}" /></Trigger.EnterActions>
-                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource HoverOut}" /></Trigger.ExitActions>
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="White" />
-                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource CheckedIn}" /></Trigger.EnterActions>
-                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource CheckedOut}" /></Trigger.ExitActions>
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource FocusIn}" /></Trigger.EnterActions>
-                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource FocusOut}" /></Trigger.ExitActions>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource PressIn}" /></Trigger.EnterActions>
-                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource PressOut}" /></Trigger.ExitActions>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Root" Property="Opacity" Value="0.4" />
-                                <Setter Property="Cursor" Value="Arrow" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
@@ -206,7 +157,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 540p a 30 ou 60 fps, 720p só a 30 fps; 1080p aparece desligado (plano pago). A taxa de bits é automática. -->
+            <!-- Pelo servidor só 540p a 30 fps; nas salas locais até 1080p a 60 fps. A taxa de bits é automática. -->
             <StackPanel Margin="0,0,24,0">
                 <TextBlock Text="RESOLUÇÃO" Style="{StaticResource FieldLabel}" />
                 <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
@@ -242,6 +193,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
+
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding BitrateText}" Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0" />
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
                       Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">

@@ -50,6 +50,15 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() => SearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
         };
+        // Usar sem conta: foco no nome, para digitar direto e o Enter entrar.
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsLocalForm) && viewModel.IsLocalForm)
+            {
+                Dispatcher.BeginInvoke(() => LocalNameBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        };
+
         Loaded += async (_, _) => await viewModel.InitializeAsync();
 
         RootGrid.SizeChanged += (_, _) => UpdateStageSize();
@@ -122,6 +131,32 @@ public partial class MainWindow : Window
         {
             _viewModel.Friends.IsOpen = false;
         }
+    }
+
+    /// <summary>Copia o IP da sala local; o ícone vira um "certo" por um instante para confirmar.</summary>
+    private async void OnCopyAddressClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string address } button ||
+            button.Content is not System.Windows.Shapes.Path icon)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(address);
+        }
+        catch (COMException)
+        {
+            // A área de transferência estava em uso por outro programa; o IP continua selecionável.
+            return;
+        }
+
+        icon.Data = (System.Windows.Media.Geometry)FindResource("CheckIcon");
+        button.ToolTip = "Copiado";
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        icon.Data = (System.Windows.Media.Geometry)FindResource("CopyIcon");
+        button.ToolTip = "Copiar o IP";
     }
 
     /// <summary>Clique na área esmaecida (fora do cartão) cancela a criação do grupo.</summary>

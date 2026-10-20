@@ -73,7 +73,16 @@ Não crie tags para testar o pipeline: cada tag gera uma release visível para q
 
 O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais downloads).
 
+## Salas locais
+
+- Ficam em `src/ScreenCord/Local`: funcionam sem a API (e sem conta do Discord, no "Usar sem conta"). A tela de grupos usa o `RoutedGroupsRealtime`, que manda entrar, sair e anunciar compartilhamento para a API ou para a sala local conforme o grupo; os amigos usam só a conexão da API (`ApiRealtime`).
+- Portas fixas TCP 47830 e UDP 47831 (`LocalNetwork`): a regra do firewall depende delas. Não mude sem atualizar a regra (`FirewallRule`) e o README.
+- O servidor das salas é um `TcpListener` com WebSocket próprio (`LocalServer`), de propósito: o `HttpListener` exigiria administrador para escutar fora do localhost.
+- O protocolo da sala tem versão (`LocalMessage.CurrentProtocol`). Mudança incompatível no formato: suba a versão (salas de versões diferentes recusam a entrada com aviso para atualizar).
+- Qualidade: pelo servidor vale `StreamLimits.Relay` (a API informa em `GET /limits`); nas salas locais, `StreamLimits.Direct`.
+
 ## Cuidados
 
-- O app recusa `http` fora de localhost; a URL de produção da API é `https://154.16.50.20`.
+- O app recusa `http` fora de localhost para a API; a URL de produção é `https://154.16.50.20`. As salas locais usam `ws://` direto entre os computadores da rede (sem cifragem, por enquanto).
+- O instalador é por usuário (sem administrador). A regra do firewall é a única coisa que pede administrador: o próprio exe com `--configure-firewall`, chamado pelo instalador na primeira instalação e pelo botão "Liberar no firewall".
 - O `UpgradeCode` em `installer/ScreenCord.Installer/Package.wxs` nunca muda.

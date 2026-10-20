@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
+using ScreenCord.Local;
 using ScreenCord.Media;
 using ScreenCord.Models;
 using ScreenCord.Services;
@@ -11,6 +12,8 @@ namespace ScreenCord.ViewModels;
 /// Lista de grupos (salas de presença) na lateral. Mantém a conexão em tempo real aberta enquanto a conta
 /// está conectada: entradas e saídas de qualquer integrante chegam pelo hub e atualizam a lista na hora.
 /// Também controla o compartilhamento de tela na sala atual e as janelas de quem você está assistindo.
+/// As salas locais (<see cref="ILocalRooms"/>) aparecem na mesma lista: funcionam sem a API, e nelas a tela vai
+/// direto entre os computadores, com mais qualidade.
 /// </summary>
 public sealed class GroupsViewModel : ObservableObject
 {
@@ -20,6 +23,14 @@ public sealed class GroupsViewModel : ObservableObject
     private readonly IScreenShareUi _shareUi;
     private readonly SynchronizationContext? _ui;
     private readonly List<StreamViewerViewModel> _viewers = [];
+    private readonly ILocalRooms? _localRooms;
+    private readonly IServerLimits? _serverLimits;
+    private readonly IFirewallRule? _firewall;
+    private bool _newGroupIsLocal;
+    private string _joinAddress = "";
+    private bool _isJoiningByAddress;
+    private bool _showFirewallWarning;
+    private bool _isConfiguringFirewall;
 
     private GroupItemViewModel? _currentGroup;
     private GroupItemViewModel? _confirmingGroup;
@@ -42,12 +53,18 @@ public sealed class GroupsViewModel : ObservableObject
         IGroupsService groupsService,
         IGroupsRealtime realtime,
         IScreenShareService screenShare,
-        IScreenShareUi shareUi)
+        IScreenShareUi shareUi,
+        ILocalRooms? localRooms = null,
+        IServerLimits? serverLimits = null,
+        IFirewallRule? firewall = null)
     {
         _groupsService = groupsService;
         _realtime = realtime;
         _screenShare = screenShare;
         _shareUi = shareUi;
+        _localRooms = localRooms;
+        _serverLimits = serverLimits;
+        _firewall = firewall;
 
         // Criado na thread da interface; os eventos do hub chegam de outras threads e são trazidos para cá.
         _ui = SynchronizationContext.Current;
@@ -55,6 +72,10 @@ public sealed class GroupsViewModel : ObservableObject
         _realtime.PresenceChanged += (_, presence) => Post(() => OnPresenceChanged(presence));
         _realtime.GroupChanged += (_, group) => Post(() => OnGroupChanged(group));
         _realtime.GroupRemoved += (_, groupId) => Post(() => RemoveGroup(groupId));
+        if (_localRooms is not null)
+        {
+            _localRooms.RoomEnded += (_, reason) => Post(() => ErrorMessage = reason);
+        }
 
         JoinCommand = new AsyncRelayCommand<GroupItemViewModel>(JoinAsync);
         LeaveCurrentCommand = new AsyncRelayCommand(LeaveCurrentAsync, () => CurrentGroup is not null);
@@ -65,7 +86,88 @@ public sealed class GroupsViewModel : ObservableObject
         StartShareCommand = new AsyncRelayCommand(StartShareAsync, () => CanStartShare);
         StopShareCommand = new AsyncRelayCommand(StopShareAsync, () => IsSharing);
         ChangeShareCommand = new AsyncRelayCommand(ChangeShareAsync, () => CanChangeShare);
+        JoinByAddressCommand = new AsyncRelayCommand(JoinByAddressAsync);
+        ConfigureFirewallCommand = new AsyncRelayCommand(ConfigureFirewallAsync);
+        DismissFirewallWarningCommand = new RelayCommand(() => ShowFirewallWarning = false);
     }
+
+    /// <summary>Entra numa sala local digitando o IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios).</summary>
+    public AsyncRelayCommand JoinByAddressCommand { get; }
+
+    /// <summary>Cria a regra do Firewall do Windows (pede a permissão do Windows).</summary>
+    public AsyncRelayCommand ConfigureFirewallCommand { get; }
+
+    public RelayCommand DismissFirewallWarningCommand { get; }
+
+    /// <summary>Conta local, sem Discord: só as salas locais.</summary>
+    public bool IsLocalOnly => _localRooms?.IsLocalOnly == true;
+
+    /// <summary>Criar grupo da API (com amigos) está disponível; sem conta, só salas locais.</summary>
+    public bool CanCreateGroup => !IsLocalOnly;
+
+    public bool HasLocalRooms => _localRooms is not null;
+
+    /// <summary>Texto da lista vazia.</summary>
+    public string EmptyText => IsLocalOnly
+        ? "Nenhuma sala local na rede. Clique em + para criar uma ou entrar numa pelo IP."
+        : "Nenhum grupo ou sala ainda. Clique em + para criar um grupo com amigos, criar uma sala local ou entrar numa pelo IP.";
+
+    /// <summary>Na janela de criar: sala local (verdadeiro) ou grupo com amigos.</summary>
+    public bool NewGroupIsLocal
+    {
+        get => _newGroupIsLocal || IsLocalOnly;
+        set
+        {
+            if (SetProperty(ref _newGroupIsLocal, value))
+            {
+                OnPropertyChanged(nameof(NewGroupIsGroup));
+                OnPropertyChanged(nameof(CreateTitle));
+                OnPropertyChanged(nameof(CreateHint));
+            }
+        }
+    }
+
+    public bool NewGroupIsGroup
+    {
+        get => !NewGroupIsLocal;
+        set => NewGroupIsLocal = !value;
+    }
+
+    public string CreateTitle => NewGroupIsLocal ? "Criar sala local" : "Criar grupo";
+
+    public string CreateHint => NewGroupIsLocal
+        ? "Para quem está na mesma rede. A tela vai direto entre os computadores e funciona mesmo sem o servidor. Ela fica aberta enquanto você estiver nela."
+        : "Possibilita compartilhar a tela para qualquer amigo online, de qualquer lugar. Qualidade limitada.";
+
+    /// <summary>Endereço digitado para entrar numa sala local (ex.: 25.1.2.3).</summary>
+    public string JoinAddress
+    {
+        get => _joinAddress;
+        set => SetProperty(ref _joinAddress, value ?? "");
+    }
+
+    public bool IsJoiningByAddress
+    {
+        get => _isJoiningByAddress;
+        private set => SetProperty(ref _isJoiningByAddress, value);
+    }
+
+    /// <summary>A regra do firewall não existe: os outros computadores podem não conseguir entrar na sala ou assistir.</summary>
+    public bool ShowFirewallWarning
+    {
+        get => _showFirewallWarning;
+        private set => SetProperty(ref _showFirewallWarning, value);
+    }
+
+    public bool IsConfiguringFirewall
+    {
+        get => _isConfiguringFirewall;
+        private set => SetProperty(ref _isConfiguringFirewall, value);
+    }
+
+    /// <summary>Limites do compartilhamento no grupo: direto nas salas locais, os do servidor nos grupos.</summary>
+    public StreamLimits LimitsFor(Guid groupId) =>
+        _localRooms?.IsLocal(groupId) == true ? StreamLimits.Direct : _serverLimits?.Relay ?? StreamLimits.Relay;
 
     public ObservableCollection<GroupItemViewModel> Groups { get; } = [];
 
@@ -267,6 +369,18 @@ public sealed class GroupsViewModel : ObservableObject
 
         IsLoading = true;
         ErrorMessage = null;
+        OnPropertyChanged(nameof(IsLocalOnly));
+        OnPropertyChanged(nameof(CanCreateGroup));
+        OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(NewGroupIsLocal));
+        OnPropertyChanged(nameof(NewGroupIsGroup));
+        OnPropertyChanged(nameof(CreateTitle));
+        OnPropertyChanged(nameof(CreateHint));
+        if (!IsLocalOnly && _serverLimits is not null)
+        {
+            _ = _serverLimits.RefreshAsync(CancellationToken.None);
+        }
+
         try
         {
             await RefreshGroupsAsync(cancellationToken);
@@ -322,7 +436,8 @@ public sealed class GroupsViewModel : ObservableObject
         group.MembersError = null;
         try
         {
-            var details = await _groupsService.GetGroupAsync(group.Id);
+            var details = _localRooms?.IsLocal(group.Id) == true ? _localRooms.Details(group.Id) : await _groupsService.GetGroupAsync(group.Id);
+            RefreshLocal(group);
 
             group.Name = details.Name;
             group.MemberCount = details.Members.Count;
@@ -365,6 +480,12 @@ public sealed class GroupsViewModel : ObservableObject
     internal async Task LeaveGroupAsync(GroupItemViewModel group)
     {
         group.MembersError = null;
+        if (group.IsLocal)
+        {
+            await LeaveLocalRoomAsync(group);
+            return;
+        }
+
         try
         {
             await _groupsService.LeaveGroupAsync(group.Id);
@@ -381,6 +502,13 @@ public sealed class GroupsViewModel : ObservableObject
     internal async Task DeleteGroupAsync(GroupItemViewModel group)
     {
         group.MembersError = null;
+        if (group.IsLocal)
+        {
+            // Encerrar a sala local é quem hospeda sair dela.
+            await LeaveLocalRoomAsync(group);
+            return;
+        }
+
         try
         {
             await _groupsService.DeleteGroupAsync(group.Id);
@@ -494,6 +622,16 @@ public sealed class GroupsViewModel : ObservableObject
         CreateError = null;
         try
         {
+            if (NewGroupIsLocal && _localRooms is not null)
+            {
+                var room = await _localRooms.CreateRoomAsync(name);
+                var roomItem = Upsert(room);
+                CancelCreate();
+                await JoinAsync(roomItem);
+                _ = CheckFirewallAsync();
+                return;
+            }
+
             var created = await _groupsService.CreateGroupAsync(name);
             var item = Upsert(created);
             CancelCreate();
@@ -507,9 +645,90 @@ public sealed class GroupsViewModel : ObservableObject
         }
     }
 
+    private async Task JoinByAddressAsync()
+    {
+        if (_localRooms is null || IsJoiningByAddress)
+        {
+            return;
+        }
+
+        CreateError = null;
+        IsJoiningByAddress = true;
+        try
+        {
+            var room = await _localRooms.FindAsync(JoinAddress);
+            var item = Upsert(room);
+            CancelCreate();
+            JoinAddress = "";
+            await JoinAsync(item);
+        }
+        catch (Exception ex)
+        {
+            CreateError = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            IsJoiningByAddress = false;
+        }
+    }
+
+    private async Task LeaveLocalRoomAsync(GroupItemViewModel group)
+    {
+        group.IsMembersOpen = false;
+        if (CurrentGroup == group)
+        {
+            _desiredGroupId = null;
+            CurrentGroup = null;
+        }
+
+        try
+        {
+            await _realtime.LeaveAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ErrorMessages.For(ex);
+        }
+    }
+
+    /// <summary>Sem a regra do firewall, os outros computadores podem não alcançar este: mostra o aviso com o botão.</summary>
+    private async Task CheckFirewallAsync()
+    {
+        if (_firewall is not null && !await _firewall.IsConfiguredAsync())
+        {
+            ShowFirewallWarning = true;
+        }
+    }
+
+    private async Task ConfigureFirewallAsync()
+    {
+        if (_firewall is null || IsConfiguringFirewall)
+        {
+            return;
+        }
+
+        IsConfiguringFirewall = true;
+        try
+        {
+            if (await _firewall.ConfigureAsync())
+            {
+                ShowFirewallWarning = false;
+            }
+            else
+            {
+                ErrorMessage = "A regra do firewall não foi criada. Aceite o pedido de permissão do Windows para liberar as salas locais.";
+            }
+        }
+        finally
+        {
+            IsConfiguringFirewall = false;
+        }
+    }
+
     private void CancelCreate()
     {
         NewGroupName = "";
+        JoinAddress = "";
         CreateError = null;
         IsCreating = false;
     }
@@ -579,24 +798,43 @@ public sealed class GroupsViewModel : ObservableObject
 
     private async Task RefreshGroupsAsync(CancellationToken cancellationToken)
     {
-        var groups = await _groupsService.GetGroupsAsync(cancellationToken);
+        // As salas locais aparecem mesmo com a API fora do ar; o erro dela vem depois.
+        IReadOnlyList<GroupDto> groups = [];
+        Exception? apiError = null;
+        if (!IsLocalOnly)
+        {
+            try
+            {
+                groups = await _groupsService.GetGroupsAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && _localRooms is not null)
+            {
+                apiError = ex;
+            }
+        }
+
         if (!_isActive)
         {
             return;
         }
 
-        foreach (var stale in Groups.Where(g => groups.All(x => x.Id != g.Id)).ToList())
+        var rooms = _localRooms?.Rooms ?? [];
+        foreach (var stale in Groups.Where(g => g.IsLocal ? rooms.All(r => r.Id != g.Id) : apiError is null && groups.All(x => x.Id != g.Id)).ToList())
         {
             RemoveGroup(stale.Id);
         }
 
-        foreach (var group in groups)
+        foreach (var group in groups.Concat(rooms))
         {
             Upsert(group);
         }
 
         _hasLoaded = true;
         OnPropertyChanged(nameof(ShowNoGroups));
+        if (apiError is not null)
+        {
+            throw apiError;
+        }
     }
 
     /// <summary>Atualiza a linha existente (mantendo o popup aberto) ou insere na posição em ordem alfabética.</summary>
@@ -606,6 +844,8 @@ public sealed class GroupsViewModel : ObservableObject
         if (item is null)
         {
             item = new GroupItemViewModel(this, group);
+            RefreshLocal(item);
+
             var index = 0;
             while (index < Groups.Count && string.Compare(Groups[index].Name, group.Name, StringComparison.CurrentCultureIgnoreCase) <= 0)
             {
@@ -619,12 +859,22 @@ public sealed class GroupsViewModel : ObservableObject
 
         item.Name = group.Name;
         item.MemberCount = group.MemberCount;
+        RefreshLocal(item);
         if (item.ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares))
         {
             SyncViewers(item);
         }
 
         return item;
+    }
+
+    /// <summary>Sala local: marca a linha e atualiza os endereços para entrar pelo IP.</summary>
+    private void RefreshLocal(GroupItemViewModel item)
+    {
+        if (_localRooms?.Info(item.Id) is { } info)
+        {
+            item.SetLocal(info.IsHost, info.Addresses);
+        }
     }
 
     private void RemoveGroup(Guid groupId)
@@ -656,7 +906,7 @@ public sealed class GroupsViewModel : ObservableObject
 
     internal async Task WatchAsync(GroupItemViewModel group, Person sharer)
     {
-        if (sharer.UserId == _screenShare.CurrentUserId)
+        if (sharer.UserId == _screenShare.CurrentUserId || sharer.UserId == _localRooms?.Me.Id)
         {
             return;
         }
@@ -706,7 +956,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(_lastShareSettings);
+        var request = _shareUi.PickShare(_lastShareSettings, LimitsFor(group.Id));
         if (request is null || CurrentGroup != group)
         {
             return;
@@ -729,6 +979,10 @@ public sealed class GroupsViewModel : ObservableObject
             _activeShare = active;
             _shareGroupId = group.Id;
             ShareMessage = active.AudioWarning;
+            if (group.IsLocal)
+            {
+                _ = CheckFirewallAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -747,7 +1001,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(current.Request.Settings, current.Request.Source);
+        var request = _shareUi.PickShare(current.Request.Settings, LimitsFor(group.Id), current.Request.Source);
         if (request is null || _activeShare != current)
         {
             return;

@@ -1,11 +1,13 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using ScreenCord.Local;
 using ScreenCord.Security;
 using ScreenCord.Services;
 using ScreenCord.ViewModels;
 using ScreenCord.Views;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ScreenCord.Infrastructure;
 
@@ -58,7 +60,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<CentralApiClient>();
         services.AddSingleton<IFriendsService, CentralFriendsService>();
         services.AddSingleton<IGroupsService, CentralGroupsService>();
-        services.AddSingleton<IGroupsRealtime, GroupsRealtimeClient>();
+        services.AddSingleton<GroupsRealtimeClient>();
+        services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<GroupsRealtimeClient>()));
+        services.AddSingleton<IServerLimits, CentralServerLimits>();
+
+        // Salas locais: sem API, com a mídia direto entre os computadores. A tela de grupos usa a conexão que junta as duas.
+        services.AddSingleton<ILocalIdentityStore, LocalIdentityStore>();
+        services.AddSingleton(sp => new LocalRooms(sp.GetRequiredService<ILocalIdentityStore>(), sp.GetRequiredService<ILogger<LocalRooms>>()));
+        services.AddSingleton<ILocalRooms>(sp => sp.GetRequiredService<LocalRooms>());
+        services.AddSingleton<IFirewallRule, FirewallRule>();
+        services.AddSingleton<IGroupsRealtime, RoutedGroupsRealtime>();
 
         // Atualização automática pelas GitHub Releases (o download segue o redirecionamento do GitHub para o CDN).
         services.AddHttpClient(AppUpdater.ClientName, client =>
@@ -74,7 +85,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IScreenShareService, ScreenShareService>();
         services.AddSingleton<IScreenShareUi, ScreenShareUi>();
 
-        services.AddSingleton<FriendsViewModel>();
+        // Os amigos vêm só da API: a conexão dela, sem as salas locais.
+        services.AddSingleton(sp => new FriendsViewModel(sp.GetRequiredService<IFriendsService>(), sp.GetRequiredService<ApiRealtime>().Inner));
         services.AddSingleton<GroupsViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();

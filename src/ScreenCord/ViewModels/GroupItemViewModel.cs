@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ScreenCord.Contracts;
+using ScreenCord.Local;
 using ScreenCord.Models;
 using ScreenCord.Services;
 
@@ -42,6 +43,52 @@ public sealed class GroupItemViewModel : ObservableObject
     }
 
     public Guid Id { get; }
+
+    /// <summary>Sala local: hospedada num computador da rede, sem a API; a tela vai direto entre os computadores.</summary>
+    public bool IsLocal { get; private set; }
+
+    public bool IsApiGroup => !IsLocal;
+
+    /// <summary>Este computador hospeda a sala local.</summary>
+    public bool IsLocalHost { get; private set; }
+
+    /// <summary>Por onde entrar na sala pelo IP (para copiar e passar a quem não vê a sala na lista).</summary>
+    public ObservableCollection<LocalAddress> LocalAddresses { get; } = [];
+
+    public bool HasLocalAddresses => LocalAddresses.Count > 0;
+
+    public string LocalAddressesHeader => IsLocalHost
+        ? "Quem não vê a sala na lista entra por um destes IPs:"
+        : "Endereço da sala:";
+
+    public string DeleteText => IsLocal ? "Encerrar" : "Excluir";
+
+    public string ConfirmDeleteTitle => IsLocal ? "Encerrar a sala?" : "Excluir o grupo?";
+
+    public string ConfirmDeleteSuffix => IsLocal ? " será encerrada para todos que estão nela." : " será excluído para todos os integrantes.";
+
+    internal void SetLocal(bool isHost, IReadOnlyList<LocalAddress> addresses)
+    {
+        IsLocal = true;
+        IsLocalHost = isHost;
+        if (!LocalAddresses.SequenceEqual(addresses))
+        {
+            LocalAddresses.Clear();
+            foreach (var address in addresses)
+            {
+                LocalAddresses.Add(address);
+            }
+        }
+
+        OnPropertyChanged(nameof(IsLocal));
+        OnPropertyChanged(nameof(IsApiGroup));
+        OnPropertyChanged(nameof(IsLocalHost));
+        OnPropertyChanged(nameof(HasLocalAddresses));
+        OnPropertyChanged(nameof(LocalAddressesHeader));
+        OnPropertyChanged(nameof(DeleteText));
+        OnPropertyChanged(nameof(ConfirmDeleteTitle));
+        OnPropertyChanged(nameof(ConfirmDeleteSuffix));
+    }
 
     /// <summary>Versão da presença já aplicada; notificações mais antigas são ignoradas.</summary>
     public long PresenceVersion { get; private set; } = -1;
