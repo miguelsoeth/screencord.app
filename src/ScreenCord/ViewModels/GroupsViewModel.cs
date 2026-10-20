@@ -137,7 +137,7 @@ public sealed class GroupsViewModel : ObservableObject
 
     public string CreateHint => NewGroupIsLocal
         ? "Para quem está na mesma rede. A tela vai direto entre os computadores e funciona mesmo sem o servidor. Ela fica aberta enquanto você estiver nela."
-        : "Com seus amigos do Discord. A tela passa pelo servidor, em 540p a 30 fps. Depois de criar, você já pode adicionar amigos.";
+        : "Possibilita compartilhar a tela para qualquer amigo online, de qualquer lugar. Qualidade limitada.";
 
     /// <summary>Endereço digitado para entrar numa sala local (ex.: 25.1.2.3).</summary>
     public string JoinAddress
