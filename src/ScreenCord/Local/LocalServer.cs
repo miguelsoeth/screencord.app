@@ -1,8 +1,11 @@
 using System.IO;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Authentication;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +29,8 @@ public sealed record LocalRoute(int Status, Func<WebSocket, CancellationToken, T
 
 /// <summary>
 /// Servidor WebSocket mínimo das salas locais, sobre <see cref="TcpListener"/>: escutar fora do localhost com o
-/// <c>HttpListener</c> exigiria administrador (urlacl). Só aceita o upgrade para WebSocket; o resto recebe 400.
+/// <c>HttpListener</c> exigiria administrador (urlacl). Tudo passa por TLS com o <see cref="LocalCertificate"/>
+/// (<c>wss://</c>). Só aceita o upgrade para WebSocket; o resto recebe 400.
 /// </summary>
 public sealed class LocalServer : IAsyncDisposable
 {
@@ -35,14 +39,16 @@ public sealed class LocalServer : IAsyncDisposable
     private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(5);
 
     private readonly Func<LocalRequest, LocalRoute> _route;
+    private readonly X509Certificate2 _certificate;
     private readonly ILogger _logger;
     private readonly CancellationTokenSource _stop = new();
     private TcpListener? _listener;
     private Task _acceptLoop = Task.CompletedTask;
 
-    public LocalServer(Func<LocalRequest, LocalRoute> route, ILogger logger)
+    public LocalServer(Func<LocalRequest, LocalRoute> route, X509Certificate2 certificate, ILogger logger)
     {
         _route = route;
+        _certificate = certificate;
         _logger = logger;
     }
 
@@ -106,11 +112,12 @@ public sealed class LocalServer : IAsyncDisposable
         using (client)
         {
             client.NoDelay = true;
-            var stream = client.GetStream();
+            using var stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
             try
             {
                 using var handshake = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
                 handshake.CancelAfter(HandshakeTimeout);
+                await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = _certificate }, handshake.Token).ConfigureAwait(false);
                 var request = await ReadRequestAsync(stream, (IPEndPoint)client.Client.RemoteEndPoint!, handshake.Token).ConfigureAwait(false);
                 if (request is null || request.Header("upgrade")?.Equals("websocket", StringComparison.OrdinalIgnoreCase) != true ||
                     request.Header("sec-websocket-key") is not { Length: > 0 } key)
@@ -138,7 +145,7 @@ public sealed class LocalServer : IAsyncDisposable
                 });
                 await route.Handler(socket, _stop.Token).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or WebSocketException or ObjectDisposedException)
+            catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or WebSocketException or ObjectDisposedException or AuthenticationException)
             {
                 _logger.LogDebug("Conexão local encerrada ({ExceptionType}).", ex.GetType().Name);
             }
@@ -150,7 +157,7 @@ public sealed class LocalServer : IAsyncDisposable
     }
 
     /// <summary>Lê a linha do pedido e os cabeçalhos (até a linha em branco), sem consumir nada depois deles.</summary>
-    private static async Task<LocalRequest?> ReadRequestAsync(NetworkStream stream, IPEndPoint remote, CancellationToken cancellationToken)
+    private static async Task<LocalRequest?> ReadRequestAsync(Stream stream, IPEndPoint remote, CancellationToken cancellationToken)
     {
         var buffer = new byte[MaxHeaderBytes];
         var length = 0;
@@ -193,7 +200,7 @@ public sealed class LocalServer : IAsyncDisposable
         return new LocalRequest(query >= 0 ? path[..query] : path, headers, remote);
     }
 
-    private static Task WriteStatusAsync(NetworkStream stream, int status, CancellationToken cancellationToken)
+    private static Task WriteStatusAsync(Stream stream, int status, CancellationToken cancellationToken)
     {
         var text = status switch { 403 => "Forbidden", 404 => "Not Found", 409 => "Conflict", _ => "Bad Request" };
         return stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 {status} {text}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), cancellationToken).AsTask();

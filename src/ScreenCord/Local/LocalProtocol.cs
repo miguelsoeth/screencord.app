@@ -38,6 +38,7 @@ public sealed record LocalMember(Guid Id, string Name, string? DiscordId = null,
 /// <param name="MediaId">Caminho do canal de mídia (<c>/media/{id}</c>) no computador de quem compartilha.</param>
 /// <param name="Endpoints">Endereços (<c>ip:porta</c>) em que quem assiste tenta conectar, em paralelo.</param>
 /// <param name="Key">Chave aleatória do compartilhamento; sem ela, quem compartilha recusa a conexão.</param>
+/// <param name="Fingerprint">Impressão digital do certificado de quem compartilha (<see cref="LocalCertificate"/>).</param>
 public sealed record LocalShare(
     Guid UserId,
     int Width,
@@ -47,12 +48,14 @@ public sealed record LocalShare(
     bool HasAudio,
     Guid MediaId,
     IReadOnlyList<string> Endpoints,
-    string Key)
+    string Key,
+    string Fingerprint)
 {
     public ScreenShareDto ToDto() => new(UserId, Width, Height, FrameRate, BitrateKbps, HasAudio);
 
     public bool IsValid =>
         UserId != Guid.Empty && MediaId != Guid.Empty && Key is { Length: >= 16 and <= 128 } &&
+        LocalCertificate.IsValidFingerprint(Fingerprint) &&
         Endpoints is { Count: > 0 and <= 16 } &&
         ScreenShareLimits.IsValid(new ScreenShareStart(Width, Height, FrameRate, BitrateKbps, HasAudio), StreamLimits.Direct);
 }
@@ -86,7 +89,8 @@ public sealed record LocalMessage(
     LocalShare? Share = null,
     string? Reason = null)
 {
-    public const int CurrentProtocol = 1;
+    /// <summary>Versão do protocolo; a 2 passou a usar TLS (<c>wss://</c>) e a impressão digital do certificado.</summary>
+    public const int CurrentProtocol = 2;
 
     public const string Hello = "hello";
     public const string State = "state";

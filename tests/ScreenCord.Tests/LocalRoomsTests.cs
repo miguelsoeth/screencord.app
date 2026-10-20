@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using ScreenCord.Contracts;
 using ScreenCord.Local;
@@ -39,13 +40,13 @@ public sealed class LocalRoomsTests : IAsyncLifetime
     }
 
     /// <summary>Uma instância do app: porta livre, anúncios desligados (porta 0) e endereço anunciado no localhost.</summary>
-    private LocalRooms Create(string name)
+    private LocalRooms Create(string name, RoomDiscovery? discovery = null)
     {
         var store = new LocalIdentityStore(Path.Combine(_folder, $"{name}.json"));
         var rooms = new LocalRooms(
             store,
             NullLogger<LocalRooms>.Instance,
-            new RoomDiscovery(NullLogger.Instance, port: 0),
+            discovery ?? new RoomDiscovery(NullLogger.Instance, port: 0),
             port: 0,
             endpoints: port => [$"127.0.0.1:{port}"]);
         rooms.SetIdentity(name);
@@ -190,10 +191,60 @@ public sealed class LocalRoomsTests : IAsyncLifetime
 
         var share = Assert.Single(ana.Rooms.Single(r => r.Id == roomId).ScreenShares!);
         var error = await Assert.ThrowsAsync<LocalNetworkException>(() =>
-            MediaSocket.ConnectDirectAsync([$"127.0.0.1:{bruno.ListeningPort}"], Guid.NewGuid(), "chave-errada-0000000000", 1500, "Bruno", CancellationToken.None));
+            MediaSocket.ConnectDirectAsync([$"127.0.0.1:{bruno.ListeningPort}"], Guid.NewGuid(), "chave-errada-0000000000", bruno.Fingerprint!, 1500, "Bruno", CancellationToken.None));
 
         Assert.Contains("Firewall do Windows", error.Message);
         Assert.Equal(1500, share.BitrateKbps);
+    }
+
+    [Fact]
+    public async Task EntrarPelaLista_SoAceitaOCertificadoAnunciado()
+    {
+        var ana = Create("Ana");
+        var discovery = new RoomDiscovery(NullLogger.Instance, port: 0);
+        var bruno = Create("Bruno", discovery);
+        var room = await ana.CreateRoomAsync("Jogatina");
+        await ana.JoinAsync(room.Id);
+        byte[] Beacon(long version, string fingerprint) =>
+            RoomBeacon.Serialize(new RoomBeacon(room.Id, "Jogatina", ana.ListeningPort!.Value, version, [ana.Me], fingerprint));
+
+        // Outro computador respondendo no endereço da sala: o certificado não é o anunciado.
+        discovery.Receive(Beacon(1, new string('a', LocalCertificate.FingerprintLength)), IPAddress.Loopback);
+        var error = await Assert.ThrowsAsync<LocalNetworkException>(() => bruno.JoinAsync(room.Id));
+        Assert.Contains("certificado não confere", error.Message);
+        Assert.Null(bruno.CurrentRoomId);
+
+        discovery.Receive(Beacon(2, ana.Fingerprint!), IPAddress.Loopback);
+        var presence = await bruno.JoinAsync(room.Id);
+        Assert.Equal(["Ana", "Bruno"], presence.ConnectedUsers.Select(u => u.Username).Order());
+    }
+
+    [Fact]
+    public async Task Conexao_SemTls_NaoEhAtendida()
+    {
+        var ana = Create("Ana");
+        var room = await ana.CreateRoomAsync("Jogatina");
+        await ana.JoinAsync(room.Id);
+
+        using var tcp = new TcpClient();
+        await tcp.ConnectAsync(IPAddress.Loopback, ana.ListeningPort!.Value);
+        var stream = tcp.GetStream();
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(
+            "GET /room HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"));
+
+        var buffer = new byte[64];
+        int read;
+        try
+        {
+            read = await stream.ReadAsync(buffer).AsTask().WaitAsync(Timeout);
+        }
+        catch (IOException)
+        {
+            read = 0;
+        }
+
+        Assert.DoesNotContain("HTTP/1.1", Encoding.ASCII.GetString(buffer, 0, read));
     }
 
     [Fact]
@@ -472,7 +523,9 @@ public class LocalNetworkTests
 public class RoomDiscoveryTests
 {
     private static byte[] Beacon(Guid id, long version = 1, string name = "Jogatina") =>
-        RoomBeacon.Serialize(new RoomBeacon(id, name, 47830, version, [new LocalMember(Guid.NewGuid(), "Ana")]));
+        RoomBeacon.Serialize(new RoomBeacon(id, name, 47830, version, [new LocalMember(Guid.NewGuid(), "Ana")], Fingerprint));
+
+    private static readonly string Fingerprint = new('a', LocalCertificate.FingerprintLength);
 
     [Fact]
     public void Anuncio_ApareceEDesapareceQuandoParaDeChegar()
@@ -509,7 +562,8 @@ public class RoomDiscoveryTests
         discovery.Receive(Encoding.UTF8.GetBytes("{\"kind\":\"outro-jogo\"}"), IPAddress.Loopback);
         discovery.Receive(Encoding.UTF8.GetBytes("não é json"), IPAddress.Loopback);
         discovery.Receive(Beacon(Guid.NewGuid(), name: "   "), IPAddress.Loopback);
-        discovery.Receive(RoomBeacon.Serialize(new RoomBeacon(Guid.NewGuid(), "Sala", 47830, 1, [], Protocol: 99)), IPAddress.Loopback);
+        discovery.Receive(RoomBeacon.Serialize(new RoomBeacon(Guid.NewGuid(), "Sala", 47830, 1, [], Fingerprint, Protocol: 99)), IPAddress.Loopback);
+        discovery.Receive(RoomBeacon.Serialize(new RoomBeacon(Guid.NewGuid(), "Sala", 47830, 1, [], "sem-certificado")), IPAddress.Loopback);
 
         Assert.Empty(discovery.Rooms);
     }
@@ -525,5 +579,34 @@ public class RoomDiscoveryTests
 
         var room = Assert.Single(discovery.Rooms);
         Assert.Equal(("Nova", "25.1.2.3"), (room.Beacon.Name, room.Host));
+    }
+}
+
+public class LocalCertificateTests
+{
+    [Fact]
+    public void Certificado_TemChavePrivadaEImpressaoDigitalSha256()
+    {
+        using var certificate = LocalCertificate.Create();
+
+        Assert.True(certificate.Certificate.HasPrivateKey);
+        Assert.True(LocalCertificate.IsValidFingerprint(certificate.Fingerprint));
+        Assert.Equal(certificate.Fingerprint, LocalCertificate.FingerprintOf(certificate.Certificate));
+    }
+
+    [Fact]
+    public void Validacao_ComImpressaoDigital_SoAceitaAqueleCertificado()
+    {
+        using var mine = LocalCertificate.Create();
+        using var other = LocalCertificate.Create();
+        var rejections = 0;
+        var pinned = LocalCertificate.Validator(mine.Fingerprint.ToUpperInvariant(), () => rejections++);
+        var any = LocalCertificate.Validator(null);
+
+        Assert.True(pinned(this, mine.Certificate, null, System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors));
+        Assert.False(pinned(this, other.Certificate, null, System.Net.Security.SslPolicyErrors.None));
+        Assert.False(pinned(this, null, null, System.Net.Security.SslPolicyErrors.RemoteCertificateNotAvailable));
+        Assert.Equal(2, rejections);
+        Assert.True(any(this, other.Certificate, null, System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors));
     }
 }

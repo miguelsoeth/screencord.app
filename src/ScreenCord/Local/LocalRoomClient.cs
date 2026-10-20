@@ -40,16 +40,19 @@ public sealed class LocalRoomClient : IAsyncDisposable
     public event Action<string>? Closed;
 
     /// <summary>Entra na sala de <paramref name="host"/>:<paramref name="port"/> e espera o primeiro estado.</summary>
-    public static async Task<LocalRoomClient> ConnectAsync(string host, int port, LocalMember me, CancellationToken cancellationToken)
+    /// <param name="fingerprint">Certificado esperado do anfitrião (do anúncio da sala); null aceita qualquer um (entrada pelo IP).</param>
+    public static async Task<LocalRoomClient> ConnectAsync(string host, int port, LocalMember me, string? fingerprint, CancellationToken cancellationToken)
     {
+        var rejected = false;
         var socket = new ClientWebSocket();
         socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
         socket.Options.SetRequestHeader(ClientVersionContract.Header, AppVersion.Current);
+        socket.Options.RemoteCertificateValidationCallback = LocalCertificate.Validator(fingerprint, () => rejected = true);
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(ConnectTimeout);
-            await socket.ConnectAsync(new Uri($"ws://{FormatHost(host)}:{port}/room"), timeout.Token).ConfigureAwait(false);
+            await socket.ConnectAsync(new Uri($"wss://{FormatHost(host)}:{port}/room"), timeout.Token).ConfigureAwait(false);
             await LocalMessage.SendAsync(socket, new LocalMessage(LocalMessage.Hello, Member: me), timeout.Token).ConfigureAwait(false);
             var first = await LocalMessage.ReceiveAsync(socket, timeout.Token).ConfigureAwait(false);
             if (first is { Type: LocalMessage.Closed })
@@ -76,6 +79,13 @@ public sealed class LocalRoomClient : IAsyncDisposable
         {
             socket.Dispose();
             throw;
+        }
+        catch (Exception ex) when (rejected && ex is WebSocketException or OperationCanceledException or IOException)
+        {
+            socket.Dispose();
+            throw new LocalNetworkException(
+                $"O computador em {host}:{port} não é o que anunciou a sala (o certificado não confere). " +
+                "Peça o endereço para quem hospeda e entre pelo IP.", ex);
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or InvalidDataException or IOException)
         {

@@ -100,14 +100,14 @@ public sealed class MediaSocket : IMediaSink
 
     /// <summary>
     /// Conecta direto ao computador de quem compartilha numa sala local, tentando todos os endereços ao mesmo tempo;
-    /// fica com o primeiro que responder.
+    /// fica com o primeiro que responder. Só aceita o certificado de <paramref name="fingerprint"/> (veio no estado da sala).
     /// </summary>
     public static async Task<MediaSocket> ConnectDirectAsync(
-        IReadOnlyList<string> endpoints, Guid mediaId, string key, int bitrateKbps, string sharerName, CancellationToken cancellationToken)
+        IReadOnlyList<string> endpoints, Guid mediaId, string key, string fingerprint, int bitrateKbps, string sharerName, CancellationToken cancellationToken)
     {
         using var attempts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attempts.CancelAfter(TimeSpan.FromSeconds(6));
-        var pending = endpoints.Select(endpoint => TryConnectDirectAsync(endpoint, mediaId, key, attempts.Token)).ToList();
+        var pending = endpoints.Select(endpoint => TryConnectDirectAsync(endpoint, mediaId, key, fingerprint, attempts.Token)).ToList();
         ClientWebSocket? winner = null;
         while (pending.Count > 0)
         {
@@ -135,7 +135,7 @@ public sealed class MediaSocket : IMediaSink
                 "e se o Firewall do Windows de quem compartilha liberou o ScreenCord.");
     }
 
-    private static async Task<ClientWebSocket?> TryConnectDirectAsync(string endpoint, Guid mediaId, string key, CancellationToken cancellationToken)
+    private static async Task<ClientWebSocket?> TryConnectDirectAsync(string endpoint, Guid mediaId, string key, string fingerprint, CancellationToken cancellationToken)
     {
         if (!Local.LocalNetwork.TryParseAddress(endpoint, out var host, out var port))
         {
@@ -146,9 +146,10 @@ public sealed class MediaSocket : IMediaSink
         socket.Options.SetRequestHeader(Local.LocalMediaHost.KeyHeader, key);
         socket.Options.SetRequestHeader(ClientVersionContract.Header, AppVersion.Current);
         socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        socket.Options.RemoteCertificateValidationCallback = Local.LocalCertificate.Validator(fingerprint);
         try
         {
-            await socket.ConnectAsync(new Uri($"ws://{host}:{port}/media/{mediaId}"), cancellationToken).ConfigureAwait(false);
+            await socket.ConnectAsync(new Uri($"wss://{host}:{port}/media/{mediaId}"), cancellationToken).ConfigureAwait(false);
             return socket;
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException)
