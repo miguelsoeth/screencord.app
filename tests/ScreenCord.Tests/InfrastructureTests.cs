@@ -316,3 +316,33 @@ public sealed class FileLoggerTests : IDisposable
         }
     }
 }
+
+public class SingleInstanceTests
+{
+    [Fact]
+    public async Task SecondInstance_IsRefusedAndActivatesTheFirst()
+    {
+        var key = $"Tests.{Guid.NewGuid():N}";
+        using var first = SingleInstance.Acquire(key);
+        var activated = new TaskCompletionSource();
+        first.OnActivationRequested(() => activated.TrySetResult());
+
+        using (var second = SingleInstance.Acquire(key))
+        {
+            Assert.True(first.IsFirst);
+            Assert.False(second.IsFirst);
+        }
+
+        await activated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void AfterTheFirstCloses_ANewInstanceIsFirstAgain()
+    {
+        var key = $"Tests.{Guid.NewGuid():N}";
+        SingleInstance.Acquire(key).Dispose();
+
+        using var next = SingleInstance.Acquire(key);
+        Assert.True(next.IsFirst);
+    }
+}

@@ -15,6 +15,7 @@ public partial class App : Application
 {
     private IHost? _host;
     private TrayIcon? _tray;
+    private SingleInstance? _instance;
     private bool _updating;
     private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
 
@@ -35,6 +36,15 @@ public partial class App : Application
         builder.Logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultFolder));
         // Ambiente de mockup (DOTNET_ENVIRONMENT=Mockup, escolhido no screencord.ps1): dados falsos, sem Discord e sem API.
         var mockup = builder.Environment.IsEnvironment("Mockup");
+
+        // Já aberto (talvez só na bandeja): a outra instância aparece e esta fecha.
+        _instance = SingleInstance.Acquire(builder.Environment.EnvironmentName);
+        if (!_instance.IsFirst)
+        {
+            Shutdown();
+            return;
+        }
+
         if (mockup)
         {
             builder.Services.AddScreenCordMockup();
@@ -81,6 +91,7 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         mainWindow.HidesOnClose = true;
         _tray = new TrayIcon(mainWindow.BringToFront, ExitApp);
+        _instance.OnActivationRequested(() => Dispatcher.BeginInvoke(mainWindow.BringToFront));
 
         mainWindow.Show();
     }
@@ -100,6 +111,7 @@ public partial class App : Application
     {
         _tray?.Dispose();
         _host?.Dispose();
+        _instance?.Dispose();
         base.OnExit(e);
     }
 
