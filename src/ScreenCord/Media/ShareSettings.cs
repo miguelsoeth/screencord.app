@@ -17,17 +17,17 @@ public enum ShareFrameRate
 
 /// <summary>
 /// Configuração do compartilhamento de tela. O que dá para escolher depende do caminho da mídia
-/// (<see cref="StreamLimits"/>): pelo servidor, 540p a 30 fps; nas salas locais, até 1080p a 60 fps. A taxa de
+/// (<see cref="StreamLimits"/>): pelo servidor, até 720p a 30 fps; nas salas locais, até 1080p a 60 fps. A taxa de
 /// bits não é escolhida: começa no teto do caminho e o <see cref="BitrateController"/> a adapta à rede.
 /// </summary>
 /// <param name="BitrateKbps">Taxa com que o compartilhamento começa e que é anunciada na sala: o teto do caminho.</param>
 public sealed record ShareSettings(
-    ShareResolution Resolution = ShareResolution.P540,
+    ShareResolution Resolution = ShareResolution.P720,
     ShareFrameRate FrameRate = ShareFrameRate.Fps30,
     bool ShareAudio = true,
     int BitrateKbps = ScreenShareLimits.MaxBitrateKbps)
 {
-    /// <summary>Pelo servidor: 540p, 30 fps, com áudio.</summary>
+    /// <summary>Pelo servidor: 720p, 30 fps, com áudio.</summary>
     public static ShareSettings Default { get; } = new();
 
     public int Height => (int)Resolution;
