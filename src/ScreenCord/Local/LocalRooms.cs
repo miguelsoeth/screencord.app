@@ -92,6 +92,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     private readonly Lock _lock = new();
     private LocalMember _me;
     private LocalServer? _server;
+    private LocalCertificate? _certificate;
     private LocalRoomHost? _hosted;
     private LocalRoomClient? _client;
     private LocalRoomClient? _pending;
@@ -139,6 +140,9 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
 
     /// <summary>Porta em que as salas e a mídia deste computador escutam (depois de hospedar ou compartilhar).</summary>
     public int? ListeningPort => _server?.Port;
+
+    /// <summary>Impressão digital do certificado das salas e da mídia deste computador (enquanto o servidor está aberto).</summary>
+    public string? Fingerprint => _certificate?.Fingerprint;
 
     public event Action<GroupDto>? RoomChanged;
 
@@ -241,6 +245,9 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             _server = null;
             await server.DisposeAsync();
         }
+
+        _certificate?.Dispose();
+        _certificate = null;
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();
@@ -256,7 +263,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         _ = _hosted?.CloseAsync("Quem hospedava saiu, e a sala foi encerrada.");
         _ = _client?.DisposeAsync().AsTask();
         _ = _pending?.DisposeAsync().AsTask();
-        _ = _server?.DisposeAsync().AsTask();
+        _ = _server?.DisposeAsync().AsTask().ContinueWith(_ => _certificate?.Dispose(), TaskScheduler.Default);
     }
 
     public async Task<GroupDto> CreateRoomAsync(string name)
@@ -298,7 +305,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             throw new LocalNetworkException("Endereço inválido. Use o IP de quem hospeda, como 25.1.2.3 ou 192.168.0.10:47830.");
         }
 
-        var client = await LocalRoomClient.ConnectAsync(host, port, _me, cancellationToken);
+        var client = await LocalRoomClient.ConnectAsync(host, port, _me, fingerprint: null, cancellationToken);
         if (client.State.Id == _hosted?.Id)
         {
             await client.DisposeAsync();
@@ -340,7 +347,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             }
             else if (_discovery.Rooms.FirstOrDefault(r => r.Beacon.RoomId == roomId) is { } found)
             {
-                client = await LocalRoomClient.ConnectAsync(found.Host, found.Beacon.Port, _me, cancellationToken);
+                client = await LocalRoomClient.ConnectAsync(found.Host, found.Beacon.Port, _me, found.Beacon.Fingerprint, cancellationToken);
                 Attach(client);
             }
             else
@@ -410,7 +417,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
 
             // Trocar as configurações mantém o mesmo canal: quem assiste continua conectado.
             _media ??= new LocalMediaHost(start.BitrateKbps);
-            var share = new LocalShare(_me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, _media.Id, endpoints, _media.Key);
+            var share = new LocalShare(_me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, _media.Id, endpoints, _media.Key, _certificate!.Fingerprint);
             if (!share.IsValid)
             {
                 throw new LocalNetworkException("Configuração de compartilhamento fora dos limites das salas locais.");
@@ -458,7 +465,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
 
         var name = state.Members.FirstOrDefault(m => m.Id == sharerId)?.Name ?? "quem compartilha";
-        return await MediaSocket.ConnectDirectAsync(share.Endpoints, share.MediaId, share.Key, share.BitrateKbps, name, cancellationToken);
+        return await MediaSocket.ConnectDirectAsync(share.Endpoints, share.MediaId, share.Key, share.Fingerprint, share.BitrateKbps, name, cancellationToken);
     }
 
     private LocalRoomState? CurrentState() =>
@@ -473,8 +480,19 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             return;
         }
 
-        var server = new LocalServer(Route, _logger);
-        server.Start(_port);
+        var certificate = LocalCertificate.Create();
+        var server = new LocalServer(Route, certificate.Certificate, _logger);
+        try
+        {
+            server.Start(_port);
+        }
+        catch
+        {
+            certificate.Dispose();
+            throw;
+        }
+
+        _certificate = certificate;
         _server = server;
     }
 
@@ -593,5 +611,5 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         new(beacon.RoomId, beacon.Name, beacon.Members.Count, beacon.Members.Select(m => m.ToPresence()).ToList(), beacon.Version, []);
 
     private RoomBeacon ToBeacon(LocalRoomState state) =>
-        new(state.Id, state.Name, _server?.Port ?? _port, state.Version, state.Members);
+        new(state.Id, state.Name, _server?.Port ?? _port, state.Version, state.Members, _certificate!.Fingerprint);
 }

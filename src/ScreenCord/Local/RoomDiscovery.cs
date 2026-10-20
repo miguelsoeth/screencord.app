@@ -6,12 +6,14 @@ using Microsoft.Extensions.Logging;
 namespace ScreenCord.Local;
 
 /// <summary>Anúncio de uma sala local, enviado por broadcast UDP a cada poucos segundos.</summary>
+/// <param name="Fingerprint">Impressão digital do certificado do anfitrião: quem entra pela lista só aceita esse.</param>
 public sealed record RoomBeacon(
     Guid RoomId,
     string Name,
     int Port,
     long Version,
     IReadOnlyList<LocalMember> Members,
+    string Fingerprint,
     string Kind = RoomBeacon.ScreenCordKind,
     int Protocol = LocalMessage.CurrentProtocol)
 {
@@ -25,7 +27,8 @@ public sealed record RoomBeacon(
         try
         {
             var beacon = JsonSerializer.Deserialize<RoomBeacon>(data, LocalMessage.Json);
-            if (beacon is not { Kind: ScreenCordKind, Protocol: LocalMessage.CurrentProtocol } || beacon.Port is < 1 or > 65535)
+            if (beacon is not { Kind: ScreenCordKind, Protocol: LocalMessage.CurrentProtocol } || beacon.Port is < 1 or > 65535 ||
+                !LocalCertificate.IsValidFingerprint(beacon.Fingerprint))
             {
                 return null;
             }
