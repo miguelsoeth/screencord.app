@@ -173,13 +173,23 @@ public class InstallScriptTests : IDisposable
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60));
         }
 
-        // O app é aberto sem esperar por ele.
-        for (var i = 0; i < 100 && !File.Exists(appOut); i++)
-        {
-            await Task.Delay(100);
-        }
+        return (File.ReadAllText(msiOut).Trim(), (await ReadWhenWrittenAsync(appOut)).Trim(), installer);
+    }
 
-        return (File.ReadAllText(msiOut).Trim(), File.ReadAllText(appOut).Trim(), installer);
+    /// <summary>O app é aberto sem esperar por ele: o arquivo pode ainda não existir ou estar aberto pelo .cmd.</summary>
+    private static async Task<string> ReadWhenWrittenAsync(string path)
+    {
+        for (var i = 0; ; i++)
+        {
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch (IOException) when (i < 100)
+            {
+                await Task.Delay(100);
+            }
+        }
     }
 }
 
