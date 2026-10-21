@@ -32,6 +32,14 @@ public static class Strings
     public static string LanguageEnglish => "English";
     public static string LanguageSpanish => "Español";
 
+    // Privacidade
+    public static string Privacy => T("Privacidade", "Privacy", "Privacidad");
+    public static string SendErrorReports => T("Enviar relatórios de erro", "Send error reports", "Enviar informes de errores");
+    public static string ErrorReportsHint => T(
+        "Avisos e erros do app, com a versão, o Windows, o hardware e um id aleatório da instalação. Nunca vão tokens, dados da conta nem a sua tela.",
+        "App warnings and errors, with the version, Windows, hardware and a random install id. Never tokens, account data or your screen.",
+        "Avisos y errores de la aplicación, con la versión, Windows, el hardware y un id aleatorio de la instalación. Nunca se envían tokens, datos de la cuenta ni tu pantalla.");
+
     // Apoio no Ko-fi
     public static string Support => T("Apoiar", "Support", "Apoyar");
     public static string SupportOnKofi => T("Apoie no Ko-fi", "Support on Ko-fi", "Apóyanos en Ko-fi");

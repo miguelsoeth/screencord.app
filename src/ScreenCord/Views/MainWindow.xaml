@@ -164,8 +164,11 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                    <!-- Idioma também antes de entrar, no canto do cartão. -->
-                    <views:LanguagePicker HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-20,-24,0" />
+                    <!-- Privacidade e idioma também antes de entrar, no canto do cartão. -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-20,-24,0">
+                        <views:PrivacyMenu />
+                        <views:LanguagePicker Margin="2,0,0,0" />
+                    </StackPanel>
                     </Grid>
                 </Border>
             </ScrollViewer>
@@ -289,6 +292,8 @@
                                 </Button>
                                 <!-- Idioma do app: troca na hora. -->
                                 <views:LanguagePicker Margin="2,0,0,0" />
+                                <!-- Relatório de erros: liga e desliga na hora. -->
+                                <views:PrivacyMenu Margin="2,0,0,0" />
                                 <!-- Separa a ação destrutiva das demais. -->
                                 <Rectangle Width="1" Margin="5,8" Fill="{StaticResource BorderBrush}" />
                                 <Button Style="{StaticResource HeaderDangerIconButton}"

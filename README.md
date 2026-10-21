@@ -358,7 +358,9 @@ Como o login chega à API:
 
 Qualquer usuário autenticado pode encontrar qualquer outro usuário do sistema pela busca (nome de usuário, nome de exibição, ID do Discord e avatar). Informe isso a quem for usar o sistema. A API guarda somente esses dados de perfil, as datas de criação/último login e as relações de amizade.
 
-O aplicativo envia à API os avisos e erros do próprio log (mensagem, pilha da exceção e o trace da requisição que falhou), com a versão, o Windows e um id aleatório da instalação (`%LOCALAPPDATA%\ScreenCord\install-id`). Não vão tokens nem dados da conta. Para desligar: `"Telemetry": { "Enabled": false }` no `appsettings.json`. O painel com esses dados fica na API (`/admin`).
+**Relatório de erros (ligado por padrão, como dizem os termos do instalador).** O aplicativo envia à API os avisos e erros do próprio log (mensagem, pilha da exceção, o trace da requisição que falhou e as últimas linhas do log antes deles), com a versão, o Windows, o estado do app (tempo aberto, memória, compartilhamento ativo), o hardware (placas de vídeo, telas, processador, memória) e um id aleatório da instalação (`%LOCALAPPDATA%\ScreenCord\install-id`). Não vão tokens, dados da conta, nomes de janelas nem imagens da tela. A API guarda os relatórios por até 30 dias; o painel fica nela (`/admin`).
+
+Para desligar: botão **Privacidade** (o escudo, no cabeçalho e na tela de login) → desmarque **Enviar relatórios de erro**. Vale na hora (o que esperava envio é descartado) e fica salvo em `HKCU\Software\ScreenCord\Telemetry` (`0` desligado, `1` ou ausente ligado). `"Telemetry": { "Enabled": false }` no `appsettings.json` desliga de vez, acima da escolha no app.
 
 ## Limitações reais da API do Discord
 

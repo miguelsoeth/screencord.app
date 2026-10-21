@@ -66,7 +66,10 @@ public partial class App : Application
         else if (CreateErrorReporter(builder.Configuration, builder.Environment.EnvironmentName) is { } reporter)
         {
             // Avisos e erros também vão para o painel da API, com a pilha e o trace da requisição que falhou.
+            // Só com a permissão da pessoa (menu de privacidade; ligado por padrão, como dizem os termos).
             _reporter = reporter;
+            reporter.Enabled = TelemetryPreference.Enabled;
+            TelemetryPreference.Changed += enabled => reporter.Enabled = enabled;
             builder.Logging.AddProvider(new ErrorReporterLoggerProvider(reporter));
         }
 
