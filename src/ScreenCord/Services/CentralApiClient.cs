@@ -1,4 +1,5 @@
 using ScreenCord.Localization;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -238,9 +239,14 @@ public sealed class CentralApiClient
     private async Task<HttpResponseMessage> SendCoreAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         request.Headers.TryAddWithoutValidation(ClientVersionContract.Header, AppVersion.Current);
+        // Um trace por requisição (W3C traceparent): a API o usa no log e no painel, e o erro do aplicativo o leva junto.
+        var traceId = ActivityTraceId.CreateRandom().ToHexString();
+        request.Headers.TryAddWithoutValidation("traceparent", $"00-{traceId}-{ActivitySpanId.CreateRandom().ToHexString()}-01");
         try
         {
-            return await _httpClientFactory.CreateClient(ClientName).SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await _httpClientFactory.CreateClient(ClientName).SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.RequestMessage ??= request;
+            return response;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -248,15 +254,23 @@ public sealed class CentralApiClient
         }
         catch (OperationCanceledException ex)
         {
-            throw Error(DiscordErrorKind.Timeout, "Tempo limite excedido ao contatar a API central.", ex);
+            throw Error(DiscordErrorKind.Timeout, "Tempo limite excedido ao contatar a API central.", ex).WithTrace(traceId);
         }
         catch (HttpRequestException ex)
         {
-            throw Error(DiscordErrorKind.Network, "Falha de rede ao contatar a API central.", ex);
+            throw Error(DiscordErrorKind.Network, "Falha de rede ao contatar a API central.", ex).WithTrace(traceId);
         }
     }
 
-    private async Task<DiscordException> CreateExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static string? TraceIdOf(HttpResponseMessage response) =>
+        response.RequestMessage?.Headers.TryGetValues("traceparent", out var values) == true && values.FirstOrDefault()?.Split('-') is [_, var traceId, ..]
+            ? traceId
+            : null;
+
+    private async Task<DiscordException> CreateExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken) =>
+        (await CreateExceptionCoreAsync(response, cancellationToken).ConfigureAwait(false)).WithTrace(TraceIdOf(response));
+
+    private async Task<DiscordException> CreateExceptionCoreAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var status = response.StatusCode;
         if (status == HttpStatusCode.Unauthorized)

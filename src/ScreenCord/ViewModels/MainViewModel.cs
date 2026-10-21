@@ -416,7 +416,7 @@ public sealed class MainViewModel : ObservableObject
         if (exception is DiscordException discord)
         {
             // Somente o tipo do erro vai para o log; mensagens e corpos de resposta ficam de fora.
-            _logger.LogWarning("Operação falhou: {Kind} (HTTP {StatusCode}).", discord.Kind, (int?)discord.StatusCode);
+            _logger.LogWarning("Operação falhou: {Kind} (HTTP {StatusCode}, trace {TraceId}).", discord.Kind, (int?)discord.StatusCode, discord.TraceId);
             if (discord.Kind == DiscordErrorKind.Unauthorized)
             {
                 ResetToSignedOut();

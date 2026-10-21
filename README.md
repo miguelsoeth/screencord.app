@@ -295,6 +295,8 @@ Como o login chega à API:
 
 Qualquer usuário autenticado pode encontrar qualquer outro usuário do sistema pela busca (nome de usuário, nome de exibição, ID do Discord e avatar). Informe isso a quem for usar o sistema. A API guarda somente esses dados de perfil, as datas de criação/último login e as relações de amizade.
 
+O aplicativo envia à API os avisos e erros do próprio log (mensagem, pilha da exceção e o trace da requisição que falhou), com a versão, o Windows e um id aleatório da instalação (`%LOCALAPPDATA%\ScreenCord\install-id`). Não vão tokens nem dados da conta. Para desligar: `"Telemetry": { "Enabled": false }` no `appsettings.json`. O painel com esses dados fica na API (`/admin`).
+
 ## Limitações reais da API do Discord
 
 Verificado na documentação oficial (<https://docs.discord.com/developers>) em outubro de 2026:
