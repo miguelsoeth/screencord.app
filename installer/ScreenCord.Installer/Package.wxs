@@ -61,6 +61,12 @@
         <File Id="AppSettingsJson" Source="$(var.AppPublishDir)appsettings.json" />
         <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="Settings" Type="integer" Value="1" KeyPath="yes" />
       </Component>
+      <!-- A GPL-3.0 do app e as licenças dos componentes de terceiros, que exigem ir junto com o binário. -->
+      <Component Id="LicenseFiles" Guid="9B3F2C61-5E8A-4D7B-A0C4-1F6E2D8B7A35">
+        <File Id="LicenseTxt" Source="..\..\LICENSE" Name="LICENSE.txt" />
+        <File Id="ThirdPartyNoticesTxt" Source="..\..\THIRD-PARTY-NOTICES.txt" />
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="LicenseFiles" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
 
     <StandardDirectory Id="ProgramMenuFolder">

@@ -94,3 +94,9 @@ O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais do
 - O app recusa `http` fora de localhost para a API; a URL de produção é `https://154.16.50.20`. As salas locais usam `wss://` direto entre os computadores da rede, com certificado autoassinado por execução (`LocalCertificate`) conferido pela impressão digital que vem no anúncio da sala e em cada compartilhamento.
 - O instalador é por usuário (sem administrador). A regra do firewall é a única coisa que pede administrador: o próprio exe com `--configure-firewall`, chamado pelo instalador na primeira instalação e pelo botão "Liberar no firewall".
 - O `UpgradeCode` em `installer/ScreenCord.Installer/Package.wxs` nunca muda.
+
+## Licença
+
+- O app é GPL-3.0 (`LICENSE`); a API é AGPL-3.0. O nome e a marca ScreenCord ficam fora da licença.
+- Toda dependência nova que vai no exe precisa ter licença compatível com a GPL-3.0 (MIT, BSD, Apache-2.0 servem; nada de licença proprietária ou "só uso não comercial") e entrar no `THIRD-PARTY-NOTICES.txt`, que o instalador leva junto com o `LICENSE`.
+- O WiX 6 vem com o EULA de taxa de manutenção (OSMF), que só vale para quem tem receita com o software. Hoje o app é gratuito (apoio voluntário no Ko-fi); se isso mudar, reveja.
