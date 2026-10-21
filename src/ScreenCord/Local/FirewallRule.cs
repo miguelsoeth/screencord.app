@@ -22,6 +22,9 @@ public interface IFirewallRule
 public sealed class FirewallRule : IFirewallRule
 {
     public const string CommandLineFlag = "--configure-firewall";
+    public const string RemoveFlag = "--remove-firewall";
+    /// <summary>Vai junto com <see cref="RemoveFlag"/> no processo já elevado, para ele não pedir a permissão de novo.</summary>
+    public const string ElevatedFlag = "--elevated";
     public const string RoomRuleName = "ScreenCord - salas locais";
     public const string DiscoveryRuleName = "ScreenCord - descoberta de salas";
 
@@ -76,6 +79,48 @@ public sealed class FirewallRule : IFirewallRule
                 "advfirewall", "firewall", "add", "rule", $"name={name}", "dir=in", "action=allow", $"program={exePath}",
                 $"protocol={protocol}", $"localport={port}", $"remoteip={remote}", "profile=any", "enable=yes",
             ]) != 0;
+        }
+
+        return failed ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Apaga as regras; o instalador chama o exe com <see cref="RemoveFlag"/> ao desinstalar, sem elevação. Sem
+    /// regra, sai sem perguntar nada; com regra, o exe se reinicia elevado (pedindo a permissão do Windows) para
+    /// apagá-la. Se a pessoa recusar, a regra fica (o README explica como apagá-la à mão). Retorna o código de saída.
+    /// </summary>
+    public static int Remove(string exePath, bool elevated)
+    {
+        string[] names = [RoomRuleName, DiscoveryRuleName];
+        var existing = names.Where(name => RunNetsh(["advfirewall", "firewall", "show", "rule", $"name={name}"]) == 0).ToList();
+        if (existing.Count == 0)
+        {
+            return 0;
+        }
+
+        if (!elevated)
+        {
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo(exePath, $"{RemoveFlag} {ElevatedFlag}") { UseShellExecute = true, Verb = "runas" });
+                if (process is null || !process.WaitForExit(60_000))
+                {
+                    return 1;
+                }
+
+                return process.ExitCode;
+            }
+            catch (Win32Exception)
+            {
+                // A pessoa recusou o pedido de permissão do Windows.
+                return 1;
+            }
+        }
+
+        var failed = false;
+        foreach (var name in existing)
+        {
+            failed |= RunNetsh(["advfirewall", "firewall", "delete", "rule", $"name={name}"]) != 0;
         }
 
         return failed ? 1 : 0;

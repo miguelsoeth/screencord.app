@@ -34,6 +34,13 @@ public partial class App : Application
             return;
         }
 
+        // Iniciado pelo instalador ao desinstalar, para apagar a regra do firewall (só pede permissão se ela existir).
+        if (e.Args.Contains(FirewallRule.RemoveFlag) && Environment.ProcessPath is { } installedExe)
+        {
+            Shutdown(FirewallRule.Remove(installedExe, e.Args.Contains(FirewallRule.ElevatedFlag)));
+            return;
+        }
+
         // Escolhido no instalador ou no app (HKCU\Software\ScreenCord\Language); sem escolha, o idioma do Windows.
         Loc.SetLanguage(LanguagePreference.Load());
 

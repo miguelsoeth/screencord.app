@@ -105,8 +105,15 @@
     -->
     <CustomAction Id="ConfigureFirewall" Directory="INSTALLFOLDER" Execute="immediate" Impersonate="yes" Return="ignore"
                   ExeCommand="powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command &quot;Start-Process -FilePath '[INSTALLFOLDER]ScreenCord.exe' -ArgumentList '--configure-firewall' -Verb RunAs -WindowStyle Hidden -Wait&quot;" />
+    <!--
+      Ao desinstalar (não nas atualizações, em que a versão nova continua usando a regra), o exe ainda instalado apaga
+      a regra. Ele mesmo confere se ela existe e só então pede a permissão do Windows; recusar não impede a desinstalação.
+      Imediata, roda antes de o script remover os arquivos.
+    -->
+    <CustomAction Id="RemoveFirewall" FileRef="ScreenCordExe" ExeCommand="--remove-firewall" Execute="immediate" Impersonate="yes" Return="ignore" />
     <InstallExecuteSequence>
       <Custom Action="ConfigureFirewall" After="InstallFinalize" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND UILevel &gt;= 4" />
+      <Custom Action="RemoveFirewall" Before="RemoveFiles" Condition="REMOVE ~= &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
     <!-- Antes dos termos, só na instalação com telas (a atualização automática é /passive e não mostra nenhuma). -->
