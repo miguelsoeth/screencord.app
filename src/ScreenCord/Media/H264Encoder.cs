@@ -29,6 +29,8 @@ public sealed class H264Encoder : IDisposable
     private readonly long _frameDuration;
     private volatile bool _keyframeRequested;
     private volatile bool _disposed;
+    private volatile Exception? _failure;
+    private long _encodedFrames;
 
     private H264Encoder(IMFActivate activate, IMFTransform transform, bool isAsync, string name, int width, int height, int frameRate, int bitrateKbps)
     {
@@ -117,6 +119,15 @@ public sealed class H264Encoder : IDisposable
     /// <summary>Quadros descartados porque o encoder ainda estava ocupado com o anterior.</summary>
     public long DroppedFrames { get; private set; }
 
+    /// <summary>Quadros que já saíram codificados.</summary>
+    public long EncodedFrames => Interlocked.Read(ref _encodedFrames);
+
+    /// <summary>
+    /// O encoder de hardware falhou na própria thread (ex.: a placa de vídeo foi reiniciada pelo driver).
+    /// Depois disso ele não codifica mais: o próximo <see cref="Encode"/> lança a falha.
+    /// </summary>
+    public event Action<Exception>? Failed;
+
     /// <summary>Cria o melhor encoder disponível para a configuração, tentando hardware antes de software.</summary>
     public static H264Encoder Create(int width, int height, int frameRate, int bitrateKbps, bool allowHardware = true)
     {
@@ -204,10 +215,16 @@ public sealed class H264Encoder : IDisposable
     /// <summary>
     /// Envia um quadro NV12 (<see cref="Width"/> × <see cref="Height"/>, contíguo). Se o encoder de hardware
     /// ainda estiver ocupado com o anterior, o quadro é descartado em vez de acumular atraso.
+    /// Lança <see cref="H264EncoderFailedException"/> se o encoder falhou (<see cref="Failed"/>).
     /// </summary>
     public void Encode(ReadOnlySpan<byte> nv12, long timestamp)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_failure is { } failure)
+        {
+            throw new H264EncoderFailedException(Name, failure);
+        }
+
         if (_events is not null && !_needInput.Wait(0))
         {
             DroppedFrames++;
@@ -279,14 +296,31 @@ public sealed class H264Encoder : IDisposable
             {
                 mediaEvent = _events!.GetEvent(0);
             }
-            catch (SharpGenException)
+            catch (SharpGenException ex)
             {
+                // Sem eventos o encoder não pede mais quadros: a transmissão congelaria em silêncio.
+                if (!_disposed)
+                {
+                    Fail(ex);
+                }
+
                 return;
             }
 
             using (mediaEvent)
             {
                 var type = mediaEvent.EventType;
+                if (mediaEvent.Status.Failure)
+                {
+                    // MEError e afins: o encoder avisa a falha pelo próprio evento.
+                    if (!_disposed)
+                    {
+                        Fail(new SharpGenException(mediaEvent.Status, $"Evento {type} do encoder com falha."));
+                    }
+
+                    return;
+                }
+
                 if (type == MediaEventTypes.TransformNeedInput)
                 {
                     _needInput.Release();
@@ -297,13 +331,25 @@ public sealed class H264Encoder : IDisposable
                     {
                         DrainOutput();
                     }
-                    catch (SharpGenException) when (_disposed)
+                    catch (Exception) when (_disposed)
                     {
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Exceção solta nesta thread fecharia o aplicativo: guarda para a thread de vídeo tratar.
+                        Fail(ex);
                         return;
                     }
                 }
             }
         }
+    }
+
+    private void Fail(Exception ex)
+    {
+        _failure = ex;
+        Failed?.Invoke(ex);
     }
 
     private void DrainOutput()
@@ -387,8 +433,16 @@ public sealed class H264Encoder : IDisposable
             data = [.. _sequenceHeader, .. data];
         }
 
+        Interlocked.Increment(ref _encodedFrames);
         FrameEncoded?.Invoke(new EncodedFrame(data, isKeyframe, sample.SampleTime));
     }
+}
+
+/// <summary>O encoder parou de funcionar no meio da transmissão (<see cref="H264Encoder.Failed"/>).</summary>
+public sealed class H264EncoderFailedException(string encoder, Exception inner)
+    : Exception($"O encoder {encoder} falhou: {inner.Message}", inner)
+{
+    public string Encoder { get; } = encoder;
 }
 
 /// <summary>Inspeção mínima de fluxos H.264 Annex B.</summary>

@@ -7,6 +7,7 @@ using ScreenCord.Tests.Fakes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Xunit.Abstractions;
 
 namespace ScreenCord.Tests;
 
@@ -18,11 +19,16 @@ public sealed class ErrorReporterTests : IDisposable
     private readonly StubHttpHandler _handler = new();
     private readonly ErrorReporter _reporter;
     private readonly ILogger _logger;
+    private readonly ITestOutputHelper _output;
+    private Dictionary<string, string> _context = new() { ["share.encoder"] = "NVIDIA H.264 Encoder MFT" };
 
-    public ErrorReporterTests()
+    public ErrorReporterTests(ITestOutputHelper output)
     {
+        _output = output;
         // Intervalo longo: os testes mandam com FlushAsync.
-        _reporter = new ErrorReporter(new Uri("http://localhost:5080/"), "Production", InstallId, _handler, TimeSpan.FromHours(1));
+        _reporter = new ErrorReporter(
+            new Uri("http://localhost:5080/"), "Production", InstallId, _handler, TimeSpan.FromHours(1),
+            context: () => _context, device: () => new Dictionary<string, string> { ["gpu0"] = "Placa de teste (driver 1.2.3.4)" });
         _logger = new ErrorReporterLoggerProvider(_reporter).CreateLogger("ScreenCord.ViewModels.GroupsViewModel");
     }
 
@@ -52,6 +58,82 @@ public sealed class ErrorReporterTests : IDisposable
         Assert.Equal("Conexão perdida (timeout).", report.Entries[0].Message);
         Assert.Contains("System.InvalidOperationException: quebrou", report.Entries[1].Exception);
         Assert.Equal(0, _reporter.Pending);
+    }
+
+    [Fact]
+    public async Task Erro_LevaOEstadoDoApp_OComputador_EOLogDeAntes()
+    {
+        _handler.Enqueue(HttpStatusCode.Accepted);
+        _logger.LogInformation("Compartilhando tela em {Width}x{Height}.", 1920, 1080);
+        _logger.LogWarning("Taxa caiu.");
+        _context = new() { ["share.encoder"] = "Microsoft H264 Video Encoder MFT" };
+        _logger.LogError(new InvalidOperationException("quebrou"), "Falha no encoder.");
+        _logger.LogInformation("Depois do erro.");
+
+        await _reporter.FlushAsync();
+
+        var report = SentReport();
+        Assert.Equal("Placa de teste (driver 1.2.3.4)", report.Device!["gpu0"]);
+        var (warning, error) = (report.Entries[0], report.Entries[1]);
+        Assert.Equal("NVIDIA H.264 Encoder MFT", warning.Context!["share.encoder"]);
+        Assert.Equal("Microsoft H264 Video Encoder MFT", error.Context!["share.encoder"]);
+
+        // Da mais antiga para a mais nova, sem a própria entrada nem o que veio depois.
+        var line = Assert.Single(warning.Breadcrumbs!);
+        Assert.Matches(@"^\d{2}:\d{2}:\d{2}\.\d{3} INF GroupsViewModel: Compartilhando tela em 1920x1080\.$", line);
+        Assert.Equal(2, error.Breadcrumbs!.Count);
+        Assert.EndsWith("WRN GroupsViewModel: Taxa caiu.", error.Breadcrumbs[1]);
+        Assert.DoesNotContain(error.Breadcrumbs, b => b.Contains("Depois do erro"));
+    }
+
+    [Fact]
+    public async Task RastroTemNoMaximoOLimite_EPastaDoUsuarioNaoSai()
+    {
+        _handler.Enqueue(HttpStatusCode.Accepted);
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        for (var i = 0; i < 50; i++)
+        {
+            _logger.LogInformation("Linha {Index}.", i);
+        }
+
+        _logger.LogInformation("Log da instalação: {Log}.", Path.Combine(profile, "AppData", "msi.log"));
+        _logger.LogError("Falha ao instalar; log em {Log}.", Path.Combine(profile, "AppData", "msi.log"));
+
+        await _reporter.FlushAsync();
+
+        var entry = Assert.Single(SentReport().Entries);
+        Assert.Equal(TelemetryContract.MaxBreadcrumbs, entry.Breadcrumbs!.Count);
+        Assert.EndsWith(@"Log da instalação: %USERPROFILE%\AppData\msi.log.", entry.Breadcrumbs[^1]);
+        Assert.Equal(@"Falha ao instalar; log em %USERPROFILE%\AppData\msi.log.", entry.Message);
+        Assert.DoesNotContain(JsonSerializer.Serialize(profile).Trim('"'), _handler.Requests[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RelatorioGrande_ESeparadoEmVariosEnvios()
+    {
+        _handler.Enqueue(HttpStatusCode.Accepted).Enqueue(HttpStatusCode.Accepted).Enqueue(HttpStatusCode.Accepted);
+        for (var i = 0; i < 30; i++)
+        {
+            _logger.LogError(new InvalidOperationException(new string('x', 15000)), "Erro grande {Index}.", i);
+        }
+
+        await _reporter.FlushAsync();
+
+        Assert.True(_handler.Requests.Count > 1);
+        Assert.All(_handler.Requests, r => Assert.True(r.Body.Length < 512 * 1024));
+        Assert.Equal(30, Enumerable.Range(0, _handler.Requests.Count).Sum(i => SentReport(i).Entries.Count));
+    }
+
+    [Fact]
+    public void DadosDoComputador_TemSistemaEProcessador()
+    {
+        var device = DeviceInfo.Collect();
+
+        Assert.StartsWith("Windows", device["os.edition"]);
+        Assert.Contains("threads", device["cpu"]);
+        Assert.True(int.Parse(device["memoryMb"]) > 0);
+        Assert.True(device.Count <= TelemetryContract.MaxContextEntries);
+        _output.WriteLine(string.Join(Environment.NewLine, device.Select(p => $"{p.Key} = {p.Value}")));
     }
 
     [Fact]

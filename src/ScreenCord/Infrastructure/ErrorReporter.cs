@@ -11,6 +11,8 @@ namespace ScreenCord.Infrastructure;
 /// <summary>
 /// Envia à API os avisos e erros do log (com a pilha das exceções e o trace da requisição que falhou),
 /// para o painel de observabilidade. Vai em lotes, em segundo plano; sem rede, tenta de novo depois.
+/// Cada erro leva o estado do aplicativo (<see cref="ErrorContext"/>) e as últimas linhas do log antes dele;
+/// cada relatório, os dados do computador (<see cref="DeviceInfo"/>).
 /// Não leva tokens nem dados de conta: a instalação é identificada por um id aleatório.
 /// Falhas no envio são ignoradas: o relatório nunca derruba o aplicativo.
 /// </summary>
@@ -25,20 +27,48 @@ public sealed class ErrorReporter : IDisposable
     /// <summary>Repetições do mesmo erro enviadas por execução.</summary>
     public const int MaxRepeats = 5;
 
+    /// <summary>Tamanho aproximado de um relatório: fica bem abaixo do limite da API (512 KB).</summary>
+    public const int MaxReportChars = 200_000;
+
+    private const int MaxBreadcrumbChars = 240;
+
     private readonly HttpClient _http;
     private readonly Uri _endpoint;
     private readonly string _environment;
     private readonly Guid _installId;
     private readonly ConcurrentQueue<ClientLogEntry> _queue = new();
     private readonly ConcurrentDictionary<string, int> _repeats = new();
+    private readonly Queue<string> _breadcrumbs = new();
+    private readonly Func<IReadOnlyDictionary<string, string>> _context;
+    private readonly Lazy<IReadOnlyDictionary<string, string>?> _device;
     private readonly SemaphoreSlim _sending = new(1, 1);
     private readonly Timer _timer;
     private int _queued;
     private int _accepted;
     private bool _disposed;
 
-    public ErrorReporter(Uri apiBase, string environment, Guid installId, HttpMessageHandler? handler = null, TimeSpan? interval = null)
+    public ErrorReporter(
+        Uri apiBase,
+        string environment,
+        Guid installId,
+        HttpMessageHandler? handler = null,
+        TimeSpan? interval = null,
+        Func<IReadOnlyDictionary<string, string>>? context = null,
+        Func<IReadOnlyDictionary<string, string>>? device = null)
     {
+        _context = context ?? ErrorContext.Snapshot;
+        var readDevice = device ?? DeviceInfo.Collect;
+        _device = new(() =>
+        {
+            try
+            {
+                return Limit(readDevice());
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        });
         _endpoint = new Uri(apiBase, TelemetryContract.ErrorsPath.TrimStart('/'));
         _environment = environment;
         _installId = installId;
@@ -54,7 +84,23 @@ public sealed class ErrorReporter : IDisposable
 
     public void Add(LogLevel level, string category, string message, Exception? exception, string? traceId)
     {
-        if (level < LogLevel.Warning || level == LogLevel.None)
+        if (level < LogLevel.Information || level == LogLevel.None)
+        {
+            return;
+        }
+
+        string[]? breadcrumbs;
+        lock (_breadcrumbs)
+        {
+            breadcrumbs = level >= LogLevel.Warning && _breadcrumbs.Count > 0 ? [.. _breadcrumbs] : null;
+            _breadcrumbs.Enqueue(Breadcrumb(DateTimeOffset.UtcNow, level, category, message, exception));
+            while (_breadcrumbs.Count > TelemetryContract.MaxBreadcrumbs)
+            {
+                _breadcrumbs.Dequeue();
+            }
+        }
+
+        if (level < LogLevel.Warning)
         {
             return;
         }
@@ -77,9 +123,11 @@ public sealed class ErrorReporter : IDisposable
             DateTimeOffset.UtcNow,
             level.ToString(),
             category,
-            Truncate(message, 4000)!,
-            Truncate(text, 16000),
-            traceId ?? TraceIdOf(exception) ?? CurrentTraceId()));
+            Truncate(Scrub(message), 4000)!,
+            Truncate(text is null ? null : Scrub(text), 16000),
+            traceId ?? TraceIdOf(exception) ?? CurrentTraceId(),
+            ContextNow(),
+            breadcrumbs));
     }
 
     /// <summary>Envia o que estiver na fila. Sem sucesso, as entradas voltam para a próxima tentativa.</summary>
@@ -95,12 +143,14 @@ public sealed class ErrorReporter : IDisposable
             while (!_queue.IsEmpty && !_disposed)
             {
                 var batch = new List<ClientLogEntry>();
-                while (batch.Count < TelemetryContract.MaxEntries && _queue.TryDequeue(out var entry))
+                var size = 0;
+                while (batch.Count < TelemetryContract.MaxEntries && (batch.Count == 0 || size < MaxReportChars) && _queue.TryDequeue(out var entry))
                 {
                     batch.Add(entry);
+                    size += SizeOf(entry);
                 }
 
-                var report = new ClientErrorReport(AppVersion.Current, Environment.OSVersion.VersionString, _environment, _installId, RunId, batch);
+                var report = new ClientErrorReport(AppVersion.Current, Environment.OSVersion.VersionString, _environment, _installId, RunId, batch, _device.Value);
                 using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint) { Content = JsonContent.Create(report) };
                 request.Headers.TryAddWithoutValidation(ClientVersionContract.Header, AppVersion.Current);
                 try
@@ -178,6 +228,50 @@ public sealed class ErrorReporter : IDisposable
         }
     }
 
+    private IReadOnlyDictionary<string, string>? ContextNow()
+    {
+        try
+        {
+            return Limit(_context());
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string>? Limit(IReadOnlyDictionary<string, string> values) =>
+        values.Count == 0
+            ? null
+            : values.Take(TelemetryContract.MaxContextEntries).ToDictionary(p => Truncate(p.Key, 60)!, p => Truncate(Scrub(p.Value), 300)!, StringComparer.Ordinal);
+
+    /// <summary>Uma linha do rastro: hora, nível, categoria curta e mensagem (com o tipo da exceção, sem a pilha).</summary>
+    private static string Breadcrumb(DateTimeOffset at, LogLevel level, string category, string message, Exception? exception)
+    {
+        var shortCategory = category[(category.LastIndexOf('.') + 1)..];
+        var text = exception is null ? message : $"{message} [{exception.GetType().Name}]";
+        return Truncate($"{at:HH:mm:ss.fff} {LevelTag(level)} {shortCategory}: {Scrub(text)}", MaxBreadcrumbChars)!;
+    }
+
+    private static string LevelTag(LogLevel level) => level switch
+    {
+        LogLevel.Information => "INF",
+        LogLevel.Warning => "WRN",
+        LogLevel.Error => "ERR",
+        _ => "CRT",
+    };
+
+    /// <summary>Caminhos da pasta do usuário levam o nome dele no Windows: ficam como <c>%USERPROFILE%</c>.</summary>
+    private static string Scrub(string text)
+    {
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return profile.Length > 3 ? text.Replace(profile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase) : text;
+    }
+
+    private static int SizeOf(ClientLogEntry entry) =>
+        entry.Message.Length + (entry.Exception?.Length ?? 0) + (entry.Breadcrumbs?.Sum(b => b.Length + 4) ?? 0) +
+        (entry.Context?.Sum(p => p.Key.Length + p.Value.Length + 6) ?? 0) + 200;
+
     private static string? TraceIdOf(Exception? exception)
     {
         for (var current = exception; current is not null; current = current.InnerException)
@@ -211,7 +305,8 @@ public sealed class ErrorReporterLoggerProvider(ErrorReporter reporter) : ILogge
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => logLevel is >= LogLevel.Warning and < LogLevel.None;
+        // Informação entra só no rastro que acompanha os erros; só avisos e erros viram entradas.
+        public bool IsEnabled(LogLevel logLevel) => logLevel is >= LogLevel.Information and < LogLevel.None;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
