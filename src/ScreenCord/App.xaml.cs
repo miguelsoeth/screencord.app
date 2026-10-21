@@ -1,4 +1,5 @@
 using ScreenCord.Localization;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using ScreenCord.Infrastructure;
@@ -18,6 +19,7 @@ public partial class App : Application
     private IHost? _host;
     private TrayIcon? _tray;
     private SingleInstance? _instance;
+    private ErrorReporter? _reporter;
     private bool _updating;
     private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
 
@@ -61,10 +63,19 @@ public partial class App : Application
         {
             builder.Services.AddScreenCordMockup();
         }
+        else if (CreateErrorReporter(builder.Configuration, builder.Environment.EnvironmentName) is { } reporter)
+        {
+            // Avisos e erros também vão para o painel da API, com a pilha e o trace da requisição que falhou.
+            _reporter = reporter;
+            builder.Logging.AddProvider(new ErrorReporterLoggerProvider(reporter));
+        }
 
         _host = builder.Build();
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            _host?.Services.GetService<ILogger<App>>()?.LogError(args.Exception, "Exceção não observada numa tarefa.");
         _host.Services.GetRequiredService<ILogger<App>>().LogInformation(
             "ScreenCord {Version} iniciado ({Environment}, {OS}).", AppVersion.Current, builder.Environment.EnvironmentName, Environment.OSVersion.VersionString);
 
@@ -123,6 +134,8 @@ public partial class App : Application
     {
         _tray?.Dispose();
         _host?.Dispose();
+        _reporter?.Flush(TimeSpan.FromSeconds(2));
+        _reporter?.Dispose();
         _instance?.Dispose();
         base.OnExit(e);
     }
@@ -188,6 +201,32 @@ public partial class App : Application
             window.Close();
             return false;
         }
+    }
+
+    private static ErrorReporter? CreateErrorReporter(IConfiguration configuration, string environment)
+    {
+        if (!configuration.GetValue("Telemetry:Enabled", true))
+        {
+            return null;
+        }
+
+        try
+        {
+            var api = configuration.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
+            return new ErrorReporter(api.GetBaseUri(), environment, ErrorReporter.LoadInstallId(Path.GetDirectoryName(FileLoggerProvider.DefaultFolder)!));
+        }
+        catch (DiscordException)
+        {
+            // Endereço da API inválido: o erro aparece na tela quando o app tentar usá-la.
+            return null;
+        }
+    }
+
+    // O aplicativo vai fechar: registra e tenta mandar o relatório antes.
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        _host?.Services.GetService<ILogger<App>>()?.LogCritical(e.ExceptionObject as Exception, "Exceção não tratada; o aplicativo vai fechar.");
+        _reporter?.Flush(TimeSpan.FromSeconds(3));
     }
 
     // Última barreira: erros não tratados pelos ViewModels são registrados e mostrados sem derrubar o aplicativo.

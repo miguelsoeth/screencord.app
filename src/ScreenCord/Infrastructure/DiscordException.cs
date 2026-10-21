@@ -60,4 +60,13 @@ public sealed class DiscordException : Exception
 
     /// <summary>Tempo de espera indicado pelo Discord em respostas 429.</summary>
     public TimeSpan? RetryAfter { get; init; }
+
+    /// <summary>Trace W3C da requisição à API central que falhou; a API registra o mesmo id no painel.</summary>
+    public string? TraceId { get; set; }
+
+    public DiscordException WithTrace(string? traceId)
+    {
+        TraceId ??= traceId;
+        return this;
+    }
 }
