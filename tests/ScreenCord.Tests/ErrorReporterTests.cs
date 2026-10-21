@@ -61,6 +61,28 @@ public sealed class ErrorReporterTests : IDisposable
     }
 
     [Fact]
+    public async Task Desligado_DescartaOQueEsperava_ENaoMandaNada_ReligadoNaoLevaOAntigo()
+    {
+        _logger.LogInformation("Antes de desligar.");
+        _logger.LogError("Erro antes de desligar.");
+        _reporter.Enabled = false;
+        Assert.Equal(0, _reporter.Pending);
+
+        _logger.LogError("Erro desligado.");
+        await _reporter.FlushAsync();
+        Assert.Empty(_handler.Requests);
+
+        _handler.Enqueue(HttpStatusCode.Accepted);
+        _reporter.Enabled = true;
+        _logger.LogError("Erro religado.");
+        await _reporter.FlushAsync();
+
+        var entry = Assert.Single(SentReport().Entries);
+        Assert.Equal("Erro religado.", entry.Message);
+        Assert.Null(entry.Breadcrumbs);
+    }
+
+    [Fact]
     public async Task Erro_LevaOEstadoDoApp_OComputador_EOLogDeAntes()
     {
         _handler.Enqueue(HttpStatusCode.Accepted);

@@ -15,6 +15,7 @@ namespace ScreenCord.Infrastructure;
 /// cada relatório, os dados do computador (<see cref="DeviceInfo"/>).
 /// Não leva tokens nem dados de conta: a instalação é identificada por um id aleatório.
 /// Falhas no envio são ignoradas: o relatório nunca derruba o aplicativo.
+/// Desligado (<see cref="Enabled"/>, a escolha da pessoa em <see cref="TelemetryPreference"/>), não guarda nem envia nada.
 /// </summary>
 public sealed class ErrorReporter : IDisposable
 {
@@ -45,6 +46,7 @@ public sealed class ErrorReporter : IDisposable
     private readonly Timer _timer;
     private int _queued;
     private int _accepted;
+    private volatile bool _enabled = true;
     private bool _disposed;
 
     public ErrorReporter(
@@ -82,9 +84,33 @@ public sealed class ErrorReporter : IDisposable
     /// <summary>Entradas esperando envio.</summary>
     public int Pending => Volatile.Read(ref _queued);
 
+    /// <summary>Ao desligar, descarta o que esperava envio e o rastro: nada do que veio antes sai depois.</summary>
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            _enabled = value;
+            if (value)
+            {
+                return;
+            }
+
+            lock (_breadcrumbs)
+            {
+                _breadcrumbs.Clear();
+            }
+
+            while (_queue.TryDequeue(out _))
+            {
+                Interlocked.Decrement(ref _queued);
+            }
+        }
+    }
+
     public void Add(LogLevel level, string category, string message, Exception? exception, string? traceId)
     {
-        if (level < LogLevel.Information || level == LogLevel.None)
+        if (!_enabled || level < LogLevel.Information || level == LogLevel.None)
         {
             return;
         }
@@ -133,14 +159,14 @@ public sealed class ErrorReporter : IDisposable
     /// <summary>Envia o que estiver na fila. Sem sucesso, as entradas voltam para a próxima tentativa.</summary>
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
-        if (_queue.IsEmpty || !await _sending.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (!_enabled || _queue.IsEmpty || !await _sending.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         {
             return;
         }
 
         try
         {
-            while (!_queue.IsEmpty && !_disposed)
+            while (!_queue.IsEmpty && !_disposed && _enabled)
             {
                 var batch = new List<ClientLogEntry>();
                 var size = 0;
