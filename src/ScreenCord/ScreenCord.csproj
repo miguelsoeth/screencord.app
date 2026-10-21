@@ -44,7 +44,7 @@
     <Resource Include="Assets\screencord.png" />
     <Resource Include="Assets\mascot-monitor.png" />
     <Resource Include="Assets\mascot-eye.png" />
-    <!-- Produção (API em https://154.16.50.20). É o único arquivo de configuração que vai para a publicação. -->
+    <!-- Produção (API em https://api.screencord.miguelsoeth.online). É o único arquivo de configuração que vai para a publicação. -->
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Desenvolvimento (DOTNET_ENVIRONMENT=Development, usado por 'dotnet run' e pelo screencord.ps1): API local. -->
     <Content Include="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />

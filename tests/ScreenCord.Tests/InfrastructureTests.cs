@@ -190,7 +190,7 @@ public class DiscordOptionsTests
 public class ApiOptionsTests
 {
     [Theory]
-    [InlineData("https://154.16.50.20", "https://154.16.50.20/")]
+    [InlineData("https://api.screencord.miguelsoeth.online", "https://api.screencord.miguelsoeth.online/")]
     [InlineData("https://api.exemplo.com/base", "https://api.exemplo.com/base/")]
     [InlineData("http://localhost:5080", "http://localhost:5080/")]
     [InlineData("http://127.0.0.1:5080/", "http://127.0.0.1:5080/")]
@@ -202,7 +202,7 @@ public class ApiOptionsTests
     }
 
     [Theory]
-    [InlineData("http://154.16.50.20")]
+    [InlineData("http://api.screencord.miguelsoeth.online")]
     [InlineData("ws://localhost:5080")]
     public void HttpForaDeLoopback_Lanca(string baseUrl)
     {
@@ -214,10 +214,10 @@ public class ApiOptionsTests
     [Fact]
     public void Producao_HubEMidiaUsamHttpsEWss()
     {
-        var baseUri = new ApiOptions { BaseUrl = "https://154.16.50.20" }.GetBaseUri();
+        var baseUri = new ApiOptions { BaseUrl = "https://api.screencord.miguelsoeth.online" }.GetBaseUri();
 
-        Assert.Equal("https://154.16.50.20/hubs/groups", new Uri(baseUri, GroupsHubContract.Path.TrimStart('/')).AbsoluteUri);
-        Assert.StartsWith("wss://154.16.50.20/media/", MediaContract.BuildUri(baseUri, Guid.NewGuid(), Guid.NewGuid()).AbsoluteUri);
+        Assert.Equal("https://api.screencord.miguelsoeth.online/hubs/groups", new Uri(baseUri, GroupsHubContract.Path.TrimStart('/')).AbsoluteUri);
+        Assert.StartsWith("wss://api.screencord.miguelsoeth.online/media/", MediaContract.BuildUri(baseUri, Guid.NewGuid(), Guid.NewGuid()).AbsoluteUri);
     }
 }
 

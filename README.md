@@ -131,13 +131,13 @@ A API usa o Client ID para recusar tokens do Discord emitidos para outros aplica
 
 | Arquivo | Quando vale | `Api:BaseUrl` |
 |---|---|---|
-| `appsettings.json` | sempre (é o único que vai para a publicação) | `https://154.16.50.20` (produção) |
+| `appsettings.json` | sempre (é o único que vai para a publicação) | `https://api.screencord.miguelsoeth.online` (produção) |
 | `appsettings.Development.json` | com `DOTNET_ENVIRONMENT=Development`: `dotnet run` (via `Properties/launchSettings.json`) | `http://localhost:5080` |
 | `appsettings.Local.json` | se existir; ignorado pelo Git, sobrepõe os outros e nunca é publicado | o que você quiser (ex.: um túnel) |
 
 Argumentos de linha de comando (ex.: `--Api:BaseUrl=https://...`) valem acima de todos esses arquivos; é assim que o `screencord.ps1` escolhe a API do app.
 
-A API de produção roda num VPS sem domínio: o HTTPS é direto no IP, com certificado da Let's Encrypt emitido para o IP (perfil *shortlived*, renovado automaticamente pelo Caddy). O app valida o certificado normalmente; nada de TLS é desativado. Para conferir se ela está no ar: `GET https://154.16.50.20/health` devolve `{"status":"ok","version":"..."}`.
+A API de produção roda num VPS em `https://api.screencord.miguelsoeth.online`, com certificado da Let's Encrypt renovado automaticamente pelo Caddy. O app valida o certificado normalmente; nada de TLS é desativado. Para conferir se ela está no ar: `GET https://api.screencord.miguelsoeth.online/health` devolve `{"status":"ok","version":"..."}`.
 
 Para rodar o executável de Debug direto contra a API local, defina `DOTNET_ENVIRONMENT=Development` antes; sem isso ele usa a produção.
 
@@ -149,7 +149,7 @@ Opções do aplicativo:
 | `Discord:RedirectPort` | `47821` | Porta do callback local. Se mudar, atualize o redirect no portal. |
 | `Discord:Scopes` | `identify` | Escopos separados por espaço. |
 | `Discord:LoginTimeoutSeconds` | `300` | Espera máxima pela autorização no navegador. |
-| `Api:BaseUrl` | `https://154.16.50.20` (Development: `http://localhost:5080`) | Endereço da API central. Precisa ser `https`, exceto para localhost. |
+| `Api:BaseUrl` | `https://api.screencord.miguelsoeth.online` (Development: `http://localhost:5080`) | Endereço da API central. Precisa ser `https`, exceto para localhost. |
 
 Opções da API:
 
@@ -213,7 +213,7 @@ Para gerar só o executável (único, sem exigir .NET instalado):
 dotnet publish src/ScreenCord -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/app
 ```
 
-Distribua `ScreenCord.exe` com o `appsettings.json` que sai na pasta: ele já aponta para a API de produção (`https://154.16.50.20`). `appsettings.Development.json` e `appsettings.Local.json` não são copiados para a publicação.
+Distribua `ScreenCord.exe` com o `appsettings.json` que sai na pasta: ele já aponta para a API de produção (`https://api.screencord.miguelsoeth.online`). `appsettings.Development.json` e `appsettings.Local.json` não são copiados para a publicação.
 
 ### Instalador (MSI)
 
