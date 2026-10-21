@@ -2,6 +2,7 @@ using ScreenCord.Localization;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ScreenCord.Contracts;
+using ScreenCord.Infrastructure;
 using ScreenCord.Media;
 using Microsoft.Extensions.Logging;
 
@@ -209,7 +210,7 @@ public sealed class ScreenShareService : IScreenShareService
     private sealed class ActiveScreenShare : IActiveScreenShare
     {
         private readonly IScreenCapture _capture;
-        private readonly H264Encoder _encoder;
+        private volatile H264Encoder _encoder;
         private readonly IMediaSink _socket;
         private readonly IGroupsRealtime _realtime;
         private readonly ILogger _logger;
@@ -245,15 +246,7 @@ public sealed class ScreenShareService : IScreenShareService
             _logger = logger;
             _bitrate = new BitrateController(request.Settings.BitrateKbps, TimeSpan.Zero);
 
-            _encoder.FrameEncoded += frame =>
-            {
-                if (frame.IsKeyframe)
-                {
-                    _logger.LogDebug("Quadro-chave de {Bytes} bytes.", frame.Data.Length);
-                }
-
-                _socket.SendVideo(frame, frame.Timestamp / 10);
-            };
+            _encoder.FrameEncoded += OnFrameEncoded;
             _socket.KeyframeRequested += () =>
             {
                 _logger.LogDebug("Quadro-chave pedido.");
@@ -275,6 +268,14 @@ public sealed class ScreenShareService : IScreenShareService
 
         public void Start()
         {
+            ErrorContext.Clear("share.");
+            ErrorContext.Set("share.kind", Request.Source.Kind);
+            ErrorContext.Set("share.capture", _capture.Name);
+            ErrorContext.Set("share.encoder", _encoder.Name);
+            ErrorContext.Set("share.size", $"{_capture.Width}x{_capture.Height}");
+            ErrorContext.Set("share.fps", Request.Settings.Fps);
+            ErrorContext.Set("share.kbps", Request.Settings.BitrateKbps);
+            ErrorContext.Set("share.audio", _audio is not null);
             _clock.Start();
             _videoThread.Start();
         }
@@ -366,6 +367,10 @@ public sealed class ScreenShareService : IScreenShareService
             await _socket.DisposeAsync();
             _encoder.Dispose();
             _capture.Dispose();
+            if (!_replaced)
+            {
+                ErrorContext.Clear("share.");
+            }
         }
 
         private void VideoLoop()
@@ -389,7 +394,17 @@ public sealed class ScreenShareService : IScreenShareService
 
                     if (hasFrame && _pacer.ShouldEncode(_clock.Elapsed, changed, _encoder.IsKeyframePending))
                     {
-                        _encoder.Encode(frame, _clock.Elapsed.Ticks);
+                        try
+                        {
+                            _encoder.Encode(frame, _clock.Elapsed.Ticks);
+                        }
+                        catch (H264EncoderFailedException ex) when (_encoder.IsHardware)
+                        {
+                            if (!TrySwitchToSoftwareEncoder(ex))
+                            {
+                                throw;
+                            }
+                        }
                     }
 
                     AdaptBitrate();
@@ -409,13 +424,58 @@ public sealed class ScreenShareService : IScreenShareService
             }
             catch (Exception ex) when (!_stop.IsCancellationRequested)
             {
-                _logger.LogError(ex, "O compartilhamento de tela parou por um erro.");
+                _logger.LogError(
+                    ex, "O compartilhamento de tela parou por um erro ({Capture}, encoder {Encoder}, {Width}x{Height}, {Fps} fps, {Frames} quadros em {Elapsed}).",
+                    _capture.Name, _encoder.Name, _capture.Width, _capture.Height, Request.Settings.Fps, _encoder.EncodedFrames, _clock.Elapsed.ToString(@"hh\:mm\:ss"));
                 End(Strings.CaptureOrEncoderFailed);
             }
             finally
             {
                 _ = TimeEndPeriod(1);
             }
+        }
+
+        private void OnFrameEncoded(EncodedFrame frame)
+        {
+            if (frame.IsKeyframe)
+            {
+                _logger.LogDebug("Quadro-chave de {Bytes} bytes.", frame.Data.Length);
+            }
+
+            _socket.SendVideo(frame, frame.Timestamp / 10);
+        }
+
+        /// <summary>
+        /// O encoder de hardware parou no meio da transmissão (driver reiniciado, placa de vídeo trocada...):
+        /// segue com o encoder por software do Windows. Roda na thread de vídeo. Falso se nem ele pôde ser criado.
+        /// </summary>
+        private bool TrySwitchToSoftwareEncoder(H264EncoderFailedException failure)
+        {
+            var failed = _encoder;
+            _logger.LogError(
+                failure.InnerException, "O encoder {Encoder} falhou depois de {Frames} quadros em {Elapsed} ({Width}x{Height}, {Fps} fps, {Kbps} kbps); trocando para o encoder por software.",
+                failed.Name, failed.EncodedFrames, _clock.Elapsed.ToString(@"hh\:mm\:ss"), failed.Width, failed.Height, Request.Settings.Fps, _bitrate.TargetKbps);
+
+            H264Encoder software;
+            try
+            {
+                software = H264Encoder.Create(failed.Width, failed.Height, Request.Settings.Fps, _bitrate.TargetKbps, allowHardware: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "O encoder por software também não pôde ser criado.");
+                return false;
+            }
+
+            failed.FrameEncoded -= OnFrameEncoded;
+            software.FrameEncoded += OnFrameEncoded;
+            software.RequestKeyframe(); // quem assiste precisa de um quadro-chave do encoder novo
+            _encoder = software;
+            _adaptiveBitrate = true;
+            ErrorContext.Set("share.encoder", $"{software.Name} (depois de falhar {failed.Name})");
+            failed.Dispose();
+            _logger.LogInformation("Compartilhamento seguindo com o encoder {Encoder}.", software.Name);
+            return true;
         }
 
         /// <summary>Ajusta a taxa do encoder à fila de envio. Roda na thread de vídeo, a mesma do <see cref="H264Encoder.Encode"/>.</summary>
@@ -465,6 +525,7 @@ public sealed class ScreenShareService : IScreenShareService
             _decoder = decoder;
             _logger = logger;
             HasAudio = hasAudio;
+            ErrorContext.ViewerOpened();
             if (hasAudio)
             {
                 try
@@ -545,6 +606,7 @@ public sealed class ScreenShareService : IScreenShareService
                 _disposed = true;
             }
 
+            ErrorContext.ViewerClosed();
             _socket.PacketReceived -= OnPacket;
             await _keyframeWatchdog.DisposeAsync();
             await _socket.DisposeAsync();
