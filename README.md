@@ -41,7 +41,7 @@ O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com 
 3. Adicione os amigos pelo @ (eles também precisam ter o ScreenCord) e crie um grupo.
 4. Entre na sala e clique em compartilhar. Quem estiver na sala clica em **AO VIVO** para assistir.
 
-**"O Windows protegeu o computador"?** O instalador ainda não é assinado: clique em **Mais informações → Executar assim mesmo**. O código está todo aqui, e o instalador é gerado pelo [pipeline público](.github/workflows/release.yml) a partir dele.
+**"O Windows protegeu o computador"?** O instalador ainda não é assinado: clique em **Mais informações → Executar assim mesmo**. O código está todo aqui, e o instalador é gerado pelo [pipeline público](.github/workflows/release.yml) a partir dele. Veja a [Code signing policy](#code-signing-policy).
 
 **Pelo servidor ou direto?** Nos grupos pela internet a tela passa pelo servidor do projeto, até 720p a 30 fps. Nas salas locais vai direto entre os computadores, até 1080p a 60 fps.
 
@@ -52,10 +52,24 @@ O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com 
 - Quer contribuir com código? Veja [Para desenvolvedores](#para-desenvolvedores) abaixo.
 - Apoie no [Ko-fi](https://ko-fi.com/miguelsoeth).
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+> Pedido em análise: até ele ser aprovado, o instalador ainda sai sem assinatura.
+
+- **O que é assinado:** só o `ScreenCord.exe` e o instalador `ScreenCord-Setup-<versão>-x64.msi`, gerados pelo [`release.yml`](.github/workflows/release.yml) no GitHub Actions a partir do código deste repositório. Cada assinatura é aprovada à mão, release por release.
+- **Autores** (mudam o código sem revisão extra): [Miguel Soeth](https://github.com/miguelsoeth).
+- **Revisores** (revisam os pull requests de quem não é autor): [Miguel Soeth](https://github.com/miguelsoeth).
+- **Aprovadores** (aprovam cada pedido de assinatura): [Miguel Soeth](https://github.com/miguelsoeth).
+- **Privacidade:** o que o app envia, para onde e como desligar está em [Privacidade](#privacidade). Ele não manda nada para outros sistemas além dos descritos lá.
+
 <details>
 <summary><strong>English</strong></summary>
 
 ScreenCord is a free, open-source Windows app to share your screen with friends at up to 1080p 60 fps. Sign in with Discord (identity only), add friends, create a group and click **LIVE** to watch. Local rooms work without any server, peer to peer on the same network (LAN, Hamachi, Radmin, Tailscale), even without an account. Available in English, Portuguese and Spanish. [Download the latest version](https://github.com/miguelsoeth/screencord/releases/latest). Unofficial project, not affiliated with Discord.
+
+**Code signing policy:** free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) (application pending: until it is approved, the installer is still unsigned). Only `ScreenCord.exe` and the MSI built by the public [`release.yml`](.github/workflows/release.yml) from this repository are signed, each release approved by hand. Committers, reviewers and approvers: [Miguel Soeth](https://github.com/miguelsoeth). Privacy: see [Privacidade](#privacidade) (error reports, which can be turned off in the app's Privacy button; the update check on GitHub; Discord sign-in).
 
 </details>
 
@@ -214,7 +228,8 @@ O arquivo sai em `installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.ms
 - Instala só para o usuário atual, em `%LocalAppData%\Programs\ScreenCord`, **sem pedir administrador**. Cria atalhos no Menu Iniciar e na Área de Trabalho e oferece abrir o app no fim.
 - A versão do MSI é a passada em `-p:AppVersion` (use a da release; sem ela, `0.0.0`). Um MSI de versão maior substitui o anterior (o `UpgradeCode` em `Package.wxs` nunca deve mudar). A sessão do Discord, em `%LocalAppData%\ScreenCord`, é preservada.
 - Desinstala em Configurações → Aplicativos. Instalação silenciosa: `msiexec /i ScreenCord-Setup.msi /qn`.
-- O MSI não é assinado: o Windows SmartScreen mostra "O Windows protegeu o computador" na primeira vez. O usuário clica em **Mais informações → Executar assim mesmo**. Para remover o aviso, é preciso um certificado de assinatura de código.
+- O MSI ainda não é assinado: o Windows SmartScreen mostra "O Windows protegeu o computador" na primeira vez. O usuário clica em **Mais informações → Executar assim mesmo**. O pedido de assinatura grátis está no SignPath Foundation (ver [Code signing policy](#code-signing-policy)).
+- Ao desinstalar (não nas atualizações), o instalador roda `ScreenCord.exe --remove-firewall`: se as regras do firewall existirem, ele pede a permissão do Windows e as apaga; recusar não impede a desinstalação.
 - Os termos mostrados na instalação ficam em `installer/ScreenCord.Installer/License.rtf`.
 
 API:
@@ -310,7 +325,7 @@ Salas que não dependem da API: o computador de quem cria a sala é o anfitrião
 - **Descoberta**: o anfitrião anuncia a sala a cada 2 s no broadcast de cada interface de rede local ou VPN (o broadcast geral só sai pela interface principal do Windows). Hamachi e Radmin repassam broadcast; o Tailscale não, e ali se entra pelo IP. Uma sala some da lista 7 s depois do último anúncio.
 - **Sala**: mensagens JSON (`hello`, `state`, `share`, `unshare`, `closed`) por WebSocket em `/room`. Até 20 pessoas. Quando o anfitrião sai, a sala acaba para todos.
 - **Mídia**: quem compartilha anuncia na sala os próprios endereços (`ip:47830`), o id do canal e uma chave aleatória; quem assiste tenta todos os endereços ao mesmo tempo, fica com o primeiro que responder e apresenta a chave no cabeçalho `X-ScreenCord-Key` em `/media/{id}`. O formato dos pacotes é o mesmo do canal com a API, e quem compartilha faz o papel do relay: fila por espectador, descarte até o próximo quadro-chave para quem atrasa, pausa do vídeo de quem minimizou. Não há plano B pelo servidor: se não der para conectar direto, o app explica o que conferir.
-- **Firewall**: a regra "ScreenCord - salas locais" (TCP 47830) e "ScreenCord - descoberta de salas" (UDP 47831) libera o exe em todos os perfis de rede (Hamachi e Radmin costumam aparecer como rede "Pública"), só para as faixas de rede local e das VPNs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 25.0.0.0/8, 26.0.0.0/8, 100.64.0.0/10). Criar a regra exige administrador: o instalador pede a permissão do Windows na primeira instalação (atualizações não perguntam), e o app mostra "Liberar no firewall" ao criar uma sala ou compartilhar numa se a regra não existir. Os dois rodam `ScreenCord.exe --configure-firewall` elevado.
+- **Firewall**: a regra "ScreenCord - salas locais" (TCP 47830) e "ScreenCord - descoberta de salas" (UDP 47831) libera o exe em todos os perfis de rede (Hamachi e Radmin costumam aparecer como rede "Pública"), só para as faixas de rede local e das VPNs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 25.0.0.0/8, 26.0.0.0/8, 100.64.0.0/10). Criar a regra exige administrador: o instalador pede a permissão do Windows na primeira instalação (atualizações não perguntam), e o app mostra "Liberar no firewall" ao criar uma sala ou compartilhar numa se a regra não existir. Os dois rodam `ScreenCord.exe --configure-firewall` elevado. Ao desinstalar, o instalador apaga as regras (com o mesmo pedido de permissão); se a pessoa recusar, dá para apagá-las à mão num terminal como administrador: `netsh advfirewall firewall delete rule name="ScreenCord - salas locais"` e o mesmo com `name="ScreenCord - descoberta de salas"`.
 - **Perfil local**: `%LocalAppData%\ScreenCord\local-profile.json` guarda o id deste computador nas salas, o nome do "Usar sem conta" e se o app estava sendo usado assim (para voltar direto às salas locais ao abrir). Com conta do Discord, as salas usam o nome e a foto do Discord.
 - **Cifragem**: sala e mídia vão por TLS (`wss://`), com um certificado autoassinado (ECDSA P-256) criado a cada execução do app; a chave nunca é salva. Sem autoridade que assine o certificado, quem conecta confere a impressão digital (SHA-256): o anúncio da sala leva a do anfitrião, e cada compartilhamento leva a de quem compartilha (no estado da sala, que já chega cifrado). Quem entra pela lista só aceita o anfitrião anunciado; quem entra pelo IP digitado aceita o certificado que vier (fica cifrado, sem confirmar quem responde). Um anúncio UDP pode ser falsificado por alguém na rede, então isso protege bem contra quem só escuta o tráfego e dificulta, sem impedir, quem se coloca no meio.
 - **Segurança (por enquanto)**: qualquer um na mesma rede pode entrar numa sala e usar o nome que quiser. Senha de sala fica para uma segunda etapa.
@@ -361,6 +376,14 @@ Qualquer usuário autenticado pode encontrar qualquer outro usuário do sistema 
 **Relatório de erros (ligado por padrão, como dizem os termos do instalador).** O aplicativo envia à API os avisos e erros do próprio log (mensagem, pilha da exceção, o trace da requisição que falhou e as últimas linhas do log antes deles), com a versão, o Windows, o estado do app (tempo aberto, memória, compartilhamento ativo), o hardware (placas de vídeo, telas, processador, memória) e um id aleatório da instalação (`%LOCALAPPDATA%\ScreenCord\install-id`). Não vão tokens, dados da conta, nomes de janelas nem imagens da tela. A API guarda os relatórios por até 30 dias; o painel fica nela (`/admin`).
 
 Para desligar: botão **Privacidade** (o escudo, no cabeçalho e na tela de login) → desmarque **Enviar relatórios de erro**. Vale na hora (o que esperava envio é descartado) e fica salvo em `HKCU\Software\ScreenCord\Telemetry` (`0` desligado, `1` ou ausente ligado). `"Telemetry": { "Enabled": false }` no `appsettings.json` desliga de vez, acima da escolha no app.
+
+**Atualização automática.** Ao abrir, o app consulta a API do GitHub (`api.github.com`) para ver se há uma versão nova em `miguelsoeth/screencord` e, se houver, baixa o instalador de lá. Vai só o pedido em si, com a versão do app; nada da conta nem do computador. O GitHub recebe o seu IP, como em qualquer acesso: veja a [política de privacidade do GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+
+**Discord.** O login é feito no site do Discord, no seu navegador, só com o escopo `identify`, e as fotos de perfil vêm do CDN do Discord (`cdn.discordapp.com`): veja a [política de privacidade do Discord](https://discord.com/privacy). No "Usar sem conta", o app não fala com o Discord.
+
+**Salas locais.** O nome, a foto e a tela vão só para os computadores da sala, direto pela rede, sem passar pelo servidor.
+
+Fora isso, o app não envia nada a outros sistemas.
 
 ## Limitações reais da API do Discord
 
