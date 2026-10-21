@@ -68,9 +68,9 @@ O `release.yml` então:
 
 Um MSI de versão maior substitui a instalação anterior (mesmo `UpgradeCode`), preservando a sessão do Discord.
 
-Este repositório é privado, então o download público vem do `miguelsoeth/screencord`: ele guarda só a landing page (`index.html`, no GitHub Pages em https://miguelsoeth.github.io/screencord/) e as releases. A página lista as releases desse repo pela API do GitHub e aponta o botão para o MSI da mais recente. Não crie releases lá à mão.
+O download público e a atualização automática vêm do `miguelsoeth/screencord`: ele guarda só a landing page (`index.html`, no GitHub Pages em https://miguelsoeth.github.io/screencord/) e as releases. A página lista as releases desse repo pela API do GitHub e aponta o botão para o MSI da mais recente. Não crie releases lá à mão.
 
-Não crie tags para testar o pipeline: cada tag gera uma release visível para quem tem acesso ao repo. Para refazer uma release com falha, apague a release e a tag nos dois repos (`gh release delete v0.2.0 --cleanup-tag`, e o mesmo com `--repo miguelsoeth/screencord` se ela chegou a ser criada lá) e crie a tag de novo.
+Não crie tags para testar o pipeline: cada tag gera uma release pública, que todos os usuários recebem pela atualização automática. Para refazer uma release com falha, apague a release e a tag nos dois repos (`gh release delete v0.2.0 --cleanup-tag`, e o mesmo com `--repo miguelsoeth/screencord` se ela chegou a ser criada lá) e crie a tag de novo.
 
 O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais downloads).
 

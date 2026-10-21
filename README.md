@@ -1,15 +1,78 @@
-# ScreenCord — aplicativo desktop
+<p align="center">
+  <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/icon.png" width="96" alt="">
+</p>
 
-> Este repositório contém o **aplicativo desktop** (`src/ScreenCord`), seus testes e os contratos compartilhados (`src/ScreenCord.Contracts`). A API central fica no repositório **screencord.api**. Os contratos existem nos dois repositórios: ao mudar um DTO, atualize os dois.
+<h1 align="center">ScreenCord</h1>
+
+<p align="center">
+  <strong>Compartilhe a tela com os amigos em até 1080p a 60 fps. Grátis, código aberto, e funciona até sem internet, na rede local.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/miguelsoeth/screencord/releases/latest"><img src="https://img.shields.io/github/v/release/miguelsoeth/screencord?label=baixar&style=for-the-badge" alt="Baixar a versão mais recente"></a>
+  <a href="https://miguelsoeth.github.io/screencord/"><img src="https://img.shields.io/badge/site-screencord-5c78ff?style=for-the-badge" alt="Site"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/miguelsoeth/screencord.app?style=for-the-badge" alt="Licença GPL-3.0"></a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-ao-vivo.jpg" width="820" alt="Janela do ScreenCord com uma transmissão ao vivo e a lista de grupos com quem está conectado">
+</p>
+
+O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com a sua conta do Discord, adicione os amigos, crie um grupo e clique em **AO VIVO** para ver quem está transmitindo. Sem assinatura, sem anúncios.
+
+> O ScreenCord é um projeto independente, **não oficial**, sem ligação com o Discord. Ele usa a conta do Discord só para identificar você (escopo `identify`): não lê suas mensagens, servidores nem lista de amigos.
+
+## Destaques
+
+- **Tela inteira ou uma janela**, com o som junto, e a resolução e os quadros que você escolher.
+- **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia.
+- **Salas locais, sem servidor**: na mesma rede (LAN, Hamachi, Radmin ou Tailscale), a tela vai direto entre os computadores, até **1080p a 60 fps**. Dá para usar até **sem conta**, só com um nome.
+- **Atualiza sozinho**: ao abrir, o app instala a versão nova.
+- **Português, inglês e espanhol**, com troca na hora.
+
+| Amigos | Compartilhar | Sala local |
+|---|---|---|
+| <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/amigos.jpg" alt="Lista de amigos"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/compartilhar.jpg" alt="Escolha de tela, resolução e quadros"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-local.jpg" alt="Sala local na rede"> |
+
+## Como usar
+
+1. Baixe o `ScreenCord-Setup-<versão>-x64.msi` na [versão mais recente](https://github.com/miguelsoeth/screencord/releases/latest) e instale (sem administrador; Windows 10 2004 ou mais recente, ou Windows 11, x64).
+2. Entre com o Discord (ou **Usar sem conta**, para as salas locais).
+3. Adicione os amigos pelo @ (eles também precisam ter o ScreenCord) e crie um grupo.
+4. Entre na sala e clique em compartilhar. Quem estiver na sala clica em **AO VIVO** para assistir.
+
+**"O Windows protegeu o computador"?** O instalador ainda não é assinado: clique em **Mais informações → Executar assim mesmo**. O código está todo aqui, e o instalador é gerado pelo [pipeline público](.github/workflows/release.yml) a partir dele.
+
+**Pelo servidor ou direto?** Nos grupos pela internet a tela passa pelo servidor do projeto, até 720p a 30 fps. Nas salas locais vai direto entre os computadores, até 1080p a 60 fps.
+
+## Ajude o projeto
+
+- Deixe uma ⭐ aqui no GitHub: é o que faz o projeto aparecer para mais gente.
+- Encontrou um problema ou tem uma ideia? [Abra uma issue](https://github.com/miguelsoeth/screencord.app/issues).
+- Quer contribuir com código? Veja [Para desenvolvedores](#para-desenvolvedores) abaixo.
+- Apoie no [Ko-fi](https://ko-fi.com/miguelsoeth).
+
+<details>
+<summary><strong>English</strong></summary>
+
+ScreenCord is a free, open-source Windows app to share your screen with friends at up to 1080p 60 fps. Sign in with Discord (identity only), add friends, create a group and click **LIVE** to watch. Local rooms work without any server, peer to peer on the same network (LAN, Hamachi, Radmin, Tailscale), even without an account. Available in English, Portuguese and Spanish. [Download the latest version](https://github.com/miguelsoeth/screencord/releases/latest). Unofficial project, not affiliated with Discord.
+
+</details>
+
+---
+
+# Para desenvolvedores
+
+Este repositório contém o **aplicativo desktop** (`src/ScreenCord`), seus testes e os contratos compartilhados (`src/ScreenCord.Contracts`). A API central fica em [screencord.api](https://github.com/miguelsoeth/screencord.api), e a página de download e as releases em [screencord](https://github.com/miguelsoeth/screencord). Os contratos existem nos dois repositórios: ao mudar um DTO, atualize os dois.
 
 Sistema com dois componentes:
 
-- **Aplicativo desktop** (C# / .NET 10 / WPF): conecta uma conta do Discord via OAuth2 e exibe o perfil.
-- **API central** (ASP.NET Core / .NET 10 / SQLite): cadastra quem entra com o Discord e mantém as amizades **entre usuários deste sistema**.
+- **Aplicativo desktop** (C# / .NET 10 / WPF): conecta uma conta do Discord via OAuth2, mantém os grupos e compartilha a tela (Media Foundation).
+- **API central** (ASP.NET Core / .NET 10 / SQLite): cadastra quem entra com o Discord, mantém as amizades **entre usuários deste sistema** e repassa as transmissões dos grupos.
 
 > **Importante:** os "amigos" aqui são do ScreenCord, não a sua lista de amigos do Discord. A API oficial do Discord não permite ler a lista de amigos (veja [Limitações reais da API do Discord](#limitações-reais-da-api-do-discord)). Para alguém aparecer na busca, essa pessoa precisa ter entrado neste sistema com a conta dela.
 
-## O que funciona
+## Recursos em detalhe
 
 - Login pelo navegador com **OAuth2 Authorization Code + PKCE (S256)**, como cliente público (sem `client_secret`).
 - Perfil via `GET /users/@me`: nome de exibição, nome de usuário, ID, avatar e URL do avatar.
@@ -128,7 +191,7 @@ Nenhum teste acessa o Discord: as respostas são simuladas. Os testes da API sob
 
 ## 5. Publicar
 
-Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-x64.msi` (detalhes abaixo). Como este repositório é privado, a mesma release é criada no repo público [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), que também tem a página de download: <https://miguelsoeth.github.io/screencord/>.
+Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-x64.msi` (detalhes abaixo). A mesma release é criada no repo [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), de onde o app se atualiza e que tem a página de download: <https://miguelsoeth.github.io/screencord/>.
 
 Para gerar só o executável (único, sem exigir .NET instalado):
 
