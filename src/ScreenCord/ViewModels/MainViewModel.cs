@@ -37,9 +37,11 @@ public sealed class MainViewModel : ObservableObject
         ILogger<MainViewModel> logger,
         ILocalRooms? localRooms = null,
         ILocalIdentityStore? localIdentity = null,
-        IBrowserLauncher? browser = null)
+        IBrowserLauncher? browser = null,
+        AboutViewModel? about = null)
     {
         _browser = browser;
+        About = about;
         _localRooms = localRooms;
         _localIdentity = localIdentity;
         _session = session;
@@ -60,6 +62,9 @@ public sealed class MainViewModel : ObservableObject
         ConfirmLocalCommand = new AsyncRelayCommand(ConfirmLocalAsync);
         OpenSupportCommand = new RelayCommand(OpenSupport, () => _browser is not null);
     }
+
+    /// <summary>Janela "Sobre", aberta pelo menu de configurações (no login e no cabeçalho).</summary>
+    public AboutViewModel? About { get; }
 
     /// <summary>Página de apoio ao projeto no Ko-fi.</summary>
     public static readonly Uri SupportUrl = new("https://ko-fi.com/miguelsoeth");

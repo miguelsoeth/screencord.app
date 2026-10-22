@@ -3,14 +3,18 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using ScreenCord.Infrastructure;
 using ScreenCord.Localization;
 
 namespace ScreenCord.Views;
 
-/// <summary>Troca o idioma do app na hora e salva a escolha (a mesma que o instalador grava).</summary>
-public partial class LanguagePicker : UserControl
+/// <summary>
+/// Menu da engrenagem: idioma (troca na hora e salva a escolha), envio dos relatórios de erro
+/// (<see cref="TelemetryPreference"/>) e a janela "Sobre".
+/// </summary>
+public partial class SettingsMenu : UserControl
 {
-    public LanguagePicker()
+    public SettingsMenu()
     {
         InitializeComponent();
         Menu.CustomPopupPlacementCallback = PlaceMenu;
@@ -30,10 +34,7 @@ public partial class LanguagePicker : UserControl
 
     private void OnMenuOpened(object? sender, EventArgs e)
     {
-        PortugueseCheck.Visibility = CheckVisibility(AppLanguage.Portuguese);
-        EnglishCheck.Visibility = CheckVisibility(AppLanguage.English);
-        SpanishCheck.Visibility = CheckVisibility(AppLanguage.Spanish);
-
+        ShowState();
         var current = Loc.Language switch
         {
             AppLanguage.English => EnglishOption,
@@ -43,18 +44,34 @@ public partial class LanguagePicker : UserControl
         Dispatcher.BeginInvoke(() => Keyboard.Focus(current), System.Windows.Threading.DispatcherPriority.Input);
     }
 
-    private static Visibility CheckVisibility(AppLanguage language) =>
-        Loc.Language == language ? Visibility.Visible : Visibility.Hidden;
-
-    private void OnOptionClick(object sender, RoutedEventArgs e)
+    private void ShowState()
     {
-        Toggle.IsChecked = false;
+        PortugueseCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.Portuguese);
+        EnglishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.English);
+        SpanishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.Spanish);
+        ErrorReportsCheck.Visibility = CheckVisibility(TelemetryPreference.Enabled);
+    }
+
+    private static Visibility CheckVisibility(bool isChecked) => isChecked ? Visibility.Visible : Visibility.Hidden;
+
+    // O menu continua aberto: dá para ver o texto trocar e mudar outra opção em seguida.
+    private void OnLanguageClick(object sender, RoutedEventArgs e)
+    {
         if (sender is FrameworkElement { Tag: string code } && Loc.FromCode(code) is { } language)
         {
             Loc.SetLanguage(language);
             LanguagePreference.Save(language);
         }
 
-        Toggle.Focus();
+        ShowState();
     }
+
+    private void OnErrorReportsClick(object sender, RoutedEventArgs e)
+    {
+        TelemetryPreference.Set(!TelemetryPreference.Enabled);
+        ShowState();
+    }
+
+    // O comando abre a janela; aqui só fecha o menu.
+    private void OnAboutClick(object sender, RoutedEventArgs e) => Toggle.IsChecked = false;
 }

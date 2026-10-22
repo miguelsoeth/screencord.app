@@ -1,9 +1,12 @@
 using ScreenCord.Localization;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using ScreenCord.Infrastructure;
 using ScreenCord.ViewModels;
 
 namespace ScreenCord.Views;
@@ -52,6 +55,20 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() => SearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
             }
         };
+        // Sobre: foco no próprio overlay (sem o anel de foco num botão), para o Esc fechar.
+        if (viewModel.About is { } about)
+        {
+            about.PropertyChanged += (_, e) =>
+            {
+                // Também depois do "Testar de novo": o botão fica desabilitado durante a checagem e o foco sai do overlay.
+                if ((e.PropertyName == nameof(AboutViewModel.IsOpen) || e.PropertyName == nameof(AboutViewModel.ApiState)) &&
+                    about.IsOpen && !AboutOverlay.IsKeyboardFocusWithin)
+                {
+                    Dispatcher.BeginInvoke(() => AboutOverlay.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                }
+            };
+        }
+
         // Usar sem conta: foco no nome, para digitar direto e o Enter entrar.
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -133,6 +150,51 @@ public partial class MainWindow : Window
         {
             _viewModel.Friends.IsOpen = false;
         }
+    }
+
+    /// <summary>Clique na área esmaecida (fora do cartão) fecha o "Sobre".</summary>
+    private void OnAboutOverlayMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource == sender && _viewModel.About is { } about)
+        {
+            about.IsOpen = false;
+        }
+    }
+
+    private void OnOpenLogsClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(FileLoggerProvider.DefaultFolder);
+            Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { FileLoggerProvider.DefaultFolder } })?.Dispose();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            // Sem acesso à pasta ou ao Explorer: não há o que mostrar.
+        }
+    }
+
+    /// <summary>Copia o resumo da versão e da conexão; o ícone vira um "certo" por um instante para confirmar.</summary>
+    private async void OnCopyDetailsClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.About is not { } about)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(about.DetailsText);
+        }
+        catch (COMException)
+        {
+            // A área de transferência estava em uso por outro programa.
+            return;
+        }
+
+        CopyDetailsIcon.Data = (System.Windows.Media.Geometry)FindResource("CheckIcon");
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        CopyDetailsIcon.Data = (System.Windows.Media.Geometry)FindResource("CopyIcon");
     }
 
     /// <summary>Copia o IP da sala local; o ícone vira um "certo" por um instante para confirmar.</summary>

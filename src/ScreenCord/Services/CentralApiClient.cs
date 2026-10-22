@@ -143,6 +143,19 @@ public sealed class CentralApiClient
         }
     }
 
+    /// <summary><c>GET /health</c>, sem sessão: se a API responde e qual a versão dela (tela "Sobre").</summary>
+    public async Task<ApiHealth> GetHealthAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseUri, "health"));
+        using var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateExceptionAsync(response, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await ReadJsonAsync<ApiHealth>(response, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Descarta o token se ele ainda for o atual (a API o recusou).</summary>
     public void InvalidateToken(string token) => Interlocked.CompareExchange(ref _apiToken, null, token);
 

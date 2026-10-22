@@ -40,6 +40,44 @@ public static class Strings
         "App warnings and errors, with the version, Windows, hardware and a random install id. Never tokens, account data or your screen.",
         "Avisos y errores de la aplicación, con la versión, Windows, el hardware y un id aleatorio de la instalación. Nunca se envían tokens, datos de la cuenta ni tu pantalla.");
 
+    // Configurações (menu da engrenagem: idioma, privacidade e "Sobre")
+    public static string Settings => T("Configurações", "Settings", "Configuración");
+
+    // Sobre
+    public static string About => T("Sobre", "About", "Acerca de");
+    public static string AboutScreenCord => T("Sobre o ScreenCord", "About ScreenCord", "Acerca de ScreenCord");
+    public static string AboutTagline => T(
+        "Compartilhe a tela com seus amigos em até 1080p 60 fps. Gratuito e de código aberto.",
+        "Share your screen with friends at up to 1080p 60 fps. Free and open source.",
+        "Comparte tu pantalla con tus amigos hasta 1080p 60 fps. Gratis y de código abierto.");
+    public static string VersionFormat => T("Versão {0}", "Version {0}", "Versión {0}");
+    public static string VersionDevFormat => T("Versão {0} (desenvolvimento)", "Version {0} (development)", "Versión {0} (desarrollo)");
+    public static string WhatsNew => T("Novidades", "What's new", "Novedades");
+    public static string ApiConnection => T("Conexão com o servidor", "Server connection", "Conexión con el servidor");
+    public static string ApiServer => T("Servidor", "Server", "Servidor");
+    public static string ApiStatus => T("Status", "Status", "Estado");
+    public static string ApiVersion => T("Versão do servidor", "Server version", "Versión del servidor");
+    public static string Realtime => T("Tempo real", "Real time", "Tiempo real");
+    public static string ApiChecking => T("Verificando…", "Checking…", "Comprobando…");
+    public static string ApiOnlineFormat => T("Online · {0} ms", "Online · {0} ms", "En línea · {0} ms");
+    public static string ApiVersionNotAccepted => T(
+        "Esta versão do app não é mais aceita",
+        "This app version is no longer accepted",
+        "Esta versión de la aplicación ya no se acepta");
+    public static string ApiNotConfigured => T("Endereço inválido", "Invalid address", "Dirección no válida");
+    public static string RealtimeReconnecting => T("Reconectando…", "Reconnecting…", "Reconectando…");
+    public static string RealtimeOff => T("Desconectado", "Disconnected", "Desconectado");
+    public static string TestAgain => T("Testar de novo", "Test again", "Probar de nuevo");
+    public static string Website => T("Site", "Website", "Sitio web");
+    public static string SourceCode => T("Código-fonte", "Source code", "Código fuente");
+    public static string ReportProblem => T("Relatar um problema", "Report a problem", "Informar un problema");
+    public static string OpenLogsFolder => T("Abrir pasta de logs", "Open logs folder", "Abrir carpeta de registros");
+    public static string CopyDetails => T("Copiar informações", "Copy details", "Copiar información");
+    public static string AboutLegal => T(
+        "Licença GPL-3.0. Projeto não oficial, sem vínculo com o Discord.",
+        "Licensed under GPL-3.0. Unofficial project, not affiliated with Discord.",
+        "Licencia GPL-3.0. Proyecto no oficial, sin vínculo con Discord.");
+
     // Apoio no Ko-fi
     public static string Support => T("Apoiar", "Support", "Apoyar");
     public static string SupportOnKofi => T("Apoie no Ko-fi", "Support on Ko-fi", "Apóyanos en Ko-fi");
