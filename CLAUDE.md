@@ -68,11 +68,26 @@ O `release.yml` então:
 
 Um MSI de versão maior substitui a instalação anterior (mesmo `UpgradeCode`), preservando a sessão do Discord.
 
-O download público e a atualização automática vêm do `miguelsoeth/screencord`: ele guarda só a landing page (`index.html`, no GitHub Pages em https://miguelsoeth.github.io/screencord/) e as releases. A página lista as releases desse repo pela API do GitHub e aponta o botão para o MSI da mais recente. Não crie releases lá à mão.
+O download público e a atualização automática vêm do `miguelsoeth/screencord`: ele guarda só a landing page (`index.html`, no GitHub Pages em https://screencord.miguelsoeth.online/) e as releases. A página lista as releases desse repo pela API do GitHub e aponta o botão para o MSI da mais recente. Não crie releases lá à mão.
 
 Não crie tags para testar o pipeline: cada tag gera uma release pública, que todos os usuários recebem pela atualização automática. Para refazer uma release com falha, apague a release e a tag nos dois repos (`gh release delete v0.2.0 --cleanup-tag`, e o mesmo com `--repo miguelsoeth/screencord` se ela chegou a ser criada lá) e crie a tag de novo.
 
 O instalador é distribuído só pelas GitHub Releases (o VPS não serve mais downloads).
+
+### Versões depreciadas e com defeito
+
+Versões antigas não são apagadas: são arquivadas com `release-status.ps1`, que edita a release nos dois repos.
+
+```powershell
+.\release-status.ps1 v0.1.0 deprecated "Não tem a atualização automática e o servidor não aceita mais esta versão."
+.\release-status.ps1 v0.7.0 broken "O compartilhamento fecha sozinho. Use a v0.7.1."
+.\release-status.ps1 v0.7.0 ok   # tira a marca
+```
+
+- `deprecated`: não funciona mais (ex.: abaixo do `Clients:MinVersion` da API). `broken`: defeito grave (ex.: a 0.2.0 e a 0.3.0, que entram em loop ao se atualizar).
+- O script põe no começo das notas um comentário `<!-- screencord:status ... -->` com o motivo (lido pela landing page) e um aviso visível no GitHub, e muda o título para `vX.Y.Z (depreciada)` ou `(com defeito, não instale)`. Rodar de novo substitui a marca.
+- A landing page tira as versões marcadas da lista principal, mostra-as recolhidas em "Versões arquivadas" com o motivo e pede confirmação antes do download. O botão de download nunca aponta para uma versão marcada.
+- A marca não muda a release "latest" do GitHub, que é o que a atualização automática baixa. Se a mais recente estiver com defeito, a saída é lançar logo uma correção (PATCH).
 
 ## Idiomas
 

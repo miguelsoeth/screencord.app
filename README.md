@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/miguelsoeth/screencord/releases/latest"><img src="https://img.shields.io/github/v/release/miguelsoeth/screencord?label=baixar&style=for-the-badge" alt="Baixar a versão mais recente"></a>
-  <a href="https://miguelsoeth.github.io/screencord/"><img src="https://img.shields.io/badge/site-screencord-5c78ff?style=for-the-badge" alt="Site"></a>
+  <a href="https://screencord.miguelsoeth.online/"><img src="https://img.shields.io/badge/site-screencord-5c78ff?style=for-the-badge" alt="Site"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/miguelsoeth/screencord.app?style=for-the-badge" alt="Licença GPL-3.0"></a>
 </p>
 
@@ -205,7 +205,7 @@ Nenhum teste acessa o Discord: as respostas são simuladas. Os testes da API sob
 
 ## 5. Publicar
 
-Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-x64.msi` (detalhes abaixo). A mesma release é criada no repo [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), de onde o app se atualiza e que tem a página de download: <https://miguelsoeth.github.io/screencord/>.
+Cada versão é publicada pelo CI a partir de uma tag `vX.Y.Z` (veja o `CLAUDE.md`): a [GitHub Release](https://github.com/miguelsoeth/screencord.app/releases) traz o instalador `ScreenCord-Setup-X.Y.Z-x64.msi` (detalhes abaixo). A mesma release é criada no repo [miguelsoeth/screencord](https://github.com/miguelsoeth/screencord), de onde o app se atualiza e que tem a página de download: <https://screencord.miguelsoeth.online/>.
 
 Para gerar só o executável (único, sem exigir .NET instalado):
 
