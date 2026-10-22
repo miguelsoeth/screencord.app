@@ -28,11 +28,20 @@ public static class MockupServiceCollectionExtensions
         services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<MockupGroupsRealtime>()));
         services.AddSingleton<IScreenShareService, MockupScreenShareService>();
         services.AddSingleton<IApiHealthCheck, MockupApiHealthCheck>();
+        services.AddSingleton<IUpdateFlow, MockupUpdateFlow>();
         return services;
     }
 }
 
 /// <summary>"Sobre" no mockup: a API responde na hora, sem rede.</summary>
+/// <summary>O mockup nunca se atualiza (o "Procurar atualizações" do Sobre fica escondido).</summary>
+public sealed class MockupUpdateFlow : IUpdateFlow
+{
+    public bool IsEnabled => false;
+
+    public Task<UpdateCheckResult> CheckNowAsync() => Task.FromResult(UpdateCheckResult.NoUpdate);
+}
+
 public sealed class MockupApiHealthCheck : IApiHealthCheck
 {
     public Uri? BaseUri { get; } = new("https://mockup.screencord.local/");

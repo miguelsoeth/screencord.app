@@ -1349,6 +1349,19 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Atualização: só no app instalado. Pergunta mesmo se a versão nova tinha sido pulada. -->
+                        <DockPanel Margin="-10,10,0,0" Visibility="{Binding CanCheckUpdates, Converter={StaticResource BoolToVisibility}}">
+                            <Button Style="{StaticResource MenuOption}" Command="{Binding CheckUpdatesCommand}"
+                                    AutomationProperties.Name="{l:Tr CheckForUpdatesAction}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource RefreshIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                                    <TextBlock Text="{l:Tr CheckForUpdatesAction}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{Binding UpdateStatusText}" Style="{StaticResource MutedText}" FontSize="12"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" Margin="8,0,0,0" />
+                        </DockPanel>
+
                         <!-- Links do projeto, abertos no navegador. -->
                         <UniformGrid Columns="2" Margin="-10,14,0,0">
                             <Button Style="{StaticResource AboutLink}" CommandParameter="{Binding ReleaseNotesUrl}" AutomationProperties.Name="{l:Tr WhatsNew}">

@@ -16,7 +16,8 @@ public enum ApiCheckState
 
 /// <summary>
 /// Janela "Sobre": versão do app, links do projeto e a conexão com a API (endereço, <c>GET /health</c> com o tempo de
-/// resposta e o estado do tempo real). A checagem roda a cada abertura e no "Testar de novo".
+/// resposta e o estado do tempo real). A checagem roda a cada abertura e no "Testar de novo". Também tem o
+/// "Procurar atualizações", que pergunta se instala mesmo uma versão que a pessoa tinha pulado.
 /// </summary>
 public sealed class AboutViewModel : ObservableObject
 {
@@ -28,6 +29,7 @@ public sealed class AboutViewModel : ObservableObject
     private readonly IApiHealthCheck _health;
     private readonly IGroupsRealtime _realtime;
     private readonly IBrowserLauncher? _browser;
+    private readonly IUpdateFlow? _updates;
     private readonly SynchronizationContext? _ui;
 
     private bool _isOpen;
@@ -36,12 +38,15 @@ public sealed class AboutViewModel : ObservableObject
     private long? _latencyMs;
     private string? _apiError;
     private CancellationTokenSource? _check;
+    private bool _checkingUpdates;
+    private UpdateCheckResult? _updateResult;
 
-    public AboutViewModel(IApiHealthCheck health, IGroupsRealtime realtime, IBrowserLauncher? browser = null)
+    public AboutViewModel(IApiHealthCheck health, IGroupsRealtime realtime, IBrowserLauncher? browser = null, IUpdateFlow? updates = null)
     {
         _health = health;
         _realtime = realtime;
         _browser = browser;
+        _updates = updates;
         _ui = SynchronizationContext.Current;
         _realtime.StateChanged += (_, _) => Post(() => OnPropertyChanged(nameof(RealtimeStatusText)));
 
@@ -49,6 +54,7 @@ public sealed class AboutViewModel : ObservableObject
         CloseCommand = new RelayCommand(() => IsOpen = false);
         CheckCommand = new AsyncRelayCommand(CheckAsync, () => ApiState != ApiCheckState.Checking);
         OpenLinkCommand = new RelayCommand<Uri>(OpenLink);
+        CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync, () => CanCheckUpdates);
         ReleaseNotesUrl = AppVersion.IsDevBuild ? ReleasesUrl : new Uri(ReleasesUrl, $"releases/tag/v{AppVersion.Current}");
     }
 
@@ -58,6 +64,17 @@ public sealed class AboutViewModel : ObservableObject
 
     /// <summary>Consulta a API de novo.</summary>
     public AsyncRelayCommand CheckCommand { get; }
+
+    /// <summary>Procura uma versão nova e pergunta se instala.</summary>
+    public AsyncRelayCommand CheckUpdatesCommand { get; }
+
+    /// <summary>Só no app instalado (build de desenvolvimento e mockup não se atualizam).</summary>
+    public bool CanCheckUpdates => _updates?.IsEnabled == true;
+
+    /// <summary>Resultado do "Procurar atualizações"; vazio antes da primeira procura.</summary>
+    public string UpdateStatusText => _checkingUpdates
+        ? Strings.CheckingForUpdates
+        : _updateResult == UpdateCheckResult.NoUpdate ? Strings.NoUpdateFound : string.Empty;
 
     /// <summary>Abre um dos links do projeto (parâmetro: a URL) no navegador.</summary>
     public RelayCommand<Uri> OpenLinkCommand { get; }
@@ -82,6 +99,8 @@ public sealed class AboutViewModel : ObservableObject
             else
             {
                 _check?.Cancel();
+                _updateResult = null;
+                OnPropertyChanged(nameof(UpdateStatusText));
             }
         }
     }
@@ -176,6 +195,27 @@ public sealed class AboutViewModel : ObservableObject
         // O estado pode não ter mudado (ex.: online de novo), mas o tempo de resposta e a versão sim.
         OnPropertyChanged(nameof(ApiStatusText));
         OnPropertyChanged(nameof(ApiVersionText));
+    }
+
+    private async Task CheckUpdatesAsync()
+    {
+        if (_updates is null)
+        {
+            return;
+        }
+
+        _checkingUpdates = true;
+        _updateResult = null;
+        OnPropertyChanged(nameof(UpdateStatusText));
+        try
+        {
+            _updateResult = await _updates.CheckNowAsync();
+        }
+        finally
+        {
+            _checkingUpdates = false;
+            OnPropertyChanged(nameof(UpdateStatusText));
+        }
     }
 
     private void OpenLink(Uri url)

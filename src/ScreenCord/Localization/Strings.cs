@@ -40,7 +40,15 @@ public static class Strings
         "App warnings and errors, with the version, Windows, hardware and a random install id. Never tokens, account data or your screen.",
         "Avisos y errores de la aplicación, con la versión, Windows, el hardware y un id aleatorio de la instalación. Nunca se envían tokens, datos de la cuenta ni tu pantalla.");
 
-    // Configurações (menu da engrenagem: idioma, privacidade e "Sobre")
+    // Atualizações (menu da engrenagem)
+    public static string Updates => T("Atualizações", "Updates", "Actualizaciones");
+    public static string AutoUpdate => T("Atualizar automaticamente", "Update automatically", "Actualizar automáticamente");
+    public static string AutoUpdateHint => T(
+        "Instala a versão nova ao abrir. Desligado, o app pergunta antes. Uma versão que o servidor não aceita mais precisa ser instalada para continuar.",
+        "Installs the new version on startup. When off, the app asks first. A version the server no longer accepts must be installed to continue.",
+        "Instala la nueva versión al abrir. Desactivado, la aplicación pregunta antes. Una versión que el servidor ya no acepta debe instalarse para continuar.");
+
+    // Configurações (menu da engrenagem: idioma, privacidade, atualizações e "Sobre")
     public static string Settings => T("Configurações", "Settings", "Configuración");
 
     // Sobre
@@ -320,6 +328,23 @@ public static class Strings
         "Instalando a versão {0}. O ScreenCord abre de novo em seguida.",
         "Installing version {0}. ScreenCord will reopen right after.",
         "Instalando la versión {0}. ScreenCord se abrirá de nuevo enseguida.");
+    public static string UpdateAvailableFormat => T(
+        "A versão {0} do ScreenCord está disponível (você usa a {1}). Quer atualizar agora?",
+        "ScreenCord {0} is available (you have {1}). Update now?",
+        "La versión {0} de ScreenCord está disponible (tienes la {1}). ¿Quieres actualizar ahora?");
+    public static string UpdateRequiredFormat => T(
+        "Esta versão do ScreenCord ({1}) não é mais aceita pelo servidor. Atualize para a {0} para continuar usando o app.",
+        "This version of ScreenCord ({1}) is no longer accepted by the server. Update to {0} to keep using the app.",
+        "El servidor ya no acepta esta versión de ScreenCord ({1}). Actualiza a la {0} para seguir usando la aplicación.");
+    public static string UpdateRequiredFailedFormat => T(
+        "Não foi possível instalar a versão {0}, e esta versão não é mais aceita pelo servidor. Baixe a versão nova em {1}. O ScreenCord vai fechar.",
+        "Version {0} couldn't be installed, and this version is no longer accepted by the server. Download the new version at {1}. ScreenCord will close.",
+        "No se pudo instalar la versión {0}, y el servidor ya no acepta esta versión. Descarga la nueva versión en {1}. ScreenCord se cerrará.");
+    public static string UpdateNow => T("Atualizar agora", "Update now", "Actualizar ahora");
+    public static string Update => T("Atualizar", "Update", "Actualizar");
+    public static string SkipThisVersion => T("Pular esta versão", "Skip this version", "Omitir esta versión");
+    public static string CheckForUpdatesAction => T("Procurar atualizações", "Check for updates", "Buscar actualizaciones");
+    public static string NoUpdateFound => T("Nenhuma versão nova encontrada.", "No new version found.", "No se encontró ninguna versión nueva.");
     public static string ClientOutdated => T(
         "Esta versão do ScreenCord não é mais aceita pelo servidor. Atualize o aplicativo.",
         "This version of ScreenCord is no longer accepted by the server. Please update the app.",

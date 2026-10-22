@@ -27,7 +27,7 @@ O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com 
 - **Tela inteira ou uma janela**, com o som junto, e a resolução e os quadros que você escolher.
 - **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia.
 - **Salas locais, sem servidor**: na mesma rede (LAN, Hamachi, Radmin ou Tailscale), a tela vai direto entre os computadores, até **1080p a 60 fps**. Dá para usar até **sem conta**, só com um nome.
-- **Atualiza sozinho**: ao abrir, o app instala a versão nova.
+- **Atualiza sozinho**: ao abrir, o app instala a versão nova. Em Configurações → Atualizações dá para desligar e escolher na hora (atualizar, agora não ou pular a versão); só uma versão que o servidor não aceita mais precisa ser instalada para continuar.
 - **Português, inglês e espanhol**, com troca na hora.
 
 | Amigos | Compartilhar | Sala local |
@@ -377,7 +377,7 @@ Qualquer usuário autenticado pode encontrar qualquer outro usuário do sistema 
 
 Para desligar: botão **Configurações** (a engrenagem, no cabeçalho e na tela de login) → em **Privacidade**, desmarque **Enviar relatórios de erro**. Vale na hora (o que esperava envio é descartado) e fica salvo em `HKCU\Software\ScreenCord\Telemetry` (`0` desligado, `1` ou ausente ligado). `"Telemetry": { "Enabled": false }` no `appsettings.json` desliga de vez, acima da escolha no app.
 
-**Atualização automática.** Ao abrir, o app consulta a API do GitHub (`api.github.com`) para ver se há uma versão nova em `miguelsoeth/screencord` e, se houver, baixa o instalador de lá. Vai só o pedido em si, com a versão do app; nada da conta nem do computador. O GitHub recebe o seu IP, como em qualquer acesso: veja a [política de privacidade do GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+**Atualização automática.** Ao abrir (e no "Procurar atualizações" do Sobre), o app consulta a API do GitHub (`api.github.com`) para ver se há uma versão nova em `miguelsoeth/screencord` e, se houver, baixa o instalador de lá. Vai só o pedido em si, com a versão do app; nada da conta nem do computador. O GitHub recebe o seu IP, como em qualquer acesso: veja a [política de privacidade do GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
 
 **Discord.** O login é feito no site do Discord, no seu navegador, só com o escopo `identify`, e as fotos de perfil vêm do CDN do Discord (`cdn.discordapp.com`): veja a [política de privacidade do Discord](https://discord.com/privacy). No "Usar sem conta", o app não fala com o Discord.
 

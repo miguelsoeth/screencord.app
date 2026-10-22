@@ -4,7 +4,7 @@
         xmlns:l="clr-namespace:ScreenCord.Localization"
         Title="{l:Tr UpdatingTitle}"
         Icon="/ScreenCord;component/Assets/screencord.ico"
-        Width="400" SizeToContent="Height"
+        Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -17,7 +17,8 @@
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
-    <!-- Atualização automática: aparece só quando há versão nova; some quando o instalador assume. -->
+    <!-- Atualização: a pergunta (versão nova ou obrigatória) e depois o progresso do download; some quando o
+         instalador assume. -->
     <StackPanel Margin="24,20,24,24">
         <TextBlock Style="{StaticResource Wordmark}" FontSize="18">
             <Run Text="Screen" /><Run Text="Cord" Foreground="{StaticResource WordmarkAccentBrush}" />
@@ -26,5 +27,19 @@
                    Text="{l:Tr CheckingForUpdates}" />
         <ProgressBar x:Name="Progress" Height="6" Minimum="0" Maximum="1" IsIndeterminate="True"
                      Background="{StaticResource SurfaceRaisedBrush}" Foreground="{StaticResource AccentBrush}" BorderThickness="0" />
+
+        <!-- Só na pergunta. Esc vale "Agora não" (ou "Sair", quando a atualização é obrigatória). -->
+        <DockPanel x:Name="Buttons" Margin="0,8,0,0" Visibility="Collapsed">
+            <Button x:Name="SkipButton" DockPanel.Dock="Left" Style="{StaticResource SecondaryButton}" FontSize="13"
+                    Content="{l:Tr SkipThisVersion}" Click="OnSkipClick" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="LaterButton" Style="{StaticResource SecondaryButton}" FontSize="13"
+                        Content="{l:Tr NotNow}" IsCancel="True" Click="OnLaterClick" />
+                <Button x:Name="ExitButton" Style="{StaticResource SecondaryButton}" FontSize="13"
+                        Content="{l:Tr Exit}" Click="OnExitClick" Visibility="Collapsed" />
+                <Button x:Name="InstallButton" Style="{StaticResource PrimaryButton}" FontSize="13" Margin="10,0,0,0"
+                        Content="{l:Tr UpdateNow}" IsDefault="True" Click="OnInstallClick" />
+            </StackPanel>
+        </DockPanel>
     </StackPanel>
 </Window>

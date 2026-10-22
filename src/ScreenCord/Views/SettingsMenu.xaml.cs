@@ -10,7 +10,7 @@ namespace ScreenCord.Views;
 
 /// <summary>
 /// Menu da engrenagem: idioma (troca na hora e salva a escolha), envio dos relatórios de erro
-/// (<see cref="TelemetryPreference"/>) e a janela "Sobre".
+/// (<see cref="TelemetryPreference"/>), a atualização automática (<see cref="UpdatePreference"/>) e a janela "Sobre".
 /// </summary>
 public partial class SettingsMenu : UserControl
 {
@@ -50,6 +50,7 @@ public partial class SettingsMenu : UserControl
         EnglishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.English);
         SpanishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.Spanish);
         ErrorReportsCheck.Visibility = CheckVisibility(TelemetryPreference.Enabled);
+        AutoUpdateCheck.Visibility = CheckVisibility(UpdatePreference.AutoUpdate);
     }
 
     private static Visibility CheckVisibility(bool isChecked) => isChecked ? Visibility.Visible : Visibility.Hidden;
@@ -69,6 +70,12 @@ public partial class SettingsMenu : UserControl
     private void OnErrorReportsClick(object sender, RoutedEventArgs e)
     {
         TelemetryPreference.Set(!TelemetryPreference.Enabled);
+        ShowState();
+    }
+
+    private void OnAutoUpdateClick(object sender, RoutedEventArgs e)
+    {
+        UpdatePreference.SetAutoUpdate(!UpdatePreference.AutoUpdate);
         ShowState();
     }
 
