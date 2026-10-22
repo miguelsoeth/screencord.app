@@ -164,11 +164,8 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                    <!-- Privacidade e idioma também antes de entrar, no canto do cartão. -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-20,-24,0">
-                        <views:PrivacyMenu />
-                        <views:LanguagePicker Margin="2,0,0,0" />
-                    </StackPanel>
+                    <!-- Configurações (idioma, privacidade e "Sobre") também antes de entrar, no canto do cartão. -->
+                    <views:SettingsMenu HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-20,-24,0" />
                     </Grid>
                 </Border>
             </ScrollViewer>
@@ -290,10 +287,8 @@
                                         </Path.Style>
                                     </Path>
                                 </Button>
-                                <!-- Idioma do app: troca na hora. -->
-                                <views:LanguagePicker Margin="2,0,0,0" />
-                                <!-- Relatório de erros: liga e desliga na hora. -->
-                                <views:PrivacyMenu Margin="2,0,0,0" />
+                                <!-- Idioma, relatório de erros e "Sobre", num só menu. -->
+                                <views:SettingsMenu Margin="2,0,0,0" />
                                 <!-- Separa a ação destrutiva das demais. -->
                                 <Rectangle Width="1" Margin="5,8" Fill="{StaticResource BorderBrush}" />
                                 <Button Style="{StaticResource HeaderDangerIconButton}"
@@ -1232,6 +1227,184 @@
                                     Command="{Binding DeleteGroupCommand}"
                                     Visibility="{Binding IsConfirmingDelete, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Sobre: versão, conexão com a API e links do projeto; clicar fora ou Esc fecha. Abre pela engrenagem. -->
+            <Grid x:Name="AboutOverlay" Background="#BF050508" DataContext="{Binding About}" Visibility="Collapsed"
+                  Focusable="True" FocusVisualStyle="{x:Null}"
+                  views:Motion.IsShown="{Binding IsOpen}" views:Motion.Kind="Overlay"
+                  MouseLeftButtonDown="OnAboutOverlayMouseDown">
+                <Grid.InputBindings>
+                    <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
+                </Grid.InputBindings>
+                <Border Style="{StaticResource Card}" Padding="24" Margin="24" Width="440"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        TextElement.Foreground="{StaticResource TextBrush}">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.55" Color="Black" />
+                    </Border.Effect>
+                    <Border.Resources>
+                        <Style x:Key="AboutLabel" TargetType="TextBlock" BasedOn="{StaticResource MutedText}">
+                            <Setter Property="FontSize" Value="13" />
+                            <Setter Property="Margin" Value="0,3,16,3" />
+                        </Style>
+                        <Style x:Key="AboutValue" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="13" />
+                            <Setter Property="Margin" Value="0,3" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        </Style>
+                        <!-- Link do projeto: texto com o ícone de "abre fora" depois, no estilo das opções de menu. -->
+                        <Style x:Key="AboutLink" TargetType="Button" BasedOn="{StaticResource MenuOption}">
+                            <Setter Property="Command" Value="{Binding OpenLinkCommand}" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                        </Style>
+                    </Border.Resources>
+                    <StackPanel>
+                        <!-- Ícone, nome e versão; o "x" fecha. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Image Source="/ScreenCord;component/Assets/screencord.png" Width="48" Height="48"
+                                   RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <views:WordmarkText Text="Screen" AccentText="Cord" AccentForeground="{StaticResource WordmarkAccentBrush}"
+                                                    Foreground="{StaticResource TextBrush}" FontFamily="Segoe UI Variable Display, Segoe UI" FontWeight="Bold"
+                                                    FontSize="22" />
+                                <!-- Selecionável, para copiar a versão num relato. -->
+                                <TextBox Text="{Binding VersionText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Padding="0"
+                                         Background="Transparent" Foreground="{StaticResource MutedTextBrush}" FontSize="13"
+                                         CaretBrush="Transparent" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Style="{StaticResource GhostIconButton}" VerticalAlignment="Top"
+                                    Command="{Binding CloseCommand}"
+                                    ToolTip="{l:Tr Close}" AutomationProperties.Name="{l:Tr Close}">
+                                <Path Data="{StaticResource CloseIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{l:Tr AboutTagline}" TextWrapping="Wrap" FontSize="13" Margin="0,16,0,0" />
+
+                        <!-- Conexão com a API: checada a cada abertura. -->
+                        <Border Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="14,10,8,12" Margin="0,18,0,0">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostIconButton}"
+                                            Command="{Binding CheckCommand}"
+                                            ToolTip="{l:Tr TestAgain}" AutomationProperties.Name="{l:Tr TestAgain}">
+                                        <Path Data="{StaticResource RefreshIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                                    </Button>
+                                    <TextBlock Text="{l:Tr ApiConnection}" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <Grid Margin="0,4,6,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Text="{l:Tr ApiStatus}" Style="{StaticResource AboutLabel}" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,7,0">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource IdleDotBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ApiState}" Value="Online">
+                                                            <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ApiState}" Value="Outdated">
+                                                            <Setter Property="Fill" Value="{StaticResource CrownBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ApiState}" Value="Offline">
+                                                            <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <TextBlock Text="{Binding ApiStatusText}" Style="{StaticResource AboutValue}" TextTrimming="None" TextWrapping="Wrap" MaxWidth="260" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="1" Text="{l:Tr ApiServer}" Style="{StaticResource AboutLabel}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ApiAddress}" Style="{StaticResource AboutValue}"
+                                               ToolTip="{Binding ApiAddress}" />
+
+                                    <TextBlock Grid.Row="2" Text="{l:Tr ApiVersion}" Style="{StaticResource AboutLabel}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ApiVersionText}" Style="{StaticResource AboutValue}" />
+
+                                    <TextBlock Grid.Row="3" Text="{l:Tr Realtime}" Style="{StaticResource AboutLabel}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RealtimeStatusText}" Style="{StaticResource AboutValue}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Links do projeto, abertos no navegador. -->
+                        <UniformGrid Columns="2" Margin="-10,14,0,0">
+                            <Button Style="{StaticResource AboutLink}" CommandParameter="{Binding ReleaseNotesUrl}" AutomationProperties.Name="{l:Tr WhatsNew}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{l:Tr WhatsNew}" />
+                                    <Path Data="{StaticResource OpenInNewIcon}" Style="{StaticResource IconPath}" Width="12" Height="12" Margin="6,0,0,0"
+                                          Fill="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource AboutLink}" CommandParameter="{x:Static vm:AboutViewModel.WebsiteUrl}" AutomationProperties.Name="{l:Tr Website}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{l:Tr Website}" />
+                                    <Path Data="{StaticResource OpenInNewIcon}" Style="{StaticResource IconPath}" Width="12" Height="12" Margin="6,0,0,0"
+                                          Fill="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource AboutLink}" CommandParameter="{x:Static vm:AboutViewModel.SourceUrl}" AutomationProperties.Name="{l:Tr SourceCode}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{l:Tr SourceCode}" />
+                                    <Path Data="{StaticResource OpenInNewIcon}" Style="{StaticResource IconPath}" Width="12" Height="12" Margin="6,0,0,0"
+                                          Fill="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource AboutLink}" CommandParameter="{x:Static vm:AboutViewModel.IssuesUrl}" AutomationProperties.Name="{l:Tr ReportProblem}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{l:Tr ReportProblem}" />
+                                    <Path Data="{StaticResource OpenInNewIcon}" Style="{StaticResource IconPath}" Width="12" Height="12" Margin="6,0,0,0"
+                                          Fill="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Button>
+                        </UniformGrid>
+
+                        <TextBlock Text="{l:Tr AboutLegal}" Style="{StaticResource MutedText}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                        <!-- Para relatar um problema: os logs locais e um resumo da versão e da conexão. -->
+                        <Grid Margin="0,18,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource SecondaryButton}" Click="OnOpenLogsClick" FontSize="13"
+                                    AutomationProperties.Name="{l:Tr OpenLogsFolder}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource FolderIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                                    <TextBlock Text="{l:Tr OpenLogsFolder}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="CopyDetailsButton" Grid.Column="2" Style="{StaticResource SecondaryButton}" Click="OnCopyDetailsClick" FontSize="13"
+                                    AutomationProperties.Name="{l:Tr CopyDetails}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path x:Name="CopyDetailsIcon" Data="{StaticResource CopyIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
+                                    <TextBlock Text="{l:Tr CopyDetails}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </Grid>

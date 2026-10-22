@@ -63,6 +63,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<GroupsRealtimeClient>();
         services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<GroupsRealtimeClient>()));
         services.AddSingleton<IServerLimits, CentralServerLimits>();
+        services.AddSingleton<IApiHealthCheck, CentralApiHealthCheck>();
 
         // Salas locais: sem API, com a mídia direto entre os computadores. A tela de grupos usa a conexão que junta as duas.
         services.AddSingleton<ILocalIdentityStore, LocalIdentityStore>();
@@ -88,6 +89,8 @@ public static class ServiceCollectionExtensions
         // Os amigos vêm só da API: a conexão dela, sem as salas locais.
         services.AddSingleton(sp => new FriendsViewModel(sp.GetRequiredService<IFriendsService>(), sp.GetRequiredService<ApiRealtime>().Inner));
         services.AddSingleton<GroupsViewModel>();
+        services.AddSingleton(sp => new AboutViewModel(
+            sp.GetRequiredService<IApiHealthCheck>(), sp.GetRequiredService<ApiRealtime>().Inner, sp.GetService<IBrowserLauncher>()));
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
 

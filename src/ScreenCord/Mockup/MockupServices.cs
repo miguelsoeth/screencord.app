@@ -27,7 +27,20 @@ public static class MockupServiceCollectionExtensions
         services.AddSingleton<MockupGroupsRealtime>();
         services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<MockupGroupsRealtime>()));
         services.AddSingleton<IScreenShareService, MockupScreenShareService>();
+        services.AddSingleton<IApiHealthCheck, MockupApiHealthCheck>();
         return services;
+    }
+}
+
+/// <summary>"Sobre" no mockup: a API responde na hora, sem rede.</summary>
+public sealed class MockupApiHealthCheck : IApiHealthCheck
+{
+    public Uri? BaseUri { get; } = new("https://mockup.screencord.local/");
+
+    public async Task<ApiHealth> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(120), cancellationToken).ConfigureAwait(false);
+        return new ApiHealth("ok", "mockup", "0.0.0");
     }
 }
 
