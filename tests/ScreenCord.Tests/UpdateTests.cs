@@ -246,3 +246,61 @@ public class ClientVersionTests
         Assert.True(AppVersion.IsDevBuild);
     }
 }
+
+public class UpdatePolicyTests
+{
+    private static readonly AppUpdate Update = new(new Version(0, 9, 0), new Uri("https://github.com/miguelsoeth/screencord/releases/download/v0.9.0/ScreenCord-Setup-0.9.0-x64.msi"), 1000);
+
+    [Theory]
+    [InlineData("0.9.0", "0.8.0", true)]
+    [InlineData("0.8.0", "0.8.0", false)]
+    [InlineData("0.7.0", "0.8.0", false)]
+    [InlineData(null, "0.8.0", false)]
+    [InlineData("nao-e-versao", "0.8.0", false)]
+    [InlineData("0.9.0", "0.0.0-dev", false)]
+    public void Obrigatoria_SoQuandoAApiExigeVersaoMaior(string? minClientVersion, string current, bool required)
+    {
+        Assert.Equal(required, UpdatePolicy.IsRequired(minClientVersion, current));
+    }
+
+    [Fact]
+    public void SemVersaoNova_SegueSemPerguntar()
+    {
+        Assert.Equal(UpdateAction.None, UpdatePolicy.Decide(null, required: true, autoUpdate: false, skipped: null, failed: null));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AtualizacaoAutomaticaLigada_InstalaSemPerguntar(bool required)
+    {
+        Assert.Equal(UpdateAction.Install, UpdatePolicy.Decide(Update, required, autoUpdate: true, skipped: null, failed: null));
+    }
+
+    [Fact]
+    public void AtualizacaoAutomaticaDesligada_Pergunta()
+    {
+        Assert.Equal(UpdateAction.Ask, UpdatePolicy.Decide(Update, required: false, autoUpdate: false, skipped: null, failed: null));
+    }
+
+    [Fact]
+    public void VersaoPulada_NaoPerguntaDeNovo_MasUmaMaiorPergunta()
+    {
+        Assert.Equal(UpdateAction.None, UpdatePolicy.Decide(Update, required: false, autoUpdate: false, skipped: new Version(0, 9, 0), failed: null));
+        Assert.Equal(UpdateAction.Ask, UpdatePolicy.Decide(Update, required: false, autoUpdate: false, skipped: new Version(0, 8, 5), failed: null));
+    }
+
+    [Fact]
+    public void ObrigatoriaDesligada_ExigeMesmoPulada()
+    {
+        Assert.Equal(UpdateAction.Require, UpdatePolicy.Decide(Update, required: true, autoUpdate: false, skipped: new Version(0, 9, 0), failed: null));
+    }
+
+    [Theory]
+    [InlineData(false, UpdateAction.None)]
+    [InlineData(true, UpdateAction.RequiredButFailed)]
+    public void InstalacaoQueFalhou_NaoTentaDeNovo(bool required, UpdateAction expected)
+    {
+        Assert.Equal(expected, UpdatePolicy.Decide(Update, required, autoUpdate: true, skipped: null, failed: new Version(0, 9, 0)));
+    }
+}

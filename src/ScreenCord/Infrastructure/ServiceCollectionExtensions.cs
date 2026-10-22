@@ -81,6 +81,8 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
         });
         services.AddSingleton<IAppUpdater, AppUpdater>();
+        services.AddSingleton<UpdateFlow>();
+        services.AddSingleton<IUpdateFlow>(sp => sp.GetRequiredService<UpdateFlow>());
 
         // Compartilhamento de tela: captura, encoder e canal de mídia; as janelas ficam na camada de interface.
         services.AddSingleton<IScreenShareService, ScreenShareService>();
@@ -90,7 +92,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => new FriendsViewModel(sp.GetRequiredService<IFriendsService>(), sp.GetRequiredService<ApiRealtime>().Inner));
         services.AddSingleton<GroupsViewModel>();
         services.AddSingleton(sp => new AboutViewModel(
-            sp.GetRequiredService<IApiHealthCheck>(), sp.GetRequiredService<ApiRealtime>().Inner, sp.GetService<IBrowserLauncher>()));
+            sp.GetRequiredService<IApiHealthCheck>(), sp.GetRequiredService<ApiRealtime>().Inner, sp.GetService<IBrowserLauncher>(), sp.GetService<IUpdateFlow>()));
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
 

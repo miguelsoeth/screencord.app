@@ -117,4 +117,48 @@ public class AboutViewModelTests
             await Task.Delay(10);
         }
     }
+
+    private sealed class FakeUpdateFlow(UpdateCheckResult result, bool enabled = true) : IUpdateFlow
+    {
+        public int Checks { get; private set; }
+
+        public bool IsEnabled => enabled;
+
+        public Task<UpdateCheckResult> CheckNowAsync()
+        {
+            Checks++;
+            return Task.FromResult(result);
+        }
+    }
+
+    [Fact]
+    public void ProcurarAtualizacoes_SoNoAppInstalado()
+    {
+        Assert.False(Create().CanCheckUpdates);
+        Assert.False(new AboutViewModel(new CentralApiHealthCheck(CreateApi()), _realtime, updates: new FakeUpdateFlow(UpdateCheckResult.NoUpdate, enabled: false)).CanCheckUpdates);
+        Assert.True(new AboutViewModel(new CentralApiHealthCheck(CreateApi()), _realtime, updates: new FakeUpdateFlow(UpdateCheckResult.NoUpdate)).CanCheckUpdates);
+    }
+
+    [Fact]
+    public async Task ProcurarAtualizacoes_SemVersaoNova_Avisa()
+    {
+        var updates = new FakeUpdateFlow(UpdateCheckResult.NoUpdate);
+        var about = new AboutViewModel(new CentralApiHealthCheck(CreateApi()), _realtime, updates: updates);
+        Assert.Equal(string.Empty, about.UpdateStatusText);
+
+        await about.CheckUpdatesCommand.ExecuteAsync();
+
+        Assert.Equal(1, updates.Checks);
+        Assert.Equal(Strings.NoUpdateFound, about.UpdateStatusText);
+    }
+
+    [Fact]
+    public async Task ProcurarAtualizacoes_PessoaRecusou_NaoMostraNada()
+    {
+        var about = new AboutViewModel(new CentralApiHealthCheck(CreateApi()), _realtime, updates: new FakeUpdateFlow(UpdateCheckResult.Declined));
+
+        await about.CheckUpdatesCommand.ExecuteAsync();
+
+        Assert.Equal(string.Empty, about.UpdateStatusText);
+    }
 }

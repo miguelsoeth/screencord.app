@@ -20,8 +20,6 @@ public partial class App : Application
     private TrayIcon? _tray;
     private SingleInstance? _instance;
     private ErrorReporter? _reporter;
-    private bool _updating;
-    private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -89,25 +87,18 @@ public partial class App : Application
         _host.Services.GetRequiredService<ILogger<App>>().LogInformation(
             "ScreenCord {Version} iniciado ({Environment}, {OS}).", AppVersion.Current, builder.Environment.EnvironmentName, Environment.OSVersion.VersionString);
 
-        // Sempre na versão mais recente: se houver uma nova, instala e reabre antes de mostrar a janela.
-        var updater = _host.Services.GetRequiredService<IAppUpdater>();
-        if (!mockup && updater.IsEnabled)
+        // Versão nova: instala sozinho ou pergunta (preferência "Atualizar automaticamente"). Opcional enquanto a API
+        // aceitar esta versão; quando não aceita mais, é atualizar ou sair.
+        var updates = _host.Services.GetRequiredService<UpdateFlow>();
+        updates.ExitRequested += (_, _) => ExitApp();
+        if (!mockup && updates.IsEnabled)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             // Reaberto depois de uma instalação que falhou: não tenta a mesma versão de novo agora, senão entra em loop.
             var failed = AppVersion.TryParse(builder.Configuration["UpdateFailed"], out var failedVersion) ? failedVersion : null;
-            if (await FindUpdateAsync(updater, TimeSpan.FromSeconds(5)) is { } update)
+            if (await updates.RunAtStartupAsync(failed))
             {
-                if (update.Version == failed)
-                {
-                    _host.Services.GetRequiredService<ILogger<App>>().LogWarning(
-                        "A instalação da versão {Version} falhou; seguindo na {Current}.", update.Version.ToString(3), AppVersion.Current);
-                }
-                else if (await InstallAsync(updater, update))
-                {
-                    Shutdown();
-                    return;
-                }
+                return;
             }
 
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -115,7 +106,7 @@ public partial class App : Application
 
         // A API deixou de aceitar esta versão com o app aberto (ela subiu a versão mínima).
         _host.Services.GetRequiredService<CentralApiClient>().ClientOutdated +=
-            (_, message) => Dispatcher.BeginInvoke(() => OnClientOutdated(updater, message));
+            (_, message) => Dispatcher.BeginInvoke(async () => await updates.OnClientOutdatedAsync(message, MainWindow));
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
@@ -148,69 +139,6 @@ public partial class App : Application
         _reporter?.Dispose();
         _instance?.Dispose();
         base.OnExit(e);
-    }
-
-    private async void OnClientOutdated(IAppUpdater updater, string message)
-    {
-        // Várias requisições recebem 426 ao mesmo tempo: uma tentativa por vez, e no máximo a cada 10 minutos.
-        var now = DateTimeOffset.UtcNow;
-        if (_updating || now - _lastOutdatedCheck < TimeSpan.FromMinutes(10))
-        {
-            return;
-        }
-
-        _updating = true;
-        _lastOutdatedCheck = now;
-        try
-        {
-            if (updater.IsEnabled && await FindUpdateAsync(updater, TimeSpan.FromSeconds(20)) is { } update && await InstallAsync(updater, update))
-            {
-                ExitApp();
-                return;
-            }
-
-            // Sem versão nova ainda (a release do app sai logo depois da API) ou sem acesso ao GitHub.
-            MessageBox.Show(MainWindow, message, "ScreenCord", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        finally
-        {
-            _updating = false;
-        }
-    }
-
-    private static async Task<AppUpdate?> FindUpdateAsync(IAppUpdater updater, TimeSpan timeout)
-    {
-        using var cancellation = new CancellationTokenSource(timeout);
-        try
-        {
-            return await updater.FindUpdateAsync(cancellation.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>Baixa e agenda a instalação mostrando o progresso; false se falhar (o app segue na versão atual).</summary>
-    private async Task<bool> InstallAsync(IAppUpdater updater, AppUpdate update)
-    {
-        var version = update.Version.ToString(3);
-        var window = new UpdateWindow();
-        window.SetStatus(string.Format(Loc.Culture, Strings.DownloadingVersionFormat, version), 0);
-        window.Show();
-        try
-        {
-            var progress = new Progress<double>(value => window.SetStatus(string.Format(Loc.Culture, Strings.DownloadingVersionFormat, version) + " " + value.ToString("P0", Loc.Culture), value));
-            await updater.DownloadAndScheduleInstallAsync(update, progress);
-            window.SetStatus(string.Format(Loc.Culture, Strings.InstallingVersionFormat, version));
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _host?.Services.GetService<ILogger<App>>()?.LogError(ex, "Falha ao atualizar para a versão {Version}.", version);
-            window.Close();
-            return false;
-        }
     }
 
     private static ErrorReporter? CreateErrorReporter(IConfiguration configuration, string environment)
