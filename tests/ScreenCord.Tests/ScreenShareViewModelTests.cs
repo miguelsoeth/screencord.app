@@ -37,34 +37,68 @@ public class ScreenShareViewModelTests
             shares));
 
     [Fact]
-    public void PeloServidor_Padrao720p30fpsComAudioAte2500kbps()
+    public void PeloServidor_Padrao720p30fpsComAudioAte3000kbps()
     {
         var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => []);
 
         var request = picker.BuildRequest()!;
 
         Assert.Equal(FakeScreenShareUi.Screen, request.Source);
-        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true, 2500), request.Settings);
+        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true, 3000), request.Settings);
         Assert.False(picker.IsDirect);
-        Assert.Equal("Qualidade automática, até 2,5 Mbps · pelo servidor", picker.BitrateText);
+        Assert.Equal("Qualidade automática, até 3 Mbps · pelo servidor", picker.BitrateText);
     }
 
     [Fact]
-    public void PeloServidor_AcimaDe720p30fpsApareceDesligado()
+    public void PeloServidor_720pA60fpsE1080pA30fps_1080pA60fpsApareceDesligado()
     {
         var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => []);
+        var fps60 = picker.FrameRates.Options.Single(o => o.Value == ShareFrameRate.Fps60);
 
         Assert.Equal(["540p", "720p", "1080p"], picker.Resolutions.Options.Select(o => o.Label));
+        Assert.All(picker.Resolutions.Options, o => Assert.True(o.IsAvailable));
+        Assert.True(fps60.IsAvailable);
+
+        picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P1080).IsSelected = true;
+
+        Assert.False(fps60.IsAvailable);
+        Assert.Equal("Só nas salas locais, com a mídia direto entre os computadores.", fps60.Detail);
+        fps60.IsSelected = true;
+        Assert.Equal(new ShareSettings(ShareResolution.P1080, ShareFrameRate.Fps30, true, 3000), picker.BuildRequest()!.Settings);
+
+        picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P720).IsSelected = true;
+        fps60.IsSelected = true;
+
+        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps60, true, 3000), picker.BuildRequest()!.Settings);
+    }
+
+    [Fact]
+    public void PeloServidor_ComLimitesMaisBaixosDaApi_AcimaApareceDesligado()
+    {
+        var limits = new StreamLimits(720, 30, 2500);
+        var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => [], limits: limits);
+
         Assert.Equal([true, true, false], picker.Resolutions.Options.Select(o => o.IsAvailable));
         var fullHd = picker.Resolutions.Options.Single(o => o.Value == ShareResolution.P1080);
-        Assert.Equal("Só nas salas locais, com a mídia direto entre os computadores.", fullHd.Detail);
         fullHd.IsSelected = true;
         Assert.False(fullHd.IsSelected);
 
         var fps60 = picker.FrameRates.Options.Single(o => o.Value == ShareFrameRate.Fps60);
         Assert.False(fps60.IsAvailable);
         fps60.IsSelected = true;
-        Assert.Equal(ShareSettings.Default, picker.BuildRequest()!.Settings);
+        Assert.Equal(ShareSettings.Default with { BitrateKbps = 2500 }, picker.BuildRequest()!.Settings);
+        Assert.False(picker.IsDirect);
+        Assert.Equal("Qualidade automática, até 2,5 Mbps · pelo servidor", picker.BitrateText);
+    }
+
+    [Fact]
+    public void PeloServidor_LimitesSemCombinacoes_DeUmaApiAntiga_ValemComoRetangulo()
+    {
+        var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => [], limits: new StreamLimits(1080, 60, 2500));
+
+        Assert.All(picker.Resolutions.Options, o => Assert.True(o.IsAvailable));
+        Assert.All(picker.FrameRates.Options, o => Assert.True(o.IsAvailable));
+        Assert.False(picker.IsDirect);
     }
 
     [Fact]
@@ -85,26 +119,28 @@ public class ScreenShareViewModelTests
     [InlineData(ShareResolution.P1080, ShareFrameRate.Fps30)]
     [InlineData(ShareResolution.P720, ShareFrameRate.Fps60)]
     [InlineData(ShareResolution.P540, ShareFrameRate.Fps60)]
-    public void PeloServidor_ConfiguracaoDeSalaLocal_VoltaAoPadrao(ShareResolution resolution, ShareFrameRate frameRate)
+    public void PeloServidor_ConfiguracaoForaDosLimites_VoltaAoPadrao(ShareResolution resolution, ShareFrameRate frameRate)
     {
-        var picker = new SharePickerViewModel(new ShareSettings(resolution, frameRate, true, 5000), () => [FakeScreenShareUi.Screen], () => []);
+        var limits = new StreamLimits(720, 30, 2500);
+        var picker = new SharePickerViewModel(new ShareSettings(resolution, frameRate, true, 5000), () => [FakeScreenShareUi.Screen], () => [], limits: limits);
 
-        Assert.Equal(ShareSettings.Default, picker.BuildRequest()!.Settings);
+        Assert.Equal(ShareSettings.DefaultFor(limits), picker.BuildRequest()!.Settings);
     }
 
     [Fact]
     public void PadraoDeCadaCaminho_MaiorResolucaoA30fps()
     {
-        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true, 2500), ShareSettings.DefaultFor(StreamLimits.Relay));
+        Assert.Equal(new ShareSettings(ShareResolution.P1080, ShareFrameRate.Fps30, true, 3000), ShareSettings.DefaultFor(StreamLimits.Relay));
         Assert.Equal(new ShareSettings(ShareResolution.P1080, ShareFrameRate.Fps30, true, 5000), ShareSettings.DefaultFor(StreamLimits.Direct));
+        Assert.Equal(new ShareSettings(ShareResolution.P720, ShareFrameRate.Fps30, true, 2500), ShareSettings.DefaultFor(new StreamLimits(720, 30, 2500)));
     }
 
     [Theory]
     [InlineData(ShareResolution.P540, ShareFrameRate.Fps30, true, true)]
-    [InlineData(ShareResolution.P540, ShareFrameRate.Fps60, false, true)]
+    [InlineData(ShareResolution.P540, ShareFrameRate.Fps60, true, true)]
     [InlineData(ShareResolution.P720, ShareFrameRate.Fps30, true, true)]
-    [InlineData(ShareResolution.P720, ShareFrameRate.Fps60, false, true)]
-    [InlineData(ShareResolution.P1080, ShareFrameRate.Fps30, false, true)]
+    [InlineData(ShareResolution.P720, ShareFrameRate.Fps60, true, true)]
+    [InlineData(ShareResolution.P1080, ShareFrameRate.Fps30, true, true)]
     [InlineData(ShareResolution.P1080, ShareFrameRate.Fps60, false, true)]
     public void Combinacoes_IguaisAosLimitesDeCadaCaminho(ShareResolution resolution, ShareFrameRate frameRate, bool relay, bool direct)
     {
@@ -118,13 +154,33 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
-    public void Limites_PeloServidorAte2500kbps_DiretoAte5000()
+    public void Limites_PeloServidorAte3000kbps_DiretoAte5000()
     {
-        Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(1280, 720, 30, 2500, true)));
-        Assert.False(ScreenShareLimits.IsValid(new ScreenShareStart(1280, 720, 30, 2600, true)));
-        Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(960, 540, 30, 2500, true))); // janela pequena em 720p
+        Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(1280, 720, 30, 3000, true)));
+        Assert.False(ScreenShareLimits.IsValid(new ScreenShareStart(1280, 720, 30, 3100, true)));
+        Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(1920, 1080, 30, 3000, true)));
+        Assert.False(ScreenShareLimits.IsValid(new ScreenShareStart(1920, 1080, 60, 3000, true)));
+        Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(960, 540, 30, 3000, true))); // janela pequena em 720p
         Assert.True(ScreenShareLimits.IsValid(new ScreenShareStart(1920, 1080, 60, 5000, true), StreamLimits.Direct));
         Assert.False(ScreenShareLimits.IsValid(new ScreenShareStart(1920, 1080, 60, 6000, true), StreamLimits.Direct));
+    }
+
+    [Fact]
+    public void LimitesDaApi_NoJson_ComECombinacoes_OuNoFormatoAntigo()
+    {
+        var web = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+
+        var current = System.Text.Json.JsonSerializer.Deserialize<ServerLimitsDto>(
+            """{"relay":{"maxHeight":1080,"maxFrameRate":60,"maxBitrateKbps":3000,"profiles":[{"height":720,"frameRate":60},{"height":1080,"frameRate":30}]}}""", web)!;
+        var legacy = System.Text.Json.JsonSerializer.Deserialize<ServerLimitsDto>(
+            """{"relay":{"maxHeight":720,"maxFrameRate":30,"maxBitrateKbps":2500}}""", web)!;
+
+        Assert.Equal(StreamLimits.Relay, current.Relay);
+        Assert.True(current.Relay.IsSane);
+        Assert.False(current.Relay.AllowsQuality(1080, 60));
+        Assert.Null(legacy.Relay.Profiles);
+        Assert.Equal(new StreamLimits(720, 30, 2500), legacy.Relay);
+        Assert.True(legacy.Relay.IsSane);
     }
 
     [Fact]
@@ -173,11 +229,11 @@ public class ScreenShareViewModelTests
         await vm.StartShareCommand.ExecuteAsync();
 
         Assert.Equal(ShareSettings.Default, _ui.Picks[0]);
-        Assert.Equal([$"start:{group.Id}:540p60:2500"], _share.Calls);
+        Assert.Equal([$"start:{group.Id}:540p60:3000"], _share.Calls);
         Assert.True(vm.IsSharing);
         Assert.False(vm.CanStartShare);
         Assert.Equal("Tela 1 (principal)", vm.ShareSourceText);
-        Assert.Equal("960 × 540 · 60 fps · 2500 kbps · com áudio", vm.ShareDetailText);
+        Assert.Equal("960 × 540 · 60 fps · 3000 kbps · com áudio", vm.ShareDetailText);
 
         await vm.StopShareCommand.ExecuteAsync();
 
@@ -247,11 +303,11 @@ public class ScreenShareViewModelTests
         // A escolha abre com a configuração e a origem atuais.
         Assert.Equal(ShareSettings.Default, _ui.Picks[1]);
         Assert.Equal(FakeScreenShareUi.Screen, _ui.PickCurrents[1]);
-        Assert.Equal($"change:{group.Id}:540p60:2500", _share.Calls[1]);
+        Assert.Equal($"change:{group.Id}:540p60:3000", _share.Calls[1]);
         Assert.True(first.IsReplaced);
         Assert.True(vm.IsSharing);
         Assert.Null(vm.ShareMessage);
-        Assert.Equal("960 × 540 · 60 fps · 2500 kbps · com áudio", vm.ShareDetailText);
+        Assert.Equal("960 × 540 · 60 fps · 3000 kbps · com áudio", vm.ShareDetailText);
 
         // O novo é o compartilhamento da vez: parar encerra ele.
         await vm.StopShareCommand.ExecuteAsync();

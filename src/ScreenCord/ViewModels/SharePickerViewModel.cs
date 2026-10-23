@@ -7,8 +7,9 @@ namespace ScreenCord.ViewModels;
 
 /// <summary>
 /// Janela "Compartilhar tela": escolha entre uma tela ou uma janela, resolução, fps e áudio.
-/// As opções fora do caminho da mídia aparecem desligadas: pelo servidor até 720p a 30 fps; nas salas locais
-/// (direto entre os computadores) até 1080p a 60 fps. A taxa de bits é automática, até o teto do caminho.
+/// As opções fora do caminho da mídia aparecem desligadas: pelo servidor valem os limites da API (padrão 720p a
+/// 60 fps ou 1080p a 30 fps); nas salas locais (direto entre os computadores) até 1080p a 60 fps. A taxa de bits é
+/// automática, até o teto do caminho.
 /// </summary>
 public sealed class SharePickerViewModel : ObservableObject
 {
@@ -29,7 +30,8 @@ public sealed class SharePickerViewModel : ObservableObject
         StreamLimits? limits = null)
     {
         _limits = limits ?? StreamLimits.Relay;
-        IsDirect = _limits.MaxHeight > StreamLimits.Relay.MaxHeight || _limits.MaxFrameRate > StreamLimits.Relay.MaxFrameRate;
+        // Os limites do servidor mudam no painel da API e podem ser tão altos quanto os das salas locais: só estes são "direto".
+        IsDirect = ReferenceEquals(_limits, StreamLimits.Direct);
         _screens = screens ?? CaptureSources.Screens;
         _windows = windows ?? CaptureSources.Windows;
         _shareAudio = initial.ShareAudio;
@@ -70,7 +72,7 @@ public sealed class SharePickerViewModel : ObservableObject
     /// <summary>A mídia vai direto entre os computadores (sala local), sem passar pelo servidor.</summary>
     public bool IsDirect { get; }
 
-    /// <summary>"Qualidade automática, até 2,5 Mbps · pelo servidor".</summary>
+    /// <summary>"Qualidade automática, até 3 Mbps · pelo servidor".</summary>
     public string BitrateText =>
         string.Format(
             Loc.Culture,

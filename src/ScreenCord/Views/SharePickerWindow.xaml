@@ -158,7 +158,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Pelo servidor até 720p a 30 fps; nas salas locais até 1080p a 60 fps. A taxa de bits é automática. -->
+            <!-- Pelo servidor valem os limites da API (padrão 720p a 60 fps ou 1080p a 30 fps); nas salas locais até 1080p a 60 fps. A taxa de bits é automática. -->
             <StackPanel Margin="0,0,24,0">
                 <TextBlock Text="{l:Tr ResolutionHeader}" Style="{StaticResource FieldLabel}" />
                 <ItemsControl ItemsSource="{Binding Resolutions.Options}" Focusable="False">
