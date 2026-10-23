@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using ScreenCord.Infrastructure;
@@ -19,13 +20,20 @@ public partial class MainWindow : Window
     /// <summary>Espaço entre o cabeçalho e a tela.</summary>
     private const double StageGap = 12;
 
+    /// <summary>Linha entre duas telas mostradas juntas.</summary>
+    private const double PlayerGap = 2;
+
     private readonly MainViewModel _viewModel;
-    private StreamViewerViewModel? _watching;
-    private Action? _watchingClosed;
+    private readonly StreamSlot[] _slots;
+    private long _streamCounter;
+
+    /// <summary>Com duas telas, uma embaixo da outra (em vez de lado a lado), quando o vídeo fica maior assim.</summary>
+    private bool _stacked;
 
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        _slots = [new StreamSlot(Player), new StreamSlot(Player2)];
         _viewModel = viewModel;
         DataContext = viewModel;
 
@@ -100,7 +108,11 @@ public partial class MainWindow : Window
         if (HidesOnClose)
         {
             e.Cancel = true;
-            Player.ExitFullScreen();
+            foreach (var slot in _slots)
+            {
+                slot.Player.ExitFullScreen();
+            }
+
             Hide();
         }
 
@@ -121,9 +133,12 @@ public partial class MainWindow : Window
 
     private void UpdateVideoPaused()
     {
-        if (_watching is { } viewer)
+        foreach (var slot in _slots)
         {
-            viewer.IsVideoPaused = IsOutOfSight;
+            if (slot.Viewer is { } viewer)
+            {
+                viewer.IsVideoPaused = IsOutOfSight;
+            }
         }
     }
 
@@ -271,8 +286,9 @@ public partial class MainWindow : Window
     private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
 
     /// <summary>
-    /// Dimensiona a tela no maior 16:9 que cabe ao lado da lateral e abaixo do cabeçalho. O bloco todo fica
-    /// centralizado na janela, e a lateral de grupos tem a mesma altura que ele.
+    /// Dimensiona a área das telas no maior bloco que cabe ao lado da lateral e abaixo do cabeçalho: uma tela é 16:9;
+    /// duas ficam lado a lado ou uma embaixo da outra, o que deixar o vídeo maior. O bloco todo fica centralizado
+    /// na janela, e a lateral de grupos tem a mesma altura que ele.
     /// </summary>
     private void UpdateStageSize()
     {
@@ -282,54 +298,130 @@ public partial class MainWindow : Window
         var height = RootGrid.ActualHeight - margin.Top - margin.Bottom - above - StageGap;
         if (width <= 0 || height <= 0)
         {
+            ApplyPlayerLayout();
             return;
         }
 
-        var stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
+        double stageWidth;
+        double stageHeight;
+        if (_slots.Count(s => s.Viewer is not null) < 2)
+        {
+            stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
+            stageHeight = Math.Floor(stageWidth * 9 / 16);
+        }
+        else
+        {
+            // Largura de cada vídeo nas duas disposições; vence a que a deixa maior.
+            var sideBySide = Math.Min((width - PlayerGap) / 2, height * 16 / 9);
+            var stacked = Math.Min(width, (height - PlayerGap) / 2 * 16 / 9);
+            _stacked = stacked > sideBySide;
+            var video = Math.Floor(Math.Max(sideBySide, stacked));
+            var videoHeight = Math.Floor(video * 9 / 16);
+            stageWidth = _stacked ? video : video * 2 + PlayerGap;
+            stageHeight = _stacked ? videoHeight * 2 + PlayerGap : videoHeight;
+        }
+
         StageColumn.Width = new GridLength(stageWidth);
-        StageRow.Height = new GridLength(Math.Floor(stageWidth * 9 / 16) + StageGap);
+        StageRow.Height = new GridLength(stageHeight + StageGap);
+        ApplyPlayerLayout();
+    }
+
+    /// <summary>Uma tela ocupa a área toda; duas dividem-na, com <see cref="PlayerGap"/> entre elas.</summary>
+    private void ApplyPlayerLayout()
+    {
+        var both = _slots.All(s => s.Viewer is not null);
+        for (var i = 0; i < _slots.Length; i++)
+        {
+            var player = _slots[i].Player;
+            if (!both)
+            {
+                Grid.SetRow(player, 0);
+                Grid.SetRowSpan(player, 2);
+                Grid.SetColumn(player, 0);
+                Grid.SetColumnSpan(player, 2);
+                player.Margin = new Thickness(0);
+            }
+            else if (_stacked)
+            {
+                Grid.SetRow(player, i);
+                Grid.SetRowSpan(player, 1);
+                Grid.SetColumn(player, 0);
+                Grid.SetColumnSpan(player, 2);
+                player.Margin = i == 0 ? new Thickness(0, 0, 0, PlayerGap / 2) : new Thickness(0, PlayerGap / 2, 0, 0);
+            }
+            else
+            {
+                Grid.SetRow(player, 0);
+                Grid.SetRowSpan(player, 2);
+                Grid.SetColumn(player, i);
+                Grid.SetColumnSpan(player, 1);
+                player.Margin = i == 0 ? new Thickness(0, 0, PlayerGap / 2, 0) : new Thickness(PlayerGap / 2, 0, 0, 0);
+            }
+        }
     }
 
     /// <summary>
-    /// Mostra a tela de alguém na área principal. A que estava aberta antes é fechada (e <paramref name="closed"/>
-    /// dela, chamado). <paramref name="closed"/> desta é chamado quando ela sai da tela.
+    /// Mostra a tela de alguém na área principal, ao lado da que já estava aberta (cabem duas). Com as duas ocupadas,
+    /// a mais antiga é fechada (e o <c>closed</c> dela, chamado). <paramref name="closed"/> desta é chamado quando
+    /// ela sai da tela.
     /// </summary>
     public void ShowStream(StreamViewerViewModel viewer, Action closed)
     {
-        CloseStream();
-        _watching = viewer;
-        _watchingClosed = closed;
+        var slot = _slots.FirstOrDefault(s => s.Viewer is null) ?? _slots.MinBy(s => s.Order)!;
+        CloseStream(slot);
+        slot.Viewer = viewer;
+        slot.Closed = closed;
+        slot.Order = ++_streamCounter;
         viewer.CloseRequested += OnStreamCloseRequested;
         viewer.IsVideoPaused = IsOutOfSight;
-        Player.DataContext = viewer;
+        slot.Player.DataContext = viewer;
+        UpdateStageSize();
         Motion.Hide(NoStreamPanel, MotionKind.Reveal);
-        Motion.Show(Player, MotionKind.Fade);
+        Motion.Show(slot.Player, MotionKind.Fade);
     }
 
     private void OnStreamCloseRequested(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() =>
     {
-        if (sender == _watching)
+        if (_slots.FirstOrDefault(s => s.Viewer == sender) is { } slot)
         {
-            CloseStream();
+            CloseStream(slot);
         }
     });
 
-    private void CloseStream()
+    private void CloseStream(StreamSlot slot)
     {
-        if (_watching is not { } viewer)
+        if (slot.Viewer is not { } viewer)
         {
             return;
         }
 
-        var closed = _watchingClosed;
+        var closed = slot.Closed;
         viewer.CloseRequested -= OnStreamCloseRequested;
-        _watching = null;
-        _watchingClosed = null;
-        Player.ExitFullScreen();
-        Player.DataContext = null;
-        Player.Visibility = Visibility.Collapsed;
-        Motion.Show(NoStreamPanel, MotionKind.Reveal);
+        slot.Viewer = null;
+        slot.Closed = null;
+        slot.Player.ExitFullScreen();
+        slot.Player.DataContext = null;
+        slot.Player.Visibility = Visibility.Collapsed;
+        UpdateStageSize();
+        if (_slots.All(s => s.Viewer is null))
+        {
+            Motion.Show(NoStreamPanel, MotionKind.Reveal);
+        }
+
         closed?.Invoke();
+    }
+
+    /// <summary>Uma das duas posições onde uma tela pode ser mostrada.</summary>
+    private sealed class StreamSlot(StreamPlayer player)
+    {
+        public StreamPlayer Player { get; } = player;
+
+        public StreamViewerViewModel? Viewer { get; set; }
+
+        public Action? Closed { get; set; }
+
+        /// <summary>Quando a tela foi aberta (maior = mais recente); a menor sai quando falta lugar.</summary>
+        public long Order { get; set; }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

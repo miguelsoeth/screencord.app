@@ -7,7 +7,7 @@ namespace ScreenCord.Views;
 
 /// <summary>
 /// Liga o compartilhamento de tela à interface: a escolha do que compartilhar abre numa janela; a tela de
-/// quem você assiste aparece na área principal da janela principal, uma de cada vez.
+/// quem você assiste aparece na área principal da janela principal, até duas ao mesmo tempo.
 /// </summary>
 public sealed class ScreenShareUi : IScreenShareUi
 {

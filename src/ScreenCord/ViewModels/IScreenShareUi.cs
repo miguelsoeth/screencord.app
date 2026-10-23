@@ -14,8 +14,8 @@ public interface IScreenShareUi
     ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null);
 
     /// <summary>
-    /// Mostra a tela de alguém (no lugar da que estava aberta, se houver). <paramref name="closed"/> é chamado
-    /// quando ela deixa de ser mostrada.
+    /// Mostra a tela de alguém, ao lado da que já estava aberta (cabem duas; com as duas ocupadas, a mais antiga
+    /// sai). <paramref name="closed"/> é chamado quando ela deixa de ser mostrada.
     /// </summary>
     void ShowViewer(StreamViewerViewModel viewer, Action closed);
 

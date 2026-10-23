@@ -409,6 +409,29 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
+    public async Task Assistir_DuasTelasDaMesmaSala_AbreAsDuas()
+    {
+        var carla = FakeFriendsService.Create("carla", "Carla", RelationshipStatus.Friend);
+        var (vm, group) = await InRoomAsync();
+        _realtime.RaisePresence(new GroupPresenceDto(
+            group.Id,
+            [FakeGroupsService.ToDto(FakeGroupsService.Me), FakeGroupsService.ToDto(_bruno), FakeGroupsService.ToDto(carla)],
+            200,
+            [ShareOf(_bruno), ShareOf(carla)]));
+
+        await group.WatchCommand.ExecuteAsync(_bruno);
+        await group.WatchCommand.ExecuteAsync(carla);
+
+        Assert.Equal([_bruno.UserId, carla.UserId], _ui.Open.Select(v => v.SharerId));
+        Assert.All(_ui.Open, v => Assert.Equal(StreamViewerState.Live, v.State));
+
+        // Fechar uma não mexe na outra.
+        _ui.Open[0].RequestClose();
+        Assert.Equal(carla.UserId, Assert.Single(_ui.Open).SharerId);
+        Assert.Equal(carla.UserId, Assert.Single(vm.Viewers).SharerId);
+    }
+
+    [Fact]
     public async Task Assistir_PropriaTela_NaoFazNada()
     {
         var (vm, group) = await InRoomAsync();
