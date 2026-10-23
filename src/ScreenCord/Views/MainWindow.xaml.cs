@@ -20,20 +20,25 @@ public partial class MainWindow : Window
     /// <summary>Espaço entre o cabeçalho e a tela.</summary>
     private const double StageGap = 12;
 
-    /// <summary>Linha entre duas telas mostradas juntas.</summary>
+    /// <summary>Linha entre telas mostradas juntas.</summary>
     private const double PlayerGap = 2;
 
     private readonly MainViewModel _viewModel;
     private readonly StreamSlot[] _slots;
     private long _streamCounter;
 
-    /// <summary>Com duas telas, uma embaixo da outra (em vez de lado a lado), quando o vídeo fica maior assim.</summary>
-    private bool _stacked;
+    /// <summary>Colunas da grade quando há mais de uma tela; as linhas vêm do número de telas.</summary>
+    private int _columns = 1;
 
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
-        _slots = [new StreamSlot(Player), new StreamSlot(Player2)];
+        _slots = [.. PlayerHost.Children.OfType<StreamPlayer>().Select(player => new StreamSlot(player))];
+        foreach (var slot in _slots)
+        {
+            slot.Player.FullScreenChanged += (_, _) => UpdateVideoPaused();
+        }
+
         _viewModel = viewModel;
         DataContext = viewModel;
 
@@ -133,11 +138,13 @@ public partial class MainWindow : Window
 
     private void UpdateVideoPaused()
     {
+        // Com uma tela em tela cheia, as outras ficam cobertas: só o áudio delas continua, poupando a banda.
+        var covered = _slots.Any(s => s.Player.HasFullScreenWindow);
         foreach (var slot in _slots)
         {
             if (slot.Viewer is { } viewer)
             {
-                viewer.IsVideoPaused = IsOutOfSight;
+                viewer.IsVideoPaused = IsOutOfSight || (covered && !slot.Player.HasFullScreenWindow);
             }
         }
     }
@@ -286,9 +293,10 @@ public partial class MainWindow : Window
     private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
 
     /// <summary>
-    /// Dimensiona a área das telas no maior bloco que cabe ao lado da lateral e abaixo do cabeçalho: uma tela é 16:9;
-    /// duas ficam lado a lado ou uma embaixo da outra, o que deixar o vídeo maior. O bloco todo fica centralizado
-    /// na janela, e a lateral de grupos tem a mesma altura que ele.
+    /// Dimensiona a área das telas no maior bloco que cabe ao lado da lateral e abaixo do cabeçalho. Uma tela é
+    /// 16:9; com mais, o vídeo de cada uma é 16:9 numa grade cujo número de colunas é o que deixar o vídeo maior
+    /// (duas telas lado a lado ou empilhadas, quatro em 2 × 2). O bloco todo fica centralizado na janela, e a
+    /// lateral de grupos tem a mesma altura que ele.
     /// </summary>
     private void UpdateStageSize()
     {
@@ -302,68 +310,73 @@ public partial class MainWindow : Window
             return;
         }
 
-        double stageWidth;
-        double stageHeight;
-        if (_slots.Count(s => s.Viewer is not null) < 2)
+        var count = Math.Max(1, _slots.Count(s => s.Viewer is not null));
+        var bestVideo = 0.0;
+        for (var columns = 1; columns <= count; columns++)
         {
-            stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
-            stageHeight = Math.Floor(stageWidth * 9 / 16);
-        }
-        else
-        {
-            // Largura de cada vídeo nas duas disposições; vence a que a deixa maior.
-            var sideBySide = Math.Min((width - PlayerGap) / 2, height * 16 / 9);
-            var stacked = Math.Min(width, (height - PlayerGap) / 2 * 16 / 9);
-            _stacked = stacked > sideBySide;
-            var video = Math.Floor(Math.Max(sideBySide, stacked));
-            var videoHeight = Math.Floor(video * 9 / 16);
-            stageWidth = _stacked ? video : video * 2 + PlayerGap;
-            stageHeight = _stacked ? videoHeight * 2 + PlayerGap : videoHeight;
+            var rows = (count + columns - 1) / columns;
+            var video = Math.Min((width - PlayerGap * (columns - 1)) / columns, (height - PlayerGap * (rows - 1)) / rows * 16 / 9);
+            if (video > bestVideo)
+            {
+                bestVideo = video;
+                _columns = columns;
+            }
         }
 
-        StageColumn.Width = new GridLength(stageWidth);
-        StageRow.Height = new GridLength(stageHeight + StageGap);
+        var videoWidth = Math.Floor(bestVideo);
+        var videoHeight = Math.Floor(videoWidth * 9 / 16);
+        var gridRows = (count + _columns - 1) / _columns;
+        StageColumn.Width = new GridLength(videoWidth * _columns + PlayerGap * (_columns - 1));
+        StageRow.Height = new GridLength(videoHeight * gridRows + PlayerGap * (gridRows - 1) + StageGap);
         ApplyPlayerLayout();
     }
 
-    /// <summary>Uma tela ocupa a área toda; duas dividem-na, com <see cref="PlayerGap"/> entre elas.</summary>
+    /// <summary>
+    /// Distribui as telas abertas pela grade, da mais antiga para a mais nova, com <see cref="PlayerGap"/> entre
+    /// elas. Se sobra lugar na última linha, a última tela ocupa o resto.
+    /// </summary>
     private void ApplyPlayerLayout()
     {
-        var both = _slots.All(s => s.Viewer is not null);
-        for (var i = 0; i < _slots.Length; i++)
+        var open = _slots.Where(s => s.Viewer is not null).OrderBy(s => s.Order).ToList();
+        var columns = Math.Max(1, open.Count < 2 ? 1 : _columns);
+        var rows = Math.Max(1, (open.Count + columns - 1) / columns);
+        if (PlayerHost.ColumnDefinitions.Count != columns || PlayerHost.RowDefinitions.Count != rows)
         {
-            var player = _slots[i].Player;
-            if (!both)
+            PlayerHost.ColumnDefinitions.Clear();
+            PlayerHost.RowDefinitions.Clear();
+            for (var i = 0; i < columns; i++)
             {
-                Grid.SetRow(player, 0);
-                Grid.SetRowSpan(player, 2);
-                Grid.SetColumn(player, 0);
-                Grid.SetColumnSpan(player, 2);
-                player.Margin = new Thickness(0);
+                PlayerHost.ColumnDefinitions.Add(new ColumnDefinition());
             }
-            else if (_stacked)
+
+            for (var i = 0; i < rows; i++)
             {
-                Grid.SetRow(player, i);
-                Grid.SetRowSpan(player, 1);
-                Grid.SetColumn(player, 0);
-                Grid.SetColumnSpan(player, 2);
-                player.Margin = i == 0 ? new Thickness(0, 0, 0, PlayerGap / 2) : new Thickness(0, PlayerGap / 2, 0, 0);
+                PlayerHost.RowDefinitions.Add(new RowDefinition());
             }
-            else
-            {
-                Grid.SetRow(player, 0);
-                Grid.SetRowSpan(player, 2);
-                Grid.SetColumn(player, i);
-                Grid.SetColumnSpan(player, 1);
-                player.Margin = i == 0 ? new Thickness(0, 0, PlayerGap / 2, 0) : new Thickness(PlayerGap / 2, 0, 0, 0);
-            }
+        }
+
+        for (var index = 0; index < open.Count; index++)
+        {
+            var player = open[index].Player;
+            var row = index / columns;
+            var column = index % columns;
+            var span = index == open.Count - 1 ? columns - column : 1;
+            Grid.SetRow(player, row);
+            Grid.SetRowSpan(player, 1);
+            Grid.SetColumn(player, column);
+            Grid.SetColumnSpan(player, span);
+            player.Margin = new Thickness(
+                column > 0 ? PlayerGap / 2 : 0,
+                row > 0 ? PlayerGap / 2 : 0,
+                column + span < columns ? PlayerGap / 2 : 0,
+                row < rows - 1 ? PlayerGap / 2 : 0);
         }
     }
 
     /// <summary>
-    /// Mostra a tela de alguém na área principal, ao lado da que já estava aberta (cabem duas). Com as duas ocupadas,
-    /// a mais antiga é fechada (e o <c>closed</c> dela, chamado). <paramref name="closed"/> desta é chamado quando
-    /// ela sai da tela.
+    /// Mostra a tela de alguém na área principal, junto das que já estavam abertas (cabem quatro). Com todos os
+    /// lugares ocupados, a mais antiga é fechada (e o <c>closed</c> dela, chamado). <paramref name="closed"/> desta é
+    /// chamado quando ela sai da tela.
     /// </summary>
     public void ShowStream(StreamViewerViewModel viewer, Action closed)
     {
@@ -373,7 +386,7 @@ public partial class MainWindow : Window
         slot.Closed = closed;
         slot.Order = ++_streamCounter;
         viewer.CloseRequested += OnStreamCloseRequested;
-        viewer.IsVideoPaused = IsOutOfSight;
+        UpdateVideoPaused();
         slot.Player.DataContext = viewer;
         UpdateStageSize();
         Motion.Hide(NoStreamPanel, MotionKind.Reveal);
@@ -411,7 +424,7 @@ public partial class MainWindow : Window
         closed?.Invoke();
     }
 
-    /// <summary>Uma das duas posições onde uma tela pode ser mostrada.</summary>
+    /// <summary>Uma das posições onde uma tela pode ser mostrada.</summary>
     private sealed class StreamSlot(StreamPlayer player)
     {
         public StreamPlayer Player { get; } = player;

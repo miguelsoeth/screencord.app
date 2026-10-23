@@ -54,7 +54,7 @@
                         <TextBlock Text="{l:Tr Live}" FontSize="10" FontWeight="Bold" Foreground="White" />
                     </Border>
                     <TextBlock Text="{Binding Sharer.DisplayName}" FontSize="13" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding QualityText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="QualityLabel" Text="{Binding QualityText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <StackPanel Orientation="Horizontal" Visibility="{Binding HasAudio, Converter={StaticResource BoolToVisibility}}">

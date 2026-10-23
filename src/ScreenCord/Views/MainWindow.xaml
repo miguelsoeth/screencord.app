@@ -319,18 +319,12 @@
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,6,0,0"
                                        Text="{l:Tr NoScreenHint}" />
                         </StackPanel>
-                        <!-- Até duas telas ao mesmo tempo; o fundo aparece como a linha entre elas (veja ApplyPlayerLayout). -->
+                        <!-- Até quatro telas ao mesmo tempo, numa grade montada em ApplyPlayerLayout; o fundo aparece como a linha entre elas. -->
                         <Grid x:Name="PlayerHost" Background="{StaticResource BorderBrush}">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <views:StreamPlayer x:Name="Player" Visibility="Collapsed" />
-                            <views:StreamPlayer x:Name="Player2" Visibility="Collapsed" />
+                            <views:StreamPlayer Visibility="Collapsed" />
+                            <views:StreamPlayer Visibility="Collapsed" />
+                            <views:StreamPlayer Visibility="Collapsed" />
+                            <views:StreamPlayer Visibility="Collapsed" />
                         </Grid>
                     </Grid>
                 </Border>

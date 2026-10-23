@@ -25,7 +25,7 @@ O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com 
 ## Destaques
 
 - **Tela inteira ou uma janela**, com o som junto, e a resolução e os quadros que você escolher.
-- **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia, ou a duas telas ao mesmo tempo (uma ao lado da outra ou empilhadas, conforme o espaço da janela).
+- **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia, ou a até quatro telas ao mesmo tempo, numa grade que se ajusta ao espaço da janela (volume, mudo e tela cheia por transmissão; ao abrir a quinta, a mais antiga fecha). Se a conexão com o servidor cai, as telas fecham; com uma tela em tela cheia, o vídeo das outras pausa para poupar banda.
 - **Salas locais, sem servidor**: na mesma rede (LAN, Hamachi, Radmin ou Tailscale), a tela vai direto entre os computadores, até **1080p a 60 fps**. Dá para usar até **sem conta**, só com um nome.
 - **Atualiza sozinho**: ao abrir, o app instala a versão nova. Em Configurações → Atualizações dá para desligar e escolher na hora (atualizar, agora não ou pular a versão); só uma versão que o servidor não aceita mais precisa ser instalada para continuar.
 - **Português, inglês e espanhol**, com troca na hora.

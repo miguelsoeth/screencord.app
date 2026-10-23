@@ -27,6 +27,9 @@ public partial class StreamPlayer : UserControl
 {
     private static readonly TimeSpan ControlsHideDelay = TimeSpan.FromSeconds(3);
 
+    /// <summary>Abaixo desta largura a barra de controles esconde a qualidade do vídeo.</summary>
+    private const double NarrowWidth = 520;
+
     private readonly Lock _frameLock = new();
     private readonly DispatcherTimer _hideControls;
     private StreamViewerViewModel? _viewer;
@@ -69,6 +72,9 @@ public partial class StreamPlayer : UserControl
         // O Slider já trata (e marca como tratado) o clique que move o volume até o ponto; por isso o handledEventsToo.
         VolumeSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnVolumeMouseDown), handledEventsToo: true);
 
+        // Com várias telas lado a lado o player fica estreito: a qualidade sai da barra para sobrar lugar aos botões.
+        SizeChanged += (_, e) => QualityLabel.Visibility = e.NewSize.Width < NarrowWidth ? Visibility.Collapsed : Visibility.Visible;
+
         _hideControls = new DispatcherTimer { Interval = ControlsHideDelay };
         _hideControls.Tick += (_, _) => HideControls();
 
@@ -97,6 +103,12 @@ public partial class StreamPlayer : UserControl
 
     /// <summary>Esta instância é a da janela de tela cheia.</summary>
     public bool IsFullScreen { get; }
+
+    /// <summary>A tela cheia aberta a partir deste player está na tela.</summary>
+    public bool HasFullScreenWindow => _fullScreenWindow is not null;
+
+    /// <summary>A tela cheia abriu ou fechou (<see cref="HasFullScreenWindow"/> mudou).</summary>
+    public event EventHandler? FullScreenChanged;
 
     /// <summary>Fecha a tela cheia aberta a partir deste player, se houver.</summary>
     public void ExitFullScreen()
@@ -150,9 +162,11 @@ public partial class StreamPlayer : UserControl
         window.Closed += (_, _) =>
         {
             _fullScreenWindow = null;
+            FullScreenChanged?.Invoke(this, EventArgs.Empty);
             owner?.Activate();
         };
         _fullScreenWindow = window;
+        FullScreenChanged?.Invoke(this, EventArgs.Empty);
         window.Show();
     }
 

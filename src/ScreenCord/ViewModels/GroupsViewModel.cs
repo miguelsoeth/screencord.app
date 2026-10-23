@@ -744,7 +744,9 @@ public sealed class GroupsViewModel : ObservableObject
         RealtimeState = state;
         if (state != RealtimeState.Connected)
         {
-            // A conexão caiu: o servidor já encerrou o compartilhamento junto com ela.
+            // A conexão caiu: o servidor já encerrou o compartilhamento junto com ela, e as telas abertas fecham.
+            // (Numa sala local o estado segue "conectado", então a queda da API não as atinge.)
+            CloseViewers(null);
             if (IsSharing)
             {
                 await EndShareAsync(Strings.ShareStoppedServerLost);
