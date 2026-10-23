@@ -432,6 +432,26 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
+    public async Task ConexaoCai_FechaTodasAsTelasAbertas()
+    {
+        var carla = FakeFriendsService.Create("carla", "Carla", RelationshipStatus.Friend);
+        var (vm, group) = await InRoomAsync();
+        _realtime.RaisePresence(new GroupPresenceDto(
+            group.Id,
+            [FakeGroupsService.ToDto(FakeGroupsService.Me), FakeGroupsService.ToDto(_bruno), FakeGroupsService.ToDto(carla)],
+            200,
+            [ShareOf(_bruno), ShareOf(carla)]));
+        await group.WatchCommand.ExecuteAsync(_bruno);
+        await group.WatchCommand.ExecuteAsync(carla);
+        Assert.Equal(2, _ui.Open.Count);
+
+        _realtime.SetState(RealtimeState.Reconnecting);
+
+        Assert.Empty(_ui.Open);
+        Assert.Empty(vm.Viewers);
+    }
+
+    [Fact]
     public async Task Assistir_PropriaTela_NaoFazNada()
     {
         var (vm, group) = await InRoomAsync();
