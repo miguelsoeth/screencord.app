@@ -103,7 +103,7 @@ Versões antigas não são apagadas: são arquivadas com `release-status.ps1`, q
 - Portas fixas TCP 47830 e UDP 47831 (`LocalNetwork`): a regra do firewall depende delas. Não mude sem atualizar a regra (`FirewallRule`) e o README.
 - O servidor das salas é um `TcpListener` com WebSocket próprio (`LocalServer`), de propósito: o `HttpListener` exigiria administrador para escutar fora do localhost.
 - O protocolo da sala tem versão (`LocalMessage.CurrentProtocol`). Mudança incompatível no formato: suba a versão (salas de versões diferentes recusam a entrada com aviso para atualizar).
-- Qualidade: pelo servidor vale `StreamLimits.Relay` (a API informa em `GET /limits`); nas salas locais, `StreamLimits.Direct`.
+- Qualidade: pelo servidor valem os limites que a API informa em `GET /limits` (`StreamLimits.Relay` é só o padrão e o que vale sem resposta); quem administra a API ajusta no painel `/admin`, sem lançar versão. Eles têm `Profiles` (combinações de resolução e fps; uma maior cobre as menores) e um teto de taxa de bits; nas salas locais, `StreamLimits.Direct`. Não deduza "direto" dos números (o servidor pode liberar tanto quanto a sala local): o `SharePickerViewModel` compara com a instância `StreamLimits.Direct`.
 
 ## Cuidados
 

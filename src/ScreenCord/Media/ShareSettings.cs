@@ -17,7 +17,8 @@ public enum ShareFrameRate
 
 /// <summary>
 /// Configuração do compartilhamento de tela. O que dá para escolher depende do caminho da mídia
-/// (<see cref="StreamLimits"/>): pelo servidor, até 720p a 30 fps; nas salas locais, até 1080p a 60 fps. A taxa de
+/// (<see cref="StreamLimits"/>): pelo servidor, o que a API informar (padrão 720p a 60 fps ou 1080p a 30 fps); nas
+/// salas locais, até 1080p a 60 fps. A taxa de
 /// bits não é escolhida: começa no teto do caminho e o <see cref="BitrateController"/> a adapta à rede.
 /// </summary>
 /// <param name="BitrateKbps">Taxa com que o compartilhamento começa e que é anunciada na sala: o teto do caminho.</param>
