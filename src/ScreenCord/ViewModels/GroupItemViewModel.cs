@@ -21,6 +21,8 @@ public sealed class GroupItemViewModel : ObservableObject
     private bool _isConfirmingLeave;
     private bool _isConfirmingDelete;
     private bool _canDelete;
+    private bool _canEditSettings;
+    private GroupSettings _settings = GroupSettings.Default;
     private bool _isExpanded = true;
     private string? _membersError;
 
@@ -31,6 +33,7 @@ public sealed class GroupItemViewModel : ObservableObject
         _name = group.Name;
         _memberCount = group.MemberCount;
         ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares);
+        _settings = group.Settings ?? GroupSettings.Default;
 
         WatchCommand = new AsyncRelayCommand<Person>(person => _owner.WatchAsync(this, person));
         AddMemberCommand = new AsyncRelayCommand<Person>(person => _owner.AddMemberAsync(this, person));
@@ -236,6 +239,64 @@ public sealed class GroupItemViewModel : ObservableObject
     {
         get => _canDelete;
         set => SetProperty(ref _canDelete, value);
+    }
+
+    /// <summary>O que o grupo aceita transmitir na sala.</summary>
+    public GroupSettings Settings => _settings;
+
+    /// <summary>Quem criou o grupo (ou hospeda a sala local) pode mudar o que ele aceita (vem com os integrantes).</summary>
+    public bool CanEditSettings
+    {
+        get => _canEditSettings;
+        set => SetProperty(ref _canEditSettings, value);
+    }
+
+    /// <summary>O grupo aceita ao menos um tipo de transmissão.</summary>
+    public bool AllowsSharing => _settings.AllowScreenShare || _settings.AllowCamera;
+
+    /// <summary>Marcar ou desmarcar muda a configuração do grupo (só para quem pode: <see cref="CanEditSettings"/>).</summary>
+    public bool AllowScreenShare
+    {
+        get => _settings.AllowScreenShare;
+        set => ChangeSettings(_settings with { AllowScreenShare = value });
+    }
+
+    public bool AllowCamera
+    {
+        get => _settings.AllowCamera;
+        set => ChangeSettings(_settings with { AllowCamera = value });
+    }
+
+    /// <summary>Aplica as configurações que vieram do servidor (ou da sala local); retorna se mudaram algo.</summary>
+    public bool ApplySettings(GroupSettings settings)
+    {
+        if (_settings == settings)
+        {
+            return false;
+        }
+
+        _settings = settings;
+        OnPropertyChanged(nameof(Settings));
+        OnPropertyChanged(nameof(AllowsSharing));
+        RefreshSettings();
+        return true;
+    }
+
+    /// <summary>Refaz as caixas de marcar com o que vale (ex.: a mudança pedida não foi aceita).</summary>
+    public void RefreshSettings()
+    {
+        OnPropertyChanged(nameof(AllowScreenShare));
+        OnPropertyChanged(nameof(AllowCamera));
+    }
+
+    private void ChangeSettings(GroupSettings settings)
+    {
+        if (!CanEditSettings || settings == _settings)
+        {
+            return;
+        }
+
+        _ = _owner.UpdateSettingsAsync(this, settings);
     }
 
     public bool IsConfirmingDelete

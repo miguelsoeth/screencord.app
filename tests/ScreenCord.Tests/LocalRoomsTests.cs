@@ -361,6 +361,106 @@ public sealed class LocalRoomsTests : IAsyncLifetime
 
         Assert.Equal(StreamLimits.Relay, Assert.Single(ui.PickLimits));
     }
+
+    // --- o que a sala aceita transmitir (tela e câmera)
+
+    [Fact]
+    public async Task Configuracao_PadraoAceitaTelaECamera_ECameraChegaAQuemAssiste()
+    {
+        var (ana, bruno, roomId) = await RoomWithTwoAsync();
+        var anaSawShare = new TaskCompletionSource<GroupPresenceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ana.PresenceChanged += p =>
+        {
+            if (p.ScreenShares is { Count: 1 })
+            {
+                anaSawShare.TrySetResult(p);
+            }
+        };
+
+        var share = await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera));
+
+        Assert.Equal(ShareKind.Camera, share.Kind);
+        Assert.Equal(ShareKind.Camera, Assert.Single((await WaitAsync(anaSawShare)).ScreenShares!).Kind);
+        Assert.Equal(GroupSettings.Default, ana.Details(roomId).Settings);
+        Assert.True(ana.Details(roomId).CanEdit);
+        Assert.False(bruno.Details(roomId).CanEdit);
+    }
+
+    [Fact]
+    public async Task Configuracao_SalaSemCamera_RecusaACameraDeQuemEntrou()
+    {
+        var (ana, bruno, roomId) = await RoomWithTwoAsync();
+        var seen = new TaskCompletionSource<GroupDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bruno.RoomChanged += room =>
+        {
+            if (room.Id == roomId && room.Settings is { AllowCamera: false })
+            {
+                seen.TrySetResult(room);
+            }
+        };
+
+        await ana.UpdateSettingsAsync(roomId, new GroupSettings(AllowScreenShare: true, AllowCamera: false));
+        await WaitAsync(seen);
+
+        var error = await Assert.ThrowsAsync<LocalNetworkException>(
+            () => bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera)));
+        Assert.Contains("câmera", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false)));
+    }
+
+    [Fact]
+    public async Task Configuracao_DesligarOTipoEmUso_EncerraATransmissaoDeQuemEntrou()
+    {
+        var (ana, bruno, roomId) = await RoomWithTwoAsync();
+        var anaSawShare = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var anaSawEnd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ana.PresenceChanged += p =>
+        {
+            if (p.ScreenShares is { Count: 1 })
+            {
+                anaSawShare.TrySetResult();
+            }
+            else if (anaSawShare.Task.IsCompleted && p.ScreenShares is not { Count: > 0 })
+            {
+                anaSawEnd.TrySetResult();
+            }
+        };
+        await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera));
+        var publisher = bruno.OpenPublisher();
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        publisher.Closed += _ => closed.TrySetResult();
+        await anaSawShare.Task.WaitAsync(Timeout);
+
+        await ana.UpdateSettingsAsync(roomId, new GroupSettings(AllowScreenShare: true, AllowCamera: false));
+
+        await anaSawEnd.Task.WaitAsync(Timeout);
+        // O computador do Bruno também para de capturar: o canal de mídia dele fecha.
+        await closed.Task.WaitAsync(Timeout);
+    }
+
+    [Fact]
+    public async Task Configuracao_DesligarOTipoEmUso_EncerraATransmissaoDeQuemHospeda()
+    {
+        var (ana, _, roomId) = await RoomWithTwoAsync();
+        await ana.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera));
+        var publisher = ana.OpenPublisher();
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        publisher.Closed += _ => closed.TrySetResult();
+
+        await ana.UpdateSettingsAsync(roomId, new GroupSettings(AllowScreenShare: true, AllowCamera: false));
+
+        await closed.Task.WaitAsync(Timeout);
+        Assert.Empty(ana.Rooms.Single(r => r.Id == roomId).ScreenShares ?? []);
+    }
+
+    [Fact]
+    public async Task Configuracao_SoQuemHospedaMuda()
+    {
+        var (_, bruno, roomId) = await RoomWithTwoAsync();
+
+        await Assert.ThrowsAsync<LocalNetworkException>(
+            () => bruno.UpdateSettingsAsync(roomId, new GroupSettings(false, false)));
+    }
 }
 
 /// <summary>Usar sem conta: só o nome, direto para as salas locais, sem Discord nem API.</summary>

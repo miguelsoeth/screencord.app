@@ -9,15 +9,29 @@ public enum CaptureSourceKind
 {
     Screen,
     Window,
+    Camera,
 }
 
-/// <summary>Tela (monitor) ou janela que pode ser compartilhada. <see cref="Detail"/> é o programa dono da janela.</summary>
-public sealed record CaptureSource(CaptureSourceKind Kind, IntPtr Handle, string Title, string Detail, int Width, int Height, uint ProcessId)
+/// <summary>
+/// Tela (monitor), janela ou câmera que pode ser transmitida. <see cref="Detail"/> é o programa dono da janela.
+/// Câmeras não têm tamanho até serem abertas (<see cref="Width"/> e <see cref="Height"/> ficam em 0) e se identificam por
+/// <see cref="DeviceId"/>, o link simbólico do dispositivo, em vez de <see cref="Handle"/>.
+/// </summary>
+public sealed record CaptureSource(CaptureSourceKind Kind, IntPtr Handle, string Title, string Detail, int Width, int Height, uint ProcessId, string? DeviceId = null)
 {
     public bool IsScreen => Kind == CaptureSourceKind.Screen;
 
-    /// <summary>Linha de baixo na lista: "1920 × 1080" ou "chrome · 1936 × 1048".</summary>
-    public string Subtitle => string.IsNullOrEmpty(Detail) ? $"{Width} × {Height}" : $"{Detail} · {Width} × {Height}";
+    public bool IsCamera => Kind == CaptureSourceKind.Camera;
+
+    /// <summary>O que o aplicativo transmite desta origem na sala.</summary>
+    public Contracts.ShareKind ShareKind => IsCamera ? Contracts.ShareKind.Camera : Contracts.ShareKind.Screen;
+
+    /// <summary>Mesma tela, janela ou câmera (a lista é refeita e os objetos mudam, mas a identidade não).</summary>
+    public bool IsSameSource(CaptureSource? other) =>
+        other is not null && other.Kind == Kind && (IsCamera ? other.DeviceId == DeviceId : other.Handle == Handle);
+
+    /// <summary>Linha de baixo na lista: "1920 × 1080" ou "chrome · 1936 × 1048"; vazia nas câmeras.</summary>
+    public string Subtitle => IsCamera ? "" : string.IsNullOrEmpty(Detail) ? $"{Width} × {Height}" : $"{Detail} · {Width} × {Height}";
 }
 
 /// <summary>Lista as telas e as janelas visíveis que o Windows permite capturar.</summary>
@@ -121,8 +135,24 @@ public static class CaptureSources
         return windows;
     }
 
+    /// <summary>Câmeras conectadas e disponíveis para o Windows. Lista vazia se o sistema não permitir o acesso.</summary>
+    public static IReadOnlyList<CaptureSource> Cameras()
+    {
+        try
+        {
+            return CameraCapture.Enumerate()
+                .Select(c => new CaptureSource(CaptureSourceKind.Camera, IntPtr.Zero, c.Name, "", 0, 0, 0, c.SymbolicLink))
+                .ToList();
+        }
+        catch (Exception ex) when (ex is COMException or InvalidOperationException or SharpGen.Runtime.SharpGenException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>A tela, a janela ou a câmera ainda existe. A câmera só se descobre ao abrir: a lista é refeita ao escolher.</summary>
     public static bool IsAlive(CaptureSource source) =>
-        source.Kind == CaptureSourceKind.Screen || Native.IsWindow(source.Handle);
+        source.Kind is CaptureSourceKind.Screen or CaptureSourceKind.Camera || Native.IsWindow(source.Handle);
 
     private static string ProcessName(uint processId)
     {

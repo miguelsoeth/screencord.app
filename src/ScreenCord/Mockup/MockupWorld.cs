@@ -26,6 +26,8 @@ public sealed class MockupWorld
 
         public Dictionary<Guid, ScreenShareDto> Shares { get; } = [];
 
+        public GroupSettings Settings { get; set; } = GroupSettings.Default;
+
         public long Version { get; set; } = 1;
     }
 
@@ -100,7 +102,7 @@ public sealed class MockupWorld
         new(user.Id, user.DiscordId, user.Username, user.GlobalName, "0", null);
 
     public GroupDto ToGroupDto(Group group) =>
-        new(group.Id, group.Name, group.Members.Count, group.Connected.Select(id => ToPresenceDto(GetUser(id))).ToList(), group.Version, group.Shares.Values.ToList());
+        new(group.Id, group.Name, group.Members.Count, group.Connected.Select(id => ToPresenceDto(GetUser(id))).ToList(), group.Version, group.Shares.Values.ToList(), group.Settings);
 
     public GroupPresenceDto ToPresence(Group group) =>
         new(group.Id, group.Connected.Select(id => ToPresenceDto(GetUser(id))).ToList(), group.Version, group.Shares.Values.ToList());

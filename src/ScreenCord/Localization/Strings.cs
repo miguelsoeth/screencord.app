@@ -216,7 +216,7 @@ public static class Strings
     public static string HostIp => T("IP de quem hospeda a sala", "IP of the room's host", "IP de quien aloja la sala");
 
     // Compartilhamento (lateral)
-    public static string ShareScreen => T("Compartilhar tela", "Share screen", "Compartir pantalla");
+    public static string ShareScreen => T("Compartilhar tela ou câmera", "Share screen or camera", "Compartir pantalla o cámara");
     public static string LeaveRoom => T("Sair da sala", "Leave room", "Salir de la sala");
     public static string ChangeSettings => T("Alterar configurações", "Change settings", "Cambiar configuración");
     public static string ChangeShareSettings => T("Alterar configurações do compartilhamento", "Change sharing settings", "Cambiar la configuración de la transmisión");
@@ -286,6 +286,26 @@ public static class Strings
         "Quienes están mirando siguen viendo, ya con la nueva configuración.");
     public static string ScreenKind => T("Tela", "Screen", "Pantalla");
     public static string WindowKind => T("Janela", "Window", "Ventana");
+    public static string CameraKind => T("Câmera", "Camera", "Cámara");
+    public static string ShareACamera => T("Transmitir a câmera", "Share a camera", "Transmitir la cámara");
+    public static string NoCamerasFound => T(
+        "Nenhuma câmera encontrada. Conecte uma e veja se o Windows permite o acesso das apps à câmera (Configurações → Privacidade → Câmera).",
+        "No camera found. Plug one in and check that Windows lets apps use the camera (Settings → Privacy → Camera).",
+        "No se encontró ninguna cámara. Conecta una y revisa que Windows permita a las aplicaciones usar la cámara (Configuración → Privacidad → Cámara).");
+    public static string SharedCameraDisconnected => T("A câmera foi desconectada ou parou de enviar imagem.", "The camera was disconnected or stopped sending video.", "La cámara se desconectó o dejó de enviar imagen.");
+    public static string ViewerCameraTitleFormat => T("Câmera de {0} · {1}", "{0}'s camera · {1}", "Cámara de {0} · {1}");
+
+    // Configuração do grupo (o que ele aceita transmitir)
+    public static string GroupAllowsHeader => T("O GRUPO ACEITA", "THE GROUP ALLOWS", "EL GRUPO ACEPTA");
+    public static string AllowScreenShareOption => T("Compartilhamento de tela", "Screen sharing", "Transmisión de pantalla");
+    public static string AllowCameraOption => T("Câmera (webcam)", "Camera (webcam)", "Cámara (webcam)");
+    public static string GroupSharingOff => T(
+        "Este grupo não aceita transmitir tela nem câmera. Quem o criou pode mudar isso nos integrantes.",
+        "This group doesn't allow sharing the screen or a camera. Whoever created it can change that in the members list.",
+        "Este grupo no acepta transmitir pantalla ni cámara. Quien lo creó puede cambiarlo en la lista de integrantes.");
+    public static string GroupNoScreenShare => T("Este grupo não aceita compartilhar a tela.", "This group doesn't allow screen sharing.", "Este grupo no acepta transmitir la pantalla.");
+    public static string GroupNoCamera => T("Este grupo não aceita câmera.", "This group doesn't allow cameras.", "Este grupo no acepta cámaras.");
+    public static string OnlyHostChangesRoom => T("Só quem hospeda a sala pode mudar as configurações dela.", "Only the room's host can change its settings.", "Solo quien aloja la sala puede cambiar su configuración.");
     public static string ShareAScreen => T("Compartilhar uma tela", "Share a screen", "Compartir una pantalla");
     public static string ShareAWindow => T("Compartilhar uma janela", "Share a window", "Compartir una ventana");
     public static string RefreshList => T("Atualizar lista", "Refresh list", "Actualizar lista");

@@ -15,6 +15,7 @@ public sealed class SharePickerViewModel : ObservableObject
 {
     private readonly Func<IReadOnlyList<CaptureSource>> _screens;
     private readonly Func<IReadOnlyList<CaptureSource>> _windows;
+    private readonly Func<IReadOnlyList<CaptureSource>> _cameras;
     private CaptureSourceKind _kind = CaptureSourceKind.Screen;
     private CaptureSource? _selectedSource;
     private bool _shareAudio;
@@ -22,20 +23,32 @@ public sealed class SharePickerViewModel : ObservableObject
 
     /// <param name="current">Origem do compartilhamento em andamento, quando a escolha é para trocar as configurações dele.</param>
     /// <param name="limits">Limites do caminho da mídia; sem eles, os do servidor.</param>
+    /// <param name="allowed">O que o grupo aceita transmitir; só as abas desses tipos aparecem. Sem isso, tudo.</param>
     public SharePickerViewModel(
         ShareSettings initial,
         Func<IReadOnlyList<CaptureSource>>? screens = null,
         Func<IReadOnlyList<CaptureSource>>? windows = null,
         CaptureSource? current = null,
-        StreamLimits? limits = null)
+        StreamLimits? limits = null,
+        GroupSettings? allowed = null,
+        Func<IReadOnlyList<CaptureSource>>? cameras = null)
     {
+        Allowed = allowed ?? GroupSettings.Default;
         _limits = limits ?? StreamLimits.Relay;
         // Os limites do servidor mudam no painel da API e podem ser tão altos quanto os das salas locais: só estes são "direto".
         IsDirect = ReferenceEquals(_limits, StreamLimits.Direct);
         _screens = screens ?? CaptureSources.Screens;
         _windows = windows ?? CaptureSources.Windows;
+        _cameras = cameras ?? CaptureSources.Cameras;
         _shareAudio = initial.ShareAudio;
         IsChange = current is not null;
+
+        // Abre no primeiro tipo que o grupo aceita.
+        if (!Allowed.AllowScreenShare && Allowed.AllowCamera)
+        {
+            _kind = CaptureSourceKind.Camera;
+        }
+
         if (current is not null)
         {
             // Abre na aba e com a origem que já está sendo compartilhada (o Refresh mantém a escolha).
@@ -61,6 +74,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
         ShowScreensCommand = new RelayCommand(() => Kind = CaptureSourceKind.Screen);
         ShowWindowsCommand = new RelayCommand(() => Kind = CaptureSourceKind.Window);
+        ShowCamerasCommand = new RelayCommand(() => Kind = CaptureSourceKind.Camera);
         RefreshCommand = new RelayCommand(Refresh);
         Refresh();
     }
@@ -94,7 +108,16 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public RelayCommand ShowWindowsCommand { get; }
 
+    public RelayCommand ShowCamerasCommand { get; }
+
     public RelayCommand RefreshCommand { get; }
+
+    /// <summary>O que o grupo aceita transmitir: as abas de tela e janela dependem de <see cref="GroupSettings.AllowScreenShare"/>; a de câmera, de <see cref="GroupSettings.AllowCamera"/>.</summary>
+    public GroupSettings Allowed { get; }
+
+    public bool AllowsScreens => Allowed.AllowScreenShare;
+
+    public bool AllowsCameras => Allowed.AllowCamera;
 
     public CaptureSourceKind Kind
     {
@@ -105,10 +128,27 @@ public sealed class SharePickerViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsScreenKind));
                 OnPropertyChanged(nameof(IsWindowKind));
+                OnPropertyChanged(nameof(IsCameraKind));
+                OnPropertyChanged(nameof(ShowAudioOption));
                 Refresh();
             }
         }
     }
+
+    public bool IsCameraKind
+    {
+        get => Kind == CaptureSourceKind.Camera;
+        set
+        {
+            if (value)
+            {
+                Kind = CaptureSourceKind.Camera;
+            }
+        }
+    }
+
+    /// <summary>A câmera não leva áudio (o som capturado é o do programa ou do computador, não o microfone).</summary>
+    public bool ShowAudioOption => Kind != CaptureSourceKind.Camera;
 
     public bool IsScreenKind
     {
@@ -148,7 +188,12 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public bool HasNoSources => Sources.Count == 0;
 
-    public string EmptyText => Kind == CaptureSourceKind.Screen ? Strings.NoScreensFound : Strings.NoWindowsToShare;
+    public string EmptyText => Kind switch
+    {
+        CaptureSourceKind.Screen => Strings.NoScreensFound,
+        CaptureSourceKind.Camera => Strings.NoCamerasFound,
+        _ => Strings.NoWindowsToShare,
+    };
 
     public bool CanShare => SelectedSource is not null;
 
@@ -165,7 +210,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public ShareRequest? BuildRequest() =>
         SelectedSource is { } source
-            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, ShareAudio, _limits.MaxBitrateKbps))
+            ? new ShareRequest(source, new ShareSettings(Resolutions.Selected, FrameRates.Selected, ShareAudio && !source.IsCamera, _limits.MaxBitrateKbps))
             : null;
 
     /// <summary>Liga só os fps permitidos na resolução escolhida; se o marcado deixou de valer, volta a 30 fps.</summary>
@@ -190,7 +235,12 @@ public sealed class SharePickerViewModel : ObservableObject
         IReadOnlyList<CaptureSource> sources;
         try
         {
-            sources = Kind == CaptureSourceKind.Screen ? _screens() : _windows();
+            sources = Kind switch
+            {
+                CaptureSourceKind.Screen => _screens(),
+                CaptureSourceKind.Camera => _cameras(),
+                _ => _windows(),
+            };
         }
         catch (Exception)
         {
@@ -203,9 +253,9 @@ public sealed class SharePickerViewModel : ObservableObject
             Sources.Add(source);
         }
 
-        // Mantém a escolha ao atualizar; na troca de aba, a primeira tela (a principal) já vem marcada.
-        SelectedSource = Sources.FirstOrDefault(s => previous is not null && s.Kind == previous.Kind && s.Handle == previous.Handle)
-            ?? (Kind == CaptureSourceKind.Screen ? Sources.FirstOrDefault() : null);
+        // Mantém a escolha ao atualizar; na troca de aba, a primeira tela (a principal) ou câmera já vem marcada.
+        SelectedSource = Sources.FirstOrDefault(s => s.IsSameSource(previous))
+            ?? (Kind != CaptureSourceKind.Window ? Sources.FirstOrDefault() : null);
         OnPropertyChanged(nameof(HasNoSources));
         OnPropertyChanged(nameof(EmptyText));
     }

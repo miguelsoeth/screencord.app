@@ -49,31 +49,37 @@ public sealed record LocalShare(
     Guid MediaId,
     IReadOnlyList<string> Endpoints,
     string Key,
-    string Fingerprint)
+    string Fingerprint,
+    ShareKind Kind = ShareKind.Screen)
 {
-    public ScreenShareDto ToDto() => new(UserId, Width, Height, FrameRate, BitrateKbps, HasAudio);
+    public ScreenShareDto ToDto() => new(UserId, Width, Height, FrameRate, BitrateKbps, HasAudio, Kind);
 
     public bool IsValid =>
         UserId != Guid.Empty && MediaId != Guid.Empty && Key is { Length: >= 16 and <= 128 } &&
         LocalCertificate.IsValidFingerprint(Fingerprint) &&
         Endpoints is { Count: > 0 and <= 16 } &&
-        ScreenShareLimits.IsValid(new ScreenShareStart(Width, Height, FrameRate, BitrateKbps, HasAudio), StreamLimits.Direct);
+        Enum.IsDefined(Kind) &&
+        ScreenShareLimits.IsValid(new ScreenShareStart(Width, Height, FrameRate, BitrateKbps, HasAudio, Kind), StreamLimits.Direct);
 }
 
-/// <summary>Estado de uma sala local, enviado pelo anfitrião a todos a cada mudança.</summary>
+/// <summary>
+/// Estado de uma sala local, enviado pelo anfitrião a todos a cada mudança. <paramref name="Settings"/> é o que a sala
+/// aceita transmitir; ausente (anfitrião de uma versão anterior) vale tudo liberado.
+/// </summary>
 public sealed record LocalRoomState(
     Guid Id,
     string Name,
     Guid HostId,
     long Version,
     IReadOnlyList<LocalMember> Members,
-    IReadOnlyList<LocalShare> Shares)
+    IReadOnlyList<LocalShare> Shares,
+    GroupSettings? Settings = null)
 {
     public GroupPresenceDto ToPresence() =>
         new(Id, Members.Select(m => m.ToPresence()).ToList(), Version, Shares.Select(s => s.ToDto()).ToList());
 
     public GroupDto ToGroup() =>
-        new(Id, Name, Members.Count, Members.Select(m => m.ToPresence()).ToList(), Version, Shares.Select(s => s.ToDto()).ToList());
+        new(Id, Name, Members.Count, Members.Select(m => m.ToPresence()).ToList(), Version, Shares.Select(s => s.ToDto()).ToList(), Settings);
 }
 
 /// <summary>

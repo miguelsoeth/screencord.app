@@ -59,7 +59,8 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 
     public Guid SharerId => Sharer.UserId;
 
-    public string Title => string.Format(Loc.Culture, Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
+    public string Title => string.Format(
+        Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerCameraTitleFormat : Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
 
     public RelayCommand ToggleMuteCommand { get; }
 

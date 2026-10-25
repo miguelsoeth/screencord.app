@@ -213,7 +213,10 @@ public sealed class GroupsViewModel : ObservableObject
         }
     }
 
-    public bool CanStartShare => IsInGroup && !IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
+    public bool CanStartShare => IsInGroup && !IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected && CurrentGroup?.AllowsSharing != false;
+
+    /// <summary>O grupo atual não aceita nem tela nem câmera (o dono desligou as duas): o botão de compartilhar fica desligado.</summary>
+    public bool ShowSharingDisabled => IsInGroup && CurrentGroup?.AllowsSharing == false;
 
     /// <summary>O que está sendo compartilhado: "Tela 1 (principal)" ou o título da janela.</summary>
     public string? ShareSourceText => _activeShare?.Request.Source.Title;
@@ -443,6 +446,8 @@ public sealed class GroupsViewModel : ObservableObject
             group.Name = details.Name;
             group.MemberCount = details.Members.Count;
             group.CanDelete = details.CanDelete;
+            group.CanEditSettings = details.CanEdit;
+            ApplySettings(group, details.Settings ?? GroupSettings.Default);
             group.SetMembers(details.Members);
 
             // Vale a presença mais nova: a dos detalhes, ou a que já chegou pelo hub enquanto eles eram buscados.
@@ -862,6 +867,7 @@ public sealed class GroupsViewModel : ObservableObject
 
         item.Name = group.Name;
         item.MemberCount = group.MemberCount;
+        ApplySettings(item, group.Settings ?? GroupSettings.Default);
         RefreshLocal(item);
         if (item.ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares))
         {
@@ -869,6 +875,35 @@ public sealed class GroupsViewModel : ObservableObject
         }
 
         return item;
+    }
+
+    private void ApplySettings(GroupItemViewModel group, GroupSettings settings)
+    {
+        if (group.ApplySettings(settings) && CurrentGroup == group)
+        {
+            OnShareStateChanged();
+        }
+    }
+
+    /// <summary>
+    /// Dono do grupo (ou anfitrião da sala local) mudou o que ele aceita. As transmissões de um tipo desligado terminam
+    /// na hora; se a falha for do servidor, a caixa volta ao que valia.
+    /// </summary>
+    internal async Task UpdateSettingsAsync(GroupItemViewModel group, GroupSettings settings)
+    {
+        group.MembersError = null;
+        try
+        {
+            var applied = group.IsLocal && _localRooms is not null
+                ? await _localRooms.UpdateSettingsAsync(group.Id, settings)
+                : await _groupsService.UpdateSettingsAsync(group.Id, settings);
+            ApplySettings(group, applied);
+        }
+        catch (Exception ex)
+        {
+            group.MembersError = ErrorMessages.For(ex);
+            group.RefreshSettings(); // desfaz a marca que o clique pôs na caixa
+        }
     }
 
     /// <summary>Sala local: marca a linha e atualiza os endereços para entrar pelo IP.</summary>
@@ -959,7 +994,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(_lastShareSettings, LimitsFor(group.Id));
+        var request = _shareUi.PickShare(_lastShareSettings, LimitsFor(group.Id), allowed: group.Settings);
         if (request is null || CurrentGroup != group)
         {
             return;
@@ -1004,7 +1039,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(current.Request.Settings, LimitsFor(group.Id), current.Request.Source);
+        var request = _shareUi.PickShare(current.Request.Settings, LimitsFor(group.Id), current.Request.Source, group.Settings);
         if (request is null || _activeShare != current)
         {
             return;
@@ -1105,6 +1140,7 @@ public sealed class GroupsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsSharing));
         OnPropertyChanged(nameof(CanStartShare));
+        OnPropertyChanged(nameof(ShowSharingDisabled));
         OnPropertyChanged(nameof(ShareSourceText));
         OnPropertyChanged(nameof(ShareDetailText));
         StartShareCommand?.NotifyCanExecuteChanged();

@@ -515,6 +515,15 @@
                                                     <ItemsControl ItemsSource="{Binding Members}" ItemTemplate="{StaticResource GroupMemberTemplate}" />
                                                 </ScrollViewer>
 
+                                                <!-- O que o grupo aceita transmitir: só quem criou o grupo (ou hospeda a sala) muda; os outros veem. -->
+                                                <TextBlock Text="{l:Tr GroupAllowsHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,4" />
+                                                <CheckBox IsChecked="{Binding AllowScreenShare}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowScreenShareOption}" Foreground="{StaticResource TextBrush}"
+                                                          FontSize="12" Margin="0,2" Cursor="Hand" />
+                                                <CheckBox IsChecked="{Binding AllowCamera}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowCameraOption}" Foreground="{StaticResource TextBrush}"
+                                                          FontSize="12" Margin="0,2" Cursor="Hand" />
+
                                                 <!-- Convidar (abre a janela de amigos), sair do grupo e excluir o grupo (só quem criou), à direita -->
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                                                     <Button Content="{l:Tr Invite}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
@@ -788,6 +797,8 @@
                             <TextBlock Text="{Binding ShareMessage}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8"
                                        Foreground="{StaticResource DangerBrush}"
                                        views:Motion.IsShown="{Binding HasShareMessage}" views:Motion.Kind="SlideUp" />
+                            <TextBlock Text="{l:Tr GroupSharingOff}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap"
+                                       views:Motion.IsShown="{Binding ShowSharingDisabled}" views:Motion.Kind="Reveal" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

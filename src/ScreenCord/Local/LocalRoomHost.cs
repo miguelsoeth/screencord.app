@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
+using ScreenCord.Contracts;
 
 namespace ScreenCord.Local;
 
@@ -20,6 +21,7 @@ public sealed class LocalRoomHost
     private readonly Dictionary<Guid, LocalShare> _shares = [];
     private readonly Dictionary<Guid, Connection> _connections = [];
     private readonly ILogger _logger;
+    private GroupSettings _settings = GroupSettings.Default;
     private long _version;
     private bool _closed;
 
@@ -49,6 +51,44 @@ public sealed class LocalRoomHost
         }
     }
 
+    /// <summary>O que a sala aceita transmitir (tela e câmera).</summary>
+    public GroupSettings Settings
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _settings;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Muda o que a sala aceita. As transmissões de um tipo desligado saem do estado na hora; retorna se a de quem
+    /// hospeda foi uma delas (o aplicativo dele precisa parar a captura).
+    /// </summary>
+    public bool UpdateSettings(GroupSettings settings)
+    {
+        bool hostShareRemoved;
+        lock (_lock)
+        {
+            if (_closed)
+            {
+                return false;
+            }
+
+            _settings = settings;
+            hostShareRemoved = _shares.TryGetValue(HostId, out var own) && !settings.Allows(own.Kind);
+            foreach (var disallowed in _shares.Where(s => !settings.Allows(s.Value.Kind)).Select(s => s.Key).ToList())
+            {
+                _shares.Remove(disallowed);
+            }
+        }
+
+        Broadcast();
+        return hostShareRemoved;
+    }
+
     /// <summary>Compartilhamento de quem hospeda (null para encerrar).</summary>
     public void SetHostShare(LocalShare? share)
     {
@@ -63,7 +103,7 @@ public sealed class LocalRoomHost
             {
                 _shares.Remove(HostId);
             }
-            else
+            else if (_settings.Allows(share.Kind))
             {
                 _shares[HostId] = share with { UserId = HostId };
             }
@@ -139,12 +179,21 @@ public sealed class LocalRoomHost
             {
                 if (message.Type == LocalMessage.ShareStart && message.Share is { } share && (share with { UserId = member.Id }).IsValid)
                 {
+                    bool accepted;
                     lock (_lock)
                     {
-                        _shares[member.Id] = share with { UserId = member.Id };
+                        // A sala decide se aceita tela e câmera; quem não respeita a configuração fica sem anúncio.
+                        accepted = _settings.Allows(share.Kind);
+                        if (accepted)
+                        {
+                            _shares[member.Id] = share with { UserId = member.Id };
+                        }
                     }
 
-                    Broadcast();
+                    if (accepted)
+                    {
+                        Broadcast();
+                    }
                 }
                 else if (message.Type == LocalMessage.ShareStop)
                 {
@@ -215,7 +264,7 @@ public sealed class LocalRoomHost
     }
 
     private LocalRoomState SnapshotLocked() =>
-        new(Id, Name, HostId, _version, [.. _members], [.. _shares.Values]);
+        new(Id, Name, HostId, _version, [.. _members], [.. _shares.Values], _settings);
 
     private void Broadcast()
     {
