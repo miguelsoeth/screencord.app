@@ -30,8 +30,13 @@ public partial class MainWindow : Window
     /// <summary>Colunas da grade quando há mais de uma tela; as linhas vêm do número de telas.</summary>
     private int _columns = 1;
 
-    /// <summary>Largura do vídeo de cada tela na grade (a altura é 9/16 dela).</summary>
+    /// <summary>Tamanho do bloco das telas (o de uma tela só, 16:9) e largura do vídeo de cada tela na grade.</summary>
+    private double _stageWidth;
+    private double _stageHeight;
     private double _videoWidth;
+
+    /// <summary>A última disposição foi a da transmissão fixada (a grade normal precisa de linhas e colunas novas).</summary>
+    private bool _wasPinned;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -314,8 +319,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
-        var stageHeight = Math.Floor(stageWidth * 9 / 16);
+        var stageWidth = _stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
+        var stageHeight = _stageHeight = Math.Floor(stageWidth * 9 / 16);
         StageColumn.Width = new GridLength(stageWidth);
         StageRow.Height = new GridLength(stageHeight + StageGap);
 
@@ -343,6 +348,24 @@ public partial class MainWindow : Window
     private void ApplyPlayerLayout()
     {
         var open = _slots.Where(s => s.Viewer is not null).OrderBy(s => s.Order).ToList();
+
+        // Fixar só faz sentido com mais de uma transmissão; sobrando uma, ela volta ao normal.
+        foreach (var slot in open)
+        {
+            slot.Viewer!.CanPin = open.Count > 1;
+            if (open.Count < 2)
+            {
+                slot.Viewer.IsPinned = false;
+            }
+        }
+
+        if (open.FirstOrDefault(s => s.Viewer!.IsPinned) is { } pinned)
+        {
+            ApplyPinnedLayout(pinned, [.. open.Where(s => s != pinned)]);
+            return;
+        }
+
+        PlayerHost.Background = (System.Windows.Media.Brush)FindResource("BorderBrush");
         var columns = Math.Max(1, open.Count < 2 ? 1 : _columns);
         var rows = Math.Max(1, (open.Count + columns - 1) / columns);
 
@@ -354,8 +377,10 @@ public partial class MainWindow : Window
             PlayerHost.Height = Math.Floor(_videoWidth * 9 / 16) * rows + PlayerGap * (rows - 1);
         }
 
-        if (PlayerHost.ColumnDefinitions.Count != columns || PlayerHost.RowDefinitions.Count != rows)
+        // Depois do modo fixado as linhas e colunas têm tamanhos em pixels: refaz sempre que ele estava ativo.
+        if (_wasPinned || PlayerHost.ColumnDefinitions.Count != columns || PlayerHost.RowDefinitions.Count != rows)
         {
+            _wasPinned = false;
             PlayerHost.ColumnDefinitions.Clear();
             PlayerHost.RowDefinitions.Clear();
             for (var i = 0; i < columns; i++)
@@ -388,6 +413,49 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// A transmissão fixada ocupa a maior parte do bloco e as outras (até três) ficam em miniatura, empilhadas numa
+    /// coluna ao lado, da mais antiga para a mais nova. O bloco tem o mesmo tamanho da grade normal.
+    /// </summary>
+    private void ApplyPinnedLayout(StreamSlot main, List<StreamSlot> others)
+    {
+        _wasPinned = true;
+        PlayerHost.Background = System.Windows.Media.Brushes.Transparent;
+        if (_stageWidth > 0 && _stageHeight > 0)
+        {
+            PlayerHost.Width = _stageWidth;
+            PlayerHost.Height = _stageHeight;
+        }
+
+        var sideWidth = Math.Floor(_stageWidth / 4);
+        var thumbHeight = Math.Floor((sideWidth - PlayerGap) * 9 / 16);
+        PlayerHost.ColumnDefinitions.Clear();
+        PlayerHost.RowDefinitions.Clear();
+        PlayerHost.ColumnDefinitions.Add(new ColumnDefinition());
+        PlayerHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(sideWidth) });
+        foreach (var _ in others)
+        {
+            PlayerHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(thumbHeight + PlayerGap) });
+        }
+
+        PlayerHost.RowDefinitions.Add(new RowDefinition());
+
+        Grid.SetRow(main.Player, 0);
+        Grid.SetRowSpan(main.Player, others.Count + 1);
+        Grid.SetColumn(main.Player, 0);
+        Grid.SetColumnSpan(main.Player, 1);
+        main.Player.Margin = new Thickness(0);
+        for (var index = 0; index < others.Count; index++)
+        {
+            var player = others[index].Player;
+            Grid.SetRow(player, index);
+            Grid.SetRowSpan(player, 1);
+            Grid.SetColumn(player, 1);
+            Grid.SetColumnSpan(player, 1);
+            player.Margin = new Thickness(PlayerGap, 0, 0, PlayerGap);
+        }
+    }
+
+    /// <summary>
     /// Mostra a tela de alguém na área principal, junto das que já estavam abertas (cabem quatro). Com todos os
     /// lugares ocupados, a mais antiga é fechada (e o <c>closed</c> dela, chamado). <paramref name="closed"/> desta é
     /// chamado quando ela sai da tela.
@@ -400,11 +468,31 @@ public partial class MainWindow : Window
         slot.Closed = closed;
         slot.Order = ++_streamCounter;
         viewer.CloseRequested += OnStreamCloseRequested;
+        viewer.PropertyChanged += OnViewerPropertyChanged;
         UpdateVideoPaused();
         slot.Player.DataContext = viewer;
         UpdateStageSize();
         Motion.Hide(NoStreamPanel, MotionKind.Reveal);
         Motion.Show(slot.Player, MotionKind.Fade);
+    }
+
+    /// <summary>Só uma transmissão fica fixada: fixar outra solta a anterior.</summary>
+    private void OnViewerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(StreamViewerViewModel.IsPinned))
+        {
+            return;
+        }
+
+        if (sender is StreamViewerViewModel { IsPinned: true } pinned)
+        {
+            foreach (var other in _slots.Select(s => s.Viewer).Where(v => v is not null && v != pinned))
+            {
+                other!.IsPinned = false;
+            }
+        }
+
+        ApplyPlayerLayout();
     }
 
     private void OnStreamCloseRequested(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() =>
@@ -424,6 +512,9 @@ public partial class MainWindow : Window
 
         var closed = slot.Closed;
         viewer.CloseRequested -= OnStreamCloseRequested;
+        viewer.PropertyChanged -= OnViewerPropertyChanged;
+        viewer.IsPinned = false;
+        viewer.CanPin = false;
         slot.Viewer = null;
         slot.Closed = null;
         slot.Player.ExitFullScreen();

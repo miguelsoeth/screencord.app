@@ -30,6 +30,8 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     private double _volume = 1.0;
     private bool _isMuted;
     private bool _isVideoPaused;
+    private bool _isPinned;
+    private bool _canPin;
     private bool _hasFrame;
     private bool _disposed;
 
@@ -43,6 +45,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         _share = share;
 
         ToggleMuteCommand = new RelayCommand(() => IsMuted = !IsMuted);
+        TogglePinCommand = new RelayCommand(() => IsPinned = !IsPinned);
     }
 
     /// <summary>Quadro decodificado (BGRA), numa thread de fundo. O buffer só vale durante a chamada.</summary>
@@ -66,6 +69,30 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerCameraTitleFormat : Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
 
     public RelayCommand ToggleMuteCommand { get; }
+
+    public RelayCommand TogglePinCommand { get; }
+
+    /// <summary>Esta é a transmissão principal: fica grande e as outras em miniatura ao lado. A janela garante que só uma esteja fixada.</summary>
+    public bool IsPinned
+    {
+        get => _isPinned;
+        set
+        {
+            if (SetProperty(ref _isPinned, value))
+            {
+                OnPropertyChanged(nameof(PinTooltip));
+            }
+        }
+    }
+
+    /// <summary>Só há o que fixar quando há mais de uma transmissão aberta.</summary>
+    public bool CanPin
+    {
+        get => _canPin;
+        set => SetProperty(ref _canPin, value);
+    }
+
+    public string PinTooltip => IsPinned ? Strings.UnpinTooltip : Strings.PinTooltip;
 
     public StreamViewerState State
     {
