@@ -471,7 +471,7 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
-    public async Task Assistir_PropriaTela_NaoFazNada()
+    public async Task Assistir_PropriaTelaSemCompartilhar_NaoFazNada()
     {
         var (vm, group) = await InRoomAsync();
         RaisePresence(group, 200, ShareOf(FakeGroupsService.Me));
@@ -479,6 +479,100 @@ public class ScreenShareViewModelTests
         await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
 
         Assert.Empty(_ui.Open);
+        Assert.DoesNotContain(_share.Calls, c => c.StartsWith("watch"));
+    }
+
+    [Fact]
+    public async Task Assistir_PropriaTela_AbrePreviaLocalSemConectar()
+    {
+        var (vm, group) = await InRoomAsync();
+        await vm.StartShareCommand.ExecuteAsync();
+        RaisePresence(group, 200, ShareOf(FakeGroupsService.Me));
+
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+
+        var viewer = Assert.Single(_ui.Open);
+        Assert.True(viewer.IsPreview);
+        Assert.Equal(StreamViewerState.Live, viewer.State);
+        Assert.False(viewer.HasAudio);
+        Assert.Equal(Strings.ViewerOwnTitleFormat.Replace("{0}", group.Name), viewer.Title);
+        Assert.Single(_share.Started[0].Previews);
+        Assert.DoesNotContain(_share.Calls, c => c.StartsWith("watch"));
+
+        // Clicar de novo só traz a prévia para a frente.
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+        Assert.Single(_ui.Open);
+        Assert.Equal([viewer], _ui.Activated);
+    }
+
+    [Fact]
+    public async Task Previa_NaoFechaComAPresencaSemOAnuncio_EFechaAoParar()
+    {
+        var (vm, group) = await InRoomAsync();
+        await vm.StartShareCommand.ExecuteAsync();
+        RaisePresence(group, 200, ShareOf(FakeGroupsService.Me));
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+
+        // O anúncio ainda não chegou (ou sumiu) na presença: a prévia segue, pois é da captura local.
+        RaisePresence(group, 201);
+        Assert.Single(_ui.Open);
+
+        await vm.StopShareCommand.ExecuteAsync();
+
+        Assert.Empty(_ui.Open);
+        Assert.Empty(vm.Viewers);
+        Assert.Empty(_share.Watching);
+    }
+
+    [Fact]
+    public async Task Previa_FimEspontaneoDaTransmissao_Fecha()
+    {
+        var (vm, group) = await InRoomAsync();
+        await vm.StartShareCommand.ExecuteAsync();
+        RaisePresence(group, 200, ShareOf(FakeGroupsService.Me));
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+
+        _share.Started[0].End("A janela compartilhada foi fechada.");
+
+        Assert.Empty(_ui.Open);
+    }
+
+    [Fact]
+    public async Task Previa_TrocarConfiguracoes_ReabreNaNovaCaptura()
+    {
+        var (vm, group) = await InRoomAsync();
+        await vm.StartShareCommand.ExecuteAsync();
+        RaisePresence(group, 200, ShareOf(FakeGroupsService.Me));
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+
+        await vm.ChangeShareCommand.ExecuteAsync();
+
+        var viewer = Assert.Single(_ui.Open);
+        Assert.True(viewer.IsPreview);
+        Assert.Single(_share.Started[1].Previews);
+    }
+
+    [Fact]
+    public async Task Previa_DaCamera_FicaJuntoDaPreviaDaTela()
+    {
+        var (vm, group) = await InRoomAsync();
+        await vm.StartShareCommand.ExecuteAsync();
+        await vm.ToggleCameraCommand.ExecuteAsync();
+        _realtime.RaisePresence(new GroupPresenceDto(
+            group.Id,
+            [FakeGroupsService.ToDto(FakeGroupsService.Me)],
+            200,
+            [ShareOf(FakeGroupsService.Me), ShareOf(FakeGroupsService.Me) with { Kind = ShareKind.Camera }]));
+
+        await group.WatchCommand.ExecuteAsync(FakeGroupsService.Me);
+        await group.WatchCameraCommand.ExecuteAsync(FakeGroupsService.Me);
+
+        Assert.Equal([ShareKind.Screen, ShareKind.Camera], _ui.Open.Select(v => v.Kind));
+        Assert.All(_ui.Open, v => Assert.True(v.IsPreview));
+
+        await vm.ToggleCameraCommand.ExecuteAsync();
+
+        Assert.Equal(ShareKind.Screen, Assert.Single(_ui.Open).Kind);
     }
 
     [Fact]

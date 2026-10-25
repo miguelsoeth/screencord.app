@@ -65,6 +65,16 @@ public sealed class FakeActiveShare(ScreenShareDto share, ShareRequest request) 
 
     public bool IsStopped { get; private set; }
 
+    /// <summary>Prévias abertas da própria transmissão.</summary>
+    public List<FakeStreamViewer> Previews { get; } = [];
+
+    public IStreamViewer OpenPreview()
+    {
+        var preview = new FakeStreamViewer(false);
+        Previews.Add(preview);
+        return preview;
+    }
+
     public event EventHandler<string>? Ended;
 
     /// <summary>Parou por ter sido substituído por um compartilhamento com outras configurações.</summary>

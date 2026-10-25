@@ -22,6 +22,12 @@ public interface IActiveScreenShare
     event EventHandler<string>? Ended;
 
     Task StopAsync();
+
+    /// <summary>
+    /// Prévia local da própria transmissão, para mostrá-la na grade: os quadros vêm direto da captura, sem passar
+    /// pela rede, e a prévia termina junto com a transmissão (<see cref="IStreamViewer.Ended"/>).
+    /// </summary>
+    IStreamViewer OpenPreview();
 }
 
 /// <summary>Compartilhar a própria tela e assistir à tela de outra pessoa da sala.</summary>
@@ -226,6 +232,20 @@ public sealed class ScreenShareService : IScreenShareService
         private int _stopped;
         private volatile bool _replaced;
 
+        // Prévia local: a thread de vídeo copia o quadro NV12 (no máximo PreviewFps vezes por segundo) e a
+        // conversão para BGRA roda fora dela, para não atrasar a codificação.
+        private const int PreviewFps = 20;
+        private readonly Lock _previewLock = new();
+        private readonly List<PreviewViewer> _previews = [];
+        private readonly int _width;
+        private readonly int _height;
+        private volatile int _previewCount;
+        private volatile bool _previewRefresh;
+        private byte[] _previewNv12 = [];
+        private byte[] _previewBgra = [];
+        private TimeSpan _lastPreview = -TimeSpan.FromDays(1);
+        private int _previewBusy;
+
         public ActiveScreenShare(
             ScreenShareDto share,
             ShareRequest request,
@@ -241,6 +261,8 @@ public sealed class ScreenShareService : IScreenShareService
             Request = request;
             AudioWarning = audioWarning;
             _capture = capture;
+            _width = capture.Width;
+            _height = capture.Height;
             _encoder = encoder;
             _socket = socket;
             _audio = audio;
@@ -361,8 +383,100 @@ public sealed class ScreenShareService : IScreenShareService
             });
         }
 
+        public IStreamViewer OpenPreview()
+        {
+            var preview = new PreviewViewer(this);
+            lock (_previewLock)
+            {
+                _previews.Add(preview);
+                _previewCount = _previews.Count;
+            }
+
+            // Com a tela parada não chega quadro novo: pede o último para a prévia não ficar vazia.
+            _previewRefresh = true;
+            return preview;
+        }
+
+        private void DetachPreview(PreviewViewer preview)
+        {
+            lock (_previewLock)
+            {
+                _previews.Remove(preview);
+                _previewCount = _previews.Count;
+            }
+        }
+
+        /// <summary>Roda na thread de vídeo: guarda uma cópia do quadro e manda convertê-la e entregá-la.</summary>
+        private void PublishPreview(byte[] nv12)
+        {
+            var now = _clock.Elapsed;
+            if (now - _lastPreview < TimeSpan.FromSeconds(1.0 / PreviewFps) ||
+                Interlocked.CompareExchange(ref _previewBusy, 1, 0) != 0)
+            {
+                return;
+            }
+
+            _lastPreview = now;
+            _previewRefresh = false;
+            if (_previewNv12.Length != nv12.Length)
+            {
+                _previewNv12 = new byte[nv12.Length];
+                _previewBgra = new byte[_width * _height * 4];
+            }
+
+            Buffer.BlockCopy(nv12, 0, _previewNv12, 0, nv12.Length);
+            var timestamp = now.Ticks / 10;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    PreviewViewer[] targets;
+                    lock (_previewLock)
+                    {
+                        targets = [.. _previews];
+                    }
+
+                    if (targets.Length == 0)
+                    {
+                        return;
+                    }
+
+                    Nv12ToBgra.Convert(_previewNv12, _width, _height, _previewBgra);
+                    foreach (var target in targets)
+                    {
+                        target.Push(_previewBgra, _width, _height, timestamp);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug("Falha ao atualizar a prévia ({ExceptionType}).", ex.GetType().Name);
+                }
+                finally
+                {
+                    Volatile.Write(ref _previewBusy, 0);
+                }
+            });
+        }
+
+        private void EndPreviews()
+        {
+            PreviewViewer[] ended;
+            lock (_previewLock)
+            {
+                ended = [.. _previews];
+                _previews.Clear();
+                _previewCount = 0;
+            }
+
+            foreach (var preview in ended)
+            {
+                preview.End();
+            }
+        }
+
         private async Task ShutdownAsync()
         {
+            EndPreviews();
             _stop.Cancel();
             if (_videoThread.IsAlive && Thread.CurrentThread != _videoThread)
             {
@@ -400,6 +514,11 @@ public sealed class ScreenShareService : IScreenShareService
                     if (changed)
                     {
                         hasFrame |= _capture.ReadNv12(frame);
+                    }
+
+                    if (hasFrame && _previewCount > 0 && (changed || _previewRefresh))
+                    {
+                        PublishPreview(frame);
                     }
 
                     if (hasFrame && _pacer.ShouldEncode(_clock.Elapsed, changed, _encoder.IsKeyframePending))
@@ -512,6 +631,51 @@ public sealed class ScreenShareService : IScreenShareService
 
         [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
         private static extern uint TimeEndPeriod(uint milliseconds);
+
+        /// <summary>A própria transmissão vista na grade: recebe os quadros da captura e não tem áudio (você já se ouve).</summary>
+        private sealed class PreviewViewer(ActiveScreenShare owner) : IStreamViewer
+        {
+            private volatile bool _paused;
+
+            public event DecodedFrameHandler? FrameReady;
+
+            public event EventHandler<string?>? Ended;
+
+            public bool HasAudio => false;
+
+            public float Volume { get; set; } = 1;
+
+            public bool IsMuted { get; set; }
+
+            public bool IsVideoPaused
+            {
+                get => _paused;
+                set
+                {
+                    _paused = value;
+                    if (!value)
+                    {
+                        owner._previewRefresh = true;
+                    }
+                }
+            }
+
+            public void Push(byte[] bgra, int width, int height, long timestamp)
+            {
+                if (!_paused)
+                {
+                    FrameReady?.Invoke(bgra, width, height, timestamp);
+                }
+            }
+
+            public void End() => Ended?.Invoke(this, null);
+
+            public ValueTask DisposeAsync()
+            {
+                owner.DetachPreview(this);
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 
     /// <summary>Recebe os pacotes, decodifica o vídeo na thread de leitura e toca o áudio.</summary>
