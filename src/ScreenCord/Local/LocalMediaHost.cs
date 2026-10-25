@@ -1,7 +1,6 @@
 using System.IO;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
-using System.Threading.Channels;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
 
@@ -9,8 +8,8 @@ namespace ScreenCord.Local;
 
 /// <summary>
 /// Compartilhamento de tela de uma sala local: quem compartilha faz o papel do relay da API e envia os pacotes
-/// direto a cada espectador. Cada espectador tem a própria fila: quem tem conexão lenta perde quadros (e volta no
-/// próximo quadro-chave) sem atrasar os outros. Sobrevive à troca de configurações (<see cref="Acquire"/>): quem
+/// direto a cada espectador. Cada espectador tem a própria fila (<see cref="MediaQueue"/>, limitada por tempo): quem
+/// tem conexão lenta perde quadros (e volta no próximo quadro-chave) sem atrasar os outros. Sobrevive à troca de configurações (<see cref="Acquire"/>): quem
 /// assiste continua conectado e recomeça do próximo quadro-chave.
 /// </summary>
 public sealed class LocalMediaHost
@@ -22,21 +21,19 @@ public sealed class LocalMediaHost
     private readonly List<Viewer> _viewers = [];
     private Lease? _current;
     private long _lastKeyframeRequestTicks;
+    private readonly int _bitrateKbps;
     private long _overflows;
     private bool _stopped;
 
     public LocalMediaHost(int bitrateKbps)
     {
-        QueueLimitBytes = Math.Max(512 * 1024, bitrateKbps * 1000 / 8);
+        _bitrateKbps = bitrateKbps;
     }
 
     public Guid Id { get; } = Guid.NewGuid();
 
     /// <summary>Chave que quem assiste apresenta em <see cref="KeyHeader"/>; vai para a sala junto com o compartilhamento.</summary>
     public string Key { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-
-    /// <summary>Cerca de 1 s de vídeo (no mínimo 512 KB, para caber um quadro-chave).</summary>
-    public int QueueLimitBytes { get; }
 
     public int ViewerCount
     {
@@ -71,7 +68,7 @@ public sealed class LocalMediaHost
     /// <summary>Atende um espectador até ele sair ou o compartilhamento acabar.</summary>
     public async Task WatchAsync(WebSocket socket, CancellationToken cancellationToken)
     {
-        var viewer = new Viewer(socket, QueueLimitBytes, RequestKeyframe);
+        var viewer = new Viewer(socket, new MediaQueue(_bitrateKbps, waitForKeyframe: true), RequestKeyframe);
         lock (_lock)
         {
             if (_stopped)
@@ -126,7 +123,12 @@ public sealed class LocalMediaHost
         var needsKeyframe = false;
         foreach (var viewer in viewers)
         {
-            needsKeyframe |= !viewer.Offer(packet, ref _overflows);
+            var overflows = viewer.Overflows;
+            needsKeyframe |= !viewer.Offer(packet);
+            if (viewer.Overflows != overflows)
+            {
+                Interlocked.Increment(ref _overflows);
+            }
         }
 
         if (needsKeyframe)
@@ -213,52 +215,29 @@ public sealed class LocalMediaHost
         }
     }
 
-    private sealed class Viewer(WebSocket socket, int queueLimitBytes, Action requestKeyframe)
+    private sealed class Viewer(WebSocket socket, MediaQueue queue, Action requestKeyframe)
     {
-        private readonly Channel<Packet> _queue = Channel.CreateUnbounded<Packet>(new UnboundedChannelOptions { SingleReader = true });
         private readonly CancellationTokenSource _closed = new();
-        private long _queuedBytes;
-        private volatile bool _waitingForKeyframe = true;
         private volatile bool _videoPaused;
 
-        public long QueuedBytes => Interlocked.Read(ref _queuedBytes);
+        public long QueuedBytes => queue.QueuedBytes;
+
+        public long Overflows => queue.Overflows;
 
         /// <summary>Enfileira o pacote. Retorna falso se o espectador precisa de um quadro-chave para continuar.</summary>
-        public bool Offer(Packet packet, ref long overflows)
+        public bool Offer(Packet packet)
         {
-            if (packet.Type == MediaContract.Video)
+            if (packet.Type != MediaContract.Video)
             {
-                if (_videoPaused)
-                {
-                    return true;
-                }
-
-                if (_waitingForKeyframe && !packet.IsKeyframe)
-                {
-                    return false;
-                }
-
-                if (Interlocked.Read(ref _queuedBytes) + packet.Data.Length > queueLimitBytes)
-                {
-                    // Atrasado demais: descarta até o próximo quadro-chave em vez de acumular atraso.
-                    _waitingForKeyframe = true;
-                    Interlocked.Increment(ref overflows);
-                    return false;
-                }
-
-                _waitingForKeyframe = false;
-            }
-            else if (Interlocked.Read(ref _queuedBytes) + packet.Data.Length > queueLimitBytes * 2)
-            {
+                queue.OfferAudio(packet.Data);
                 return true;
             }
 
-            Interlocked.Add(ref _queuedBytes, packet.Data.Length);
-            _queue.Writer.TryWrite(packet);
-            return true;
+            // Não está olhando: economiza a banda do vídeo; o áudio continua.
+            return _videoPaused || queue.OfferVideo(packet.Data, packet.IsKeyframe) != MediaOffer.NeedsKeyframe;
         }
 
-        public void ResetToKeyframe() => _waitingForKeyframe = true;
+        public void ResetToKeyframe() => queue.ResetToKeyframe();
 
         public void Close()
         {
@@ -277,10 +256,9 @@ public sealed class LocalMediaHost
             var receive = DrainIncomingAsync(linked);
             try
             {
-                await foreach (var packet in _queue.Reader.ReadAllAsync(linked.Token).ConfigureAwait(false))
+                await foreach (var packet in queue.ReadAllAsync(linked.Token).ConfigureAwait(false))
                 {
-                    Interlocked.Add(ref _queuedBytes, -packet.Data.Length);
-                    await socket.SendAsync(packet.Data, WebSocketMessageType.Binary, true, linked.Token).ConfigureAwait(false);
+                    await socket.SendAsync(packet, WebSocketMessageType.Binary, true, linked.Token).ConfigureAwait(false);
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException or WebSocketException or IOException or ObjectDisposedException)
@@ -317,12 +295,12 @@ public sealed class LocalMediaHost
                             _videoPaused = true;
                             break;
                         case MediaContract.ResumeVideo when _videoPaused:
-                            _waitingForKeyframe = true;
+                            queue.ResetToKeyframe();
                             _videoPaused = false;
                             requestKeyframe();
                             break;
                         case MediaContract.KeyframeRequest when !_videoPaused:
-                            _waitingForKeyframe = true;
+                            queue.ResetToKeyframe();
                             requestKeyframe();
                             break;
                     }
