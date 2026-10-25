@@ -2,7 +2,6 @@ using ScreenCord.Localization;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
-using System.Threading.Channels;
 using ScreenCord.Contracts;
 using ScreenCord.Infrastructure;
 using ScreenCord.Services;
@@ -17,14 +16,10 @@ namespace ScreenCord.Media;
 public sealed class MediaSocket : IMediaSink
 {
     private readonly ClientWebSocket _socket;
-    private readonly Channel<byte[]> _outgoing = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly MediaQueue _outgoing;
     private readonly CancellationTokenSource _lifetime = new();
-    private readonly int _queueLimitBytes;
     private Task _sendLoop = Task.CompletedTask;
     private Task _receiveLoop = Task.CompletedTask;
-    private long _queuedBytes;
-    private long _videoOverflows;
-    private volatile bool _waitingForKeyframe;
     private int _closedRaised;
     private volatile bool _disposing;
     private readonly string _peer;
@@ -34,9 +29,7 @@ public sealed class MediaSocket : IMediaSink
     {
         _socket = socket;
         _peer = peer ?? Strings.MediaPeerServer;
-
-        // Cerca de 1 s de vídeo na fila de saída: mais que isso, a rede não está acompanhando.
-        _queueLimitBytes = Math.Max(512 * 1024, bitrateKbps * 1000 / 8);
+        _outgoing = new MediaQueue(bitrateKbps);
     }
 
     /// <summary>A API pediu um quadro-chave (alguém começou a assistir) ou a fila descartou vídeo.</summary>
@@ -49,10 +42,10 @@ public sealed class MediaSocket : IMediaSink
     public event Action<string?>? Closed;
 
     /// <summary>Bytes na fila de saída, ainda não entregues ao socket.</summary>
-    public long QueuedBytes => Interlocked.Read(ref _queuedBytes);
+    public long QueuedBytes => _outgoing.QueuedBytes;
 
-    /// <summary>Quantas vezes a fila encheu e o vídeo passou a ser descartado até o próximo quadro-chave.</summary>
-    public long VideoOverflows => Interlocked.Read(ref _videoOverflows);
+    /// <summary>Quantas vezes a fila atrasou demais e o vídeo passou a ser descartado até o próximo quadro-chave.</summary>
+    public long VideoOverflows => _outgoing.Overflows;
 
     public static async Task<MediaSocket> ConnectAsync(CentralApiClient api, Guid groupId, Guid sharerId, int bitrateKbps, CancellationToken cancellationToken)
     {
@@ -176,47 +169,29 @@ public sealed class MediaSocket : IMediaSink
     {
         var packet = new byte[MediaContract.HeaderSize];
         MediaContract.WriteHeader(packet, type, 0, 0);
-        if (_outgoing.Writer.TryWrite(packet))
-        {
-            Interlocked.Add(ref _queuedBytes, packet.Length);
-        }
+        _outgoing.Enqueue(packet);
     }
 
-    /// <summary>Enfileira um quadro de vídeo. Se a rede não acompanha, descarta até o próximo quadro-chave e pede um.</summary>
+    /// <summary>
+    /// Enfileira um quadro de vídeo. Se a rede não acompanha (fila atrasada demais), descarta até o próximo
+    /// quadro-chave e pede um assim que a fila esvaziar.
+    /// </summary>
     public void SendVideo(EncodedFrame frame, long timestampMicroseconds)
     {
-        if (frame.IsKeyframe)
+        var packet = Packet(MediaContract.Video, frame.IsKeyframe ? MediaContract.KeyframeFlag : (byte)0, timestampMicroseconds, frame.Data);
+        if (_outgoing.OfferVideo(packet, frame.IsKeyframe) == MediaOffer.NeedsKeyframe)
         {
-            _waitingForKeyframe = false;
-        }
-        else if (_waitingForKeyframe)
-        {
-            return;
-        }
-
-        if (Interlocked.Read(ref _queuedBytes) + frame.Data.Length > _queueLimitBytes)
-        {
-            _waitingForKeyframe = true;
-            Interlocked.Increment(ref _videoOverflows);
             KeyframeRequested?.Invoke();
-            return;
-        }
-
-        Enqueue(MediaContract.Video, frame.IsKeyframe ? MediaContract.KeyframeFlag : (byte)0, timestampMicroseconds, frame.Data);
-    }
-
-    public void SendAudio(byte[] opus, long timestampMicroseconds)
-    {
-        if (Interlocked.Read(ref _queuedBytes) + opus.Length <= _queueLimitBytes * 2)
-        {
-            Enqueue(MediaContract.Audio, 0, timestampMicroseconds, opus);
         }
     }
+
+    public void SendAudio(byte[] opus, long timestampMicroseconds) =>
+        _outgoing.OfferAudio(Packet(MediaContract.Audio, 0, timestampMicroseconds, opus));
 
     public async ValueTask DisposeAsync()
     {
         _disposing = true;
-        _outgoing.Writer.TryComplete();
+        _outgoing.Complete();
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -242,25 +217,20 @@ public sealed class MediaSocket : IMediaSink
         _lifetime.Dispose();
     }
 
-    private void Enqueue(byte type, byte flags, long timestamp, byte[] payload)
+    private static byte[] Packet(byte type, byte flags, long timestamp, byte[] payload)
     {
         var packet = new byte[MediaContract.HeaderSize + payload.Length];
         MediaContract.WriteHeader(packet, type, flags, timestamp);
         payload.CopyTo(packet, MediaContract.HeaderSize);
-        Interlocked.Add(ref _queuedBytes, packet.Length);
-        if (!_outgoing.Writer.TryWrite(packet))
-        {
-            Interlocked.Add(ref _queuedBytes, -packet.Length);
-        }
+        return packet;
     }
 
     private async Task SendLoopAsync()
     {
         try
         {
-            await foreach (var packet in _outgoing.Reader.ReadAllAsync(_lifetime.Token).ConfigureAwait(false))
+            await foreach (var packet in _outgoing.ReadAllAsync(_lifetime.Token).ConfigureAwait(false))
             {
-                Interlocked.Add(ref _queuedBytes, -packet.Length);
                 await _socket.SendAsync(packet, WebSocketMessageType.Binary, true, _lifetime.Token).ConfigureAwait(false);
             }
         }

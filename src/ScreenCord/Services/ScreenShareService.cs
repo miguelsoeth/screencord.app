@@ -514,6 +514,7 @@ public sealed class ScreenShareService : IScreenShareService
         private static readonly TimeSpan KeyframeWait = TimeSpan.FromSeconds(1.5);
 
         private readonly Lock _decodeLock = new();
+        private readonly PlaybackDelay _delay = new();
         private readonly Timer _keyframeWatchdog;
         private long _lastFrameTicks = Environment.TickCount64;
         private volatile bool _videoPaused;
@@ -636,6 +637,16 @@ public sealed class ScreenShareService : IScreenShareService
                 if (_disposed)
                 {
                     return;
+                }
+
+                switch (_delay.OnFrame(timestamp, (flags & Contracts.MediaContract.KeyframeFlag) != 0, Stopwatch.GetElapsedTime(0).Ticks / 10))
+                {
+                    case PlaybackDecision.Skip:
+                        return;
+                    case PlaybackDecision.SkipAndRequestKeyframe:
+                        _logger.LogDebug("Vídeo {Delay} ms atrasado; descartando até o próximo quadro-chave.", (int)_delay.Current.TotalMilliseconds);
+                        _socket.RequestKeyframe();
+                        return;
                 }
 
                 try
