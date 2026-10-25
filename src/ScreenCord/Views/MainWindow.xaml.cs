@@ -432,6 +432,9 @@ public partial class MainWindow : Window
         PlayerHost.RowDefinitions.Clear();
         PlayerHost.ColumnDefinitions.Add(new ColumnDefinition());
         PlayerHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(sideWidth) });
+
+        // Linhas livres acima e abaixo das miniaturas: a coluna fica centralizada na altura da principal.
+        PlayerHost.RowDefinitions.Add(new RowDefinition());
         foreach (var _ in others)
         {
             PlayerHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(thumbHeight + PlayerGap) });
@@ -440,14 +443,14 @@ public partial class MainWindow : Window
         PlayerHost.RowDefinitions.Add(new RowDefinition());
 
         Grid.SetRow(main.Player, 0);
-        Grid.SetRowSpan(main.Player, others.Count + 1);
+        Grid.SetRowSpan(main.Player, others.Count + 2);
         Grid.SetColumn(main.Player, 0);
         Grid.SetColumnSpan(main.Player, 1);
         main.Player.Margin = new Thickness(0);
         for (var index = 0; index < others.Count; index++)
         {
             var player = others[index].Player;
-            Grid.SetRow(player, index);
+            Grid.SetRow(player, index + 1);
             Grid.SetRowSpan(player, 1);
             Grid.SetColumn(player, 1);
             Grid.SetColumnSpan(player, 1);
