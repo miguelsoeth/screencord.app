@@ -986,6 +986,7 @@ public sealed class GroupsViewModel : ObservableObject
     {
         if (sharer.UserId == _screenShare.CurrentUserId || sharer.UserId == _localRooms?.Me.Id)
         {
+            await ShowOwnPreviewAsync(group, sharer, kind);
             return;
         }
 
@@ -1025,6 +1026,46 @@ public sealed class GroupsViewModel : ObservableObject
             _ = viewer.DisposeAsync().AsTask();
         });
         await viewer.StartAsync();
+    }
+
+    /// <summary>
+    /// Coloca a própria tela ou câmera na grade: é uma prévia local da transmissão que está no ar nesta sala, sem
+    /// conexão de rede. Sem transmissão do tipo pedido nesta sala, não faz nada.
+    /// </summary>
+    private async Task ShowOwnPreviewAsync(GroupItemViewModel group, Person me, ShareKind kind)
+    {
+        var (active, activeGroupId) = kind == ShareKind.Camera ? (_activeCamera, _cameraGroupId) : (_activeShare, _shareGroupId);
+        if (active is null || activeGroupId != group.Id)
+        {
+            return;
+        }
+
+        if (_viewers.FirstOrDefault(v => v.IsPreview && v.GroupId == group.Id && v.Kind == kind && !v.IsEnded) is { } open)
+        {
+            _shareUi.ActivateViewer(open);
+            return;
+        }
+
+        var viewer = StreamViewerViewModel.ForPreview(active, group.Id, group.Name, me);
+        _viewers.Add(viewer);
+        _shareUi.ShowViewer(viewer, () =>
+        {
+            _viewers.Remove(viewer);
+            _ = viewer.DisposeAsync().AsTask();
+        });
+        await viewer.StartAsync();
+    }
+
+    /// <summary>Fecha a prévia da própria transmissão do tipo dado, se estiver na grade. Retorna quem aparecia nela (você), ou null se não havia.</summary>
+    private Person? ClosePreview(ShareKind kind)
+    {
+        var previews = _viewers.Where(v => v.IsPreview && v.Kind == kind).ToList();
+        foreach (var preview in previews)
+        {
+            preview.RequestClose();
+        }
+
+        return previews.FirstOrDefault()?.Sharer;
     }
 
     private async Task StartShareAsync()
@@ -1088,6 +1129,9 @@ public sealed class GroupsViewModel : ObservableObject
         _lastShareSettings = request.Settings;
         ShareMessage = null;
         IsStartingShare = true;
+
+        // A prévia é da captura antiga (outro tamanho, talvez outra origem): fecha e reabre na nova.
+        var previewOf = ClosePreview(ShareKind.Screen);
         try
         {
             var replacement = await _screenShare.StartAsync(group.Id, request, current);
@@ -1101,6 +1145,10 @@ public sealed class GroupsViewModel : ObservableObject
             replacement.Ended += (_, reason) => Post(() => OnShareEnded(replacement, reason));
             _activeShare = replacement;
             ShareMessage = replacement.AudioWarning;
+            if (previewOf is not null)
+            {
+                await ShowOwnPreviewAsync(group, previewOf, ShareKind.Screen);
+            }
         }
         catch (Exception ex)
         {
@@ -1125,6 +1173,7 @@ public sealed class GroupsViewModel : ObservableObject
         _activeShare = null;
         _shareGroupId = null;
         ShareMessage = message;
+        ClosePreview(ShareKind.Screen);
         OnShareStateChanged();
         try
         {
@@ -1146,6 +1195,7 @@ public sealed class GroupsViewModel : ObservableObject
         _activeShare = null;
         _shareGroupId = null;
         ShareMessage = reason;
+        ClosePreview(ShareKind.Screen);
         OnShareStateChanged();
     }
 
@@ -1209,6 +1259,7 @@ public sealed class GroupsViewModel : ObservableObject
             ShareMessage = message;
         }
 
+        ClosePreview(ShareKind.Camera);
         OnShareStateChanged();
         try
         {
@@ -1230,6 +1281,7 @@ public sealed class GroupsViewModel : ObservableObject
         _activeCamera = null;
         _cameraGroupId = null;
         ShareMessage = reason;
+        ClosePreview(ShareKind.Camera);
         OnShareStateChanged();
     }
 
@@ -1259,7 +1311,8 @@ public sealed class GroupsViewModel : ObservableObject
     /// <summary>Repassa às janelas abertas o fim (ou a mudança) dos compartilhamentos que elas mostram.</summary>
     private void SyncViewers(GroupItemViewModel group)
     {
-        foreach (var viewer in _viewers.Where(v => v.GroupId == group.Id).ToList())
+        // A prévia da própria transmissão acaba com ela, não com o anúncio na sala (que pode chegar depois).
+        foreach (var viewer in _viewers.Where(v => v.GroupId == group.Id && !v.IsPreview).ToList())
         {
             viewer.UpdateShare(group.Shares.GetValueOrDefault(new ShareKey(viewer.SharerId, viewer.Kind)));
         }

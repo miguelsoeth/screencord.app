@@ -20,7 +20,7 @@ public enum StreamViewerState
 /// </summary>
 public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 {
-    private readonly IScreenShareService _service;
+    private readonly Func<ScreenShareDto, CancellationToken, Task<IStreamViewer>> _open;
     private readonly SynchronizationContext? _ui;
     private readonly CancellationTokenSource _lifetime = new();
     private IStreamViewer? _viewer;
@@ -36,8 +36,20 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     private bool _disposed;
 
     public StreamViewerViewModel(IScreenShareService service, Guid groupId, string groupName, Person sharer, ScreenShareDto share)
+        : this(groupId, groupName, sharer, share, (current, token) => service.WatchAsync(groupId, current, token), isPreview: false)
     {
-        _service = service;
+    }
+
+    /// <summary>A própria transmissão na grade: os quadros vêm direto da captura (<see cref="IActiveScreenShare.OpenPreview"/>), sem rede.</summary>
+    public static StreamViewerViewModel ForPreview(IActiveScreenShare active, Guid groupId, string groupName, Person me) =>
+        new(groupId, groupName, me, active.Share, (_, _) => Task.FromResult(active.OpenPreview()), isPreview: true);
+
+    private StreamViewerViewModel(
+        Guid groupId, string groupName, Person sharer, ScreenShareDto share,
+        Func<ScreenShareDto, CancellationToken, Task<IStreamViewer>> open, bool isPreview)
+    {
+        _open = open;
+        IsPreview = isPreview;
         _ui = SynchronizationContext.Current;
         GroupId = groupId;
         GroupName = groupName;
@@ -65,8 +77,12 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     /// <summary>Tela ou câmera: a mesma pessoa pode ter as duas abertas, cada uma no seu lugar da grade.</summary>
     public ShareKind Kind => _share.Kind;
 
-    public string Title => string.Format(
-        Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerCameraTitleFormat : Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
+    /// <summary>É a prévia da sua própria transmissão, não uma conexão a outra pessoa; some quando a transmissão acaba.</summary>
+    public bool IsPreview { get; }
+
+    public string Title => IsPreview
+        ? string.Format(Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerOwnCameraTitleFormat : Strings.ViewerOwnTitleFormat, GroupName)
+        : string.Format(Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerCameraTitleFormat : Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
 
     public RelayCommand ToggleMuteCommand { get; }
 
@@ -126,7 +142,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     /// <summary>"1280 × 720 · 30 fps · 4000 kbps".</summary>
     public string QualityText => $"{_share.Width} × {_share.Height} · {_share.FrameRate} fps · {_share.BitrateKbps} kbps";
 
-    public bool HasAudio => _share.HasAudio;
+    public bool HasAudio => _share.HasAudio && !IsPreview;
 
     public double Volume
     {
@@ -170,7 +186,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         State = StreamViewerState.Connecting;
         try
         {
-            var viewer = await _service.WatchAsync(GroupId, _share, _lifetime.Token);
+            var viewer = await _open(_share, _lifetime.Token);
             if (_disposed)
             {
                 await viewer.DisposeAsync();

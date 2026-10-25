@@ -610,6 +610,8 @@ public sealed class MockupScreenShareService(MockupWorld world, MockupGroupsReal
             remove { }
         }
 
+        public IStreamViewer OpenPreview() => new SyntheticStreamViewer(Share);
+
         public void MarkReplaced() => _replaced = true;
 
         // Substituído, o anúncio já é do novo compartilhamento e não pode ser removido.

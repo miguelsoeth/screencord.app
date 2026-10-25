@@ -340,6 +340,8 @@ public static class Strings
     public static string PrimarySuffix => T(" (principal)", " (primary)", " (principal)");
 
     // Assistindo
+    public static string ViewerOwnTitleFormat => T("Sua tela · {0}", "Your screen · {0}", "Tu pantalla · {0}");
+    public static string ViewerOwnCameraTitleFormat => T("Sua câmera · {0}", "Your camera · {0}", "Tu cámara · {0}");
     public static string ViewerTitleFormat => T("Tela de {0} · {1}", "{0}'s screen · {1}", "Pantalla de {0} · {1}");
     public static string ShareEnded => T("Compartilhamento encerrado.", "Sharing ended.", "Transmisión finalizada.");
     public static string WaitingForImage => T("Aguardando imagem…", "Waiting for video…", "Esperando imagen…");
