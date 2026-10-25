@@ -14,10 +14,17 @@ public sealed class ScreenShareUi : IScreenShareUi
     // A janela principal depende (pelos view models) deste serviço, então é buscada na hora em vez de injetada.
     private static MainWindow Main => Application.Current.Windows.OfType<MainWindow>().First();
 
-    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null, GroupSettings? allowed = null)
+    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null)
     {
-        var picker = new SharePickerWindow(new SharePickerViewModel(initial, current: current, limits: limits, allowed: allowed)) { Owner = Application.Current.MainWindow };
+        var picker = new SharePickerWindow(new SharePickerViewModel(initial, current: current, limits: limits)) { Owner = Application.Current.MainWindow };
         return picker.ShowDialog() == true ? picker.Result : null;
+    }
+
+    public ShareRequest? PickCamera(StreamLimits limits)
+    {
+        using var viewModel = new CameraPreviewViewModel(limits);
+        var preview = new CameraPreviewWindow(viewModel) { Owner = Application.Current.MainWindow };
+        return preview.ShowDialog() == true ? preview.Result : null;
     }
 
     public void ShowViewer(StreamViewerViewModel viewer, Action closed) => Main.ShowStream(viewer, closed);

@@ -97,7 +97,8 @@ public sealed class LocalRoomClient : IAsyncDisposable
 
     public void Share(LocalShare share) => _outgoing.Writer.TryWrite(new LocalMessage(LocalMessage.ShareStart, Share: share));
 
-    public void Unshare() => _outgoing.Writer.TryWrite(new LocalMessage(LocalMessage.ShareStop));
+    /// <summary>Encerra a transmissão desse tipo (a outra continua).</summary>
+    public void Unshare(ShareKind kind) => _outgoing.Writer.TryWrite(new LocalMessage(LocalMessage.ShareStop, Kind: kind));
 
     public async ValueTask DisposeAsync()
     {
@@ -187,7 +188,7 @@ public sealed class LocalRoomClient : IAsyncDisposable
             .Take(LocalRoomHost.MaxMembers)
             .ToList();
         var ids = members.Select(m => m.Id).ToHashSet();
-        var shares = (room.Shares ?? []).Where(s => s is not null && s.IsValid && ids.Contains(s.UserId)).DistinctBy(s => s.UserId).ToList();
+        var shares = (room.Shares ?? []).Where(s => s is not null && s.IsValid && ids.Contains(s.UserId)).DistinctBy(s => (s.UserId, s.Kind)).OrderBy(s => s.Kind).ToList();
         return room with
         {
             Name = name.Length > Contracts.GroupsHubContract.MaxNameLength ? name[..Contracts.GroupsHubContract.MaxNameLength] : name,

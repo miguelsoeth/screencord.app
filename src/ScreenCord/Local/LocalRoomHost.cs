@@ -18,7 +18,7 @@ public sealed class LocalRoomHost
 
     private readonly Lock _lock = new();
     private readonly List<LocalMember> _members = [];
-    private readonly Dictionary<Guid, LocalShare> _shares = [];
+    private readonly Dictionary<(Guid UserId, ShareKind Kind), LocalShare> _shares = [];
     private readonly Dictionary<Guid, Connection> _connections = [];
     private readonly ILogger _logger;
     private GroupSettings _settings = GroupSettings.Default;
@@ -64,52 +64,60 @@ public sealed class LocalRoomHost
     }
 
     /// <summary>
-    /// Muda o que a sala aceita. As transmissões de um tipo desligado saem do estado na hora; retorna se a de quem
-    /// hospeda foi uma delas (o aplicativo dele precisa parar a captura).
+    /// Muda o que a sala aceita. As transmissões de um tipo desligado saem do estado na hora; retorna os tipos de
+    /// quem hospeda que foram removidos (o aplicativo dele precisa parar essas capturas).
     /// </summary>
-    public bool UpdateSettings(GroupSettings settings)
+    public IReadOnlyList<ShareKind> UpdateSettings(GroupSettings settings)
     {
-        bool hostShareRemoved;
+        List<ShareKind> hostKindsRemoved;
         lock (_lock)
         {
             if (_closed)
             {
-                return false;
+                return [];
             }
 
             _settings = settings;
-            hostShareRemoved = _shares.TryGetValue(HostId, out var own) && !settings.Allows(own.Kind);
-            foreach (var disallowed in _shares.Where(s => !settings.Allows(s.Value.Kind)).Select(s => s.Key).ToList())
+            hostKindsRemoved = _shares.Keys.Where(k => k.UserId == HostId && !settings.Allows(k.Kind)).Select(k => k.Kind).ToList();
+            foreach (var disallowed in _shares.Where(s => !settings.Allows(s.Key.Kind)).Select(s => s.Key).ToList())
             {
                 _shares.Remove(disallowed);
             }
         }
 
         Broadcast();
-        return hostShareRemoved;
+        return hostKindsRemoved;
     }
 
-    /// <summary>Compartilhamento de quem hospeda (null para encerrar).</summary>
-    public void SetHostShare(LocalShare? share)
+    /// <summary>Transmissão de quem hospeda; substitui a do mesmo tipo (a do outro tipo continua).</summary>
+    public void SetHostShare(LocalShare share)
     {
         lock (_lock)
         {
-            if (_closed)
+            if (_closed || !_settings.Allows(share.Kind))
             {
                 return;
             }
 
-            if (share is null)
-            {
-                _shares.Remove(HostId);
-            }
-            else if (_settings.Allows(share.Kind))
-            {
-                _shares[HostId] = share with { UserId = HostId };
-            }
+            _shares[(HostId, share.Kind)] = share with { UserId = HostId };
         }
 
         Broadcast();
+    }
+
+    /// <summary>Encerra a transmissão de quem hospeda desse tipo.</summary>
+    public void RemoveHostShare(ShareKind kind)
+    {
+        bool removed;
+        lock (_lock)
+        {
+            removed = !_closed && _shares.Remove((HostId, kind));
+        }
+
+        if (removed)
+        {
+            Broadcast();
+        }
     }
 
     /// <summary>Atende quem entrou pela rede, até a conexão fechar ou a sala acabar.</summary>
@@ -156,7 +164,7 @@ public sealed class LocalRoomHost
                 // A mesma pessoa entrando de novo (ex.: a conexão caiu e voltou) substitui a conexão anterior.
                 _connections.Remove(member.Id, out replaced);
                 _members.RemoveAll(m => m.Id == member.Id);
-                _shares.Remove(member.Id);
+                RemoveSharesOf(member.Id);
                 _members.Add(member);
                 _connections[member.Id] = connection;
             }
@@ -186,7 +194,7 @@ public sealed class LocalRoomHost
                         accepted = _settings.Allows(share.Kind);
                         if (accepted)
                         {
-                            _shares[member.Id] = share with { UserId = member.Id };
+                            _shares[(member.Id, share.Kind)] = share with { UserId = member.Id };
                         }
                     }
 
@@ -200,7 +208,8 @@ public sealed class LocalRoomHost
                     bool removed;
                     lock (_lock)
                     {
-                        removed = _shares.Remove(member.Id);
+                        // Sem o tipo (versão que só tinha uma transmissão por pessoa), encerra todas.
+                        removed = message.Kind is { } kind ? _shares.Remove((member.Id, kind)) : RemoveSharesOf(member.Id);
                     }
 
                     if (removed)
@@ -222,7 +231,7 @@ public sealed class LocalRoomHost
                 {
                     _connections.Remove(member.Id);
                     _members.RemoveAll(m => m.Id == member.Id);
-                    _shares.Remove(member.Id);
+                    RemoveSharesOf(member.Id);
                     left = true;
                 }
             }
@@ -263,8 +272,21 @@ public sealed class LocalRoomHost
         await Task.WhenAll(connections.Select(c => c.Completion)).WaitAsync(TimeSpan.FromSeconds(3)).ContinueWith(_ => { }).ConfigureAwait(false);
     }
 
+    /// <summary>Remove as transmissões da pessoa (dentro do lock). Retorna se havia alguma.</summary>
+    private bool RemoveSharesOf(Guid userId)
+    {
+        var keys = _shares.Keys.Where(k => k.UserId == userId).ToList();
+        foreach (var key in keys)
+        {
+            _shares.Remove(key);
+        }
+
+        return keys.Count > 0;
+    }
+
+    /// <summary>A tela antes da câmera: quem só conhece uma transmissão por pessoa fica com a tela.</summary>
     private LocalRoomState SnapshotLocked() =>
-        new(Id, Name, HostId, _version, [.. _members], [.. _shares.Values], _settings);
+        new(Id, Name, HostId, _version, [.. _members], [.. _shares.Values.OrderBy(s => s.Kind)], _settings);
 
     private void Broadcast()
     {

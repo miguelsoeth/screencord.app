@@ -47,9 +47,9 @@ public sealed class MediaSocket : IMediaSink
     /// <summary>Quantas vezes a fila atrasou demais e o vídeo passou a ser descartado até o próximo quadro-chave.</summary>
     public long VideoOverflows => _outgoing.Overflows;
 
-    public static async Task<MediaSocket> ConnectAsync(CentralApiClient api, Guid groupId, Guid sharerId, int bitrateKbps, CancellationToken cancellationToken)
+    public static async Task<MediaSocket> ConnectAsync(CentralApiClient api, Guid groupId, Guid sharerId, ShareKind kind, int bitrateKbps, CancellationToken cancellationToken)
     {
-        var uri = MediaContract.BuildUri(api.BaseUri, groupId, sharerId);
+        var uri = MediaContract.BuildUri(api.BaseUri, groupId, sharerId, kind);
         for (var attempt = 0; ; attempt++)
         {
             var token = await api.GetApiTokenAsync(cancellationToken).ConfigureAwait(false);

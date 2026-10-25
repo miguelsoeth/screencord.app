@@ -345,12 +345,12 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
     public Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default)
     {
         Calls.Add("share");
-        return Task.FromResult(new ScreenShareDto(FakeGroupsService.Me.UserId, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio));
+        return Task.FromResult(new ScreenShareDto(FakeGroupsService.Me.UserId, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, start.Kind));
     }
 
-    public Task StopScreenShareAsync(CancellationToken cancellationToken = default)
+    public Task StopShareAsync(ShareKind kind, CancellationToken cancellationToken = default)
     {
-        Calls.Add("unshare");
+        Calls.Add(kind == ShareKind.Camera ? "unshare:camera" : "unshare");
         return Task.CompletedTask;
     }
 

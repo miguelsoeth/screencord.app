@@ -1,0 +1,121 @@
+<Window x:Class="ScreenCord.Views.CameraPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:ScreenCord.Localization"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ScreenCord.ViewModels"
+        xmlns:views="clr-namespace:ScreenCord.Views"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:CameraPreviewViewModel}"
+        Title="{l:Tr CameraPreviewHeader}"
+        Icon="/ScreenCord;component/Assets/screencord.ico"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        views:Motion.WindowTransitions="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBackgroundBrush}"
+        BorderBrush="{StaticResource BorderBrush}"
+        BorderThickness="1"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Window.Resources>
+        <Style x:Key="CameraItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Background="Transparent" Margin="0,1">
+                            <Border x:Name="Hover" Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="6" Opacity="0" />
+                            <Border x:Name="Checked" Background="{StaticResource InfoSurfaceBrush}" BorderBrush="{StaticResource AccentBrush}"
+                                    BorderThickness="1" CornerRadius="6" Opacity="0" />
+                            <ContentPresenter Margin="11,7" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource HoverIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource HoverOut}" /></Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Trigger.EnterActions><BeginStoryboard Storyboard="{StaticResource CheckedIn}" /></Trigger.EnterActions>
+                                <Trigger.ExitActions><BeginStoryboard Storyboard="{StaticResource CheckedOut}" /></Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="{l:Tr CameraPreviewHeader}" FontSize="18" FontWeight="Bold" />
+                <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0" TextWrapping="Wrap" Text="{l:Tr CameraPreviewHint}" />
+            </StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32" Margin="0,-6,-8,0"
+                    VerticalAlignment="Top" Click="OnCancelClick" ToolTip="{l:Tr Close}" AutomationProperties.Name="{l:Tr Close}">
+                <Path Data="{StaticResource CloseIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+            </Button>
+        </Grid>
+
+        <!-- Prévia: 16:9, com a imagem inteira dentro (faixas pretas se a câmera tiver outra proporção). -->
+        <Border Grid.Row="1" Margin="0,16,0,0" Background="Black" CornerRadius="8" ClipToBounds="True">
+            <Grid Height="285">
+                <Image x:Name="Preview" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear" />
+                <ProgressBar IsIndeterminate="True" Width="160" Height="4" VerticalAlignment="Center" HorizontalAlignment="Center"
+                             Foreground="{StaticResource AccentBrush}" Background="{StaticResource SurfaceRaisedBrush}" BorderThickness="0"
+                             Visibility="{Binding IsOpening, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Text="{Binding ErrorText}" Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0"
+                           Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Text="{Binding EmptyText}" Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0"
+                           Visibility="{Binding HasNoCameras, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </Border>
+
+        <!-- Só aparece com mais de uma câmera. -->
+        <ListBox Grid.Row="2" ItemsSource="{Binding Cameras}" SelectedItem="{Binding SelectedCamera}"
+                 Margin="0,10,0,0" MaxHeight="110" Background="Transparent" BorderThickness="0"
+                 ItemContainerStyle="{StaticResource CameraItem}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 AutomationProperties.Name="{l:Tr CameraKind}"
+                 Visibility="{Binding HasChoice, Converter={StaticResource BoolToVisibility}}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource CameraIcon}" Width="16" Height="16" Stretch="Uniform"
+                              Fill="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Title}" FontSize="13" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="{l:Tr Cancel}" Style="{StaticResource SecondaryButton}" IsCancel="True" />
+            <Button Content="{l:Tr ActivateCamera}" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" IsDefault="True"
+                    IsEnabled="{Binding CanActivate}" Click="OnActivateClick" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -552,6 +552,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <Grid Width="22" Height="22">
                                                 <Ellipse Fill="{StaticResource SurfaceRaisedBrush}" />
@@ -564,8 +565,23 @@
                                             <TextBlock Grid.Column="1" Text="{Binding DisplayName}" ToolTip="{Binding Handle}" FontSize="13" Margin="8,0,0,0"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                        Foreground="{StaticResource MutedTextBrush}" />
-                                            <!-- Compartilhando a tela: clicar abre a transmissão. -->
+                                            <!-- Com a câmera ligada: clicar abre a câmera, que ocupa um lugar na grade como as telas. -->
                                             <Button Grid.Column="2" Style="{StaticResource LivePill}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    Padding="6,2"
+                                                    Command="{Binding DataContext.WatchCameraCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="{l:Tr WatchCameraOfFormat, Path=DisplayName}"
+                                                    AutomationProperties.Name="{l:Tr WatchCameraOfFormat, Path=DisplayName}">
+                                                <Path Data="{StaticResource CameraIcon}" Stretch="Uniform" Width="12" Height="10" Fill="White" />
+                                                <Button.Visibility>
+                                                    <MultiBinding Converter="{StaticResource IsSharingToVisibility}">
+                                                        <Binding Path="UserId" />
+                                                        <Binding Path="DataContext.CameraUserIds" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                    </MultiBinding>
+                                                </Button.Visibility>
+                                            </Button>
+                                            <!-- Compartilhando a tela: clicar abre a transmissão. -->
+                                            <Button Grid.Column="3" Style="{StaticResource LivePill}" Margin="6,0,0,0" VerticalAlignment="Center"
                                                     Content="{l:Tr Live}"
                                                     Command="{Binding DataContext.WatchCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}"
@@ -804,6 +820,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
@@ -820,7 +837,20 @@
                                         ToolTip="{l:Tr ShareScreen}" AutomationProperties.Name="{l:Tr ShareScreen}">
                                     <Path Data="{StaticResource ScreenShareIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                                 </Button>
-                                <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30"
+                                <!-- Câmera: ligar abre a prévia (Cancelar / Ativar câmera); ligada, o botão desliga. -->
+                                <Button Grid.Column="2" Style="{StaticResource PrimaryIconButton}" Width="30" Height="30" Margin="0,0,6,0"
+                                        Command="{Binding ToggleCameraCommand}"
+                                        Visibility="{Binding IsCameraOn, Converter={StaticResource InverseBoolToVisibility}}"
+                                        ToolTip="{l:Tr TurnOnCamera}" AutomationProperties.Name="{l:Tr TurnOnCamera}">
+                                    <Path Data="{StaticResource CameraIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                                </Button>
+                                <Button Grid.Column="2" Style="{StaticResource DangerIconButton}" Width="30" Height="30" Margin="0,0,6,0"
+                                        Command="{Binding ToggleCameraCommand}"
+                                        Visibility="{Binding IsCameraOn, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="{l:Tr TurnOffCamera}" AutomationProperties.Name="{l:Tr TurnOffCamera}">
+                                    <Path Data="{StaticResource CameraOffIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                                </Button>
+                                <Button Grid.Column="3" Style="{StaticResource DangerIconButton}" Width="30" Height="30"
                                         Command="{Binding LeaveCurrentCommand}"
                                         ToolTip="{l:Tr LeaveRoom}" AutomationProperties.Name="{l:Tr LeaveRoom}">
                                     <Path Data="{StaticResource LogoutIcon}" Style="{StaticResource IconPath}" Width="15" Height="15" />

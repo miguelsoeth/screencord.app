@@ -23,7 +23,7 @@ public sealed class FakeScreenShareService : IScreenShareService
 
     public Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default)
     {
-        Calls.Add($"{(replacing is null ? "start" : "change")}:{groupId}:{request.Settings.Height}p{request.Settings.Fps}:{request.Settings.BitrateKbps}");
+        Calls.Add($"{(request.Source.IsCamera ? "camera" : replacing is null ? "start" : "change")}:{groupId}:{request.Settings.Height}p{request.Settings.Fps}:{request.Settings.BitrateKbps}");
         if (StartFailure is { } failure)
         {
             return Task.FromException<IActiveScreenShare>(failure);
@@ -37,7 +37,7 @@ public sealed class FakeScreenShareService : IScreenShareService
 
         var settings = request.Settings;
         var share = new FakeActiveShare(
-            new ScreenShareDto(FakeGroupsService.Me.UserId, settings.Height * 16 / 9, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio && AudioFailure is null),
+            new ScreenShareDto(FakeGroupsService.Me.UserId, settings.Height * 16 / 9, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio && AudioFailure is null, request.Source.ShareKind),
             request)
         {
             AudioWarning = settings.ShareAudio ? AudioFailure : null,
@@ -48,7 +48,7 @@ public sealed class FakeScreenShareService : IScreenShareService
 
     public Task<IStreamViewer> WatchAsync(Guid groupId, ScreenShareDto share, CancellationToken cancellationToken = default)
     {
-        Calls.Add($"watch:{groupId}:{share.UserId}");
+        Calls.Add($"watch:{groupId}:{share.UserId}" + (share.Kind == ShareKind.Camera ? ":camera" : ""));
         var viewer = new FakeStreamViewer(share.HasAudio);
         Watching.Add(viewer);
         return Task.FromResult<IStreamViewer>(viewer);
@@ -136,16 +136,26 @@ public sealed class FakeScreenShareUi : IScreenShareUi
     /// <summary>Limites do caminho da mídia recebidos em cada escolha.</summary>
     public List<StreamLimits> PickLimits { get; } = [];
 
-    /// <summary>O que o grupo aceitava transmitir (null: sem restrição) em cada escolha.</summary>
-    public List<GroupSettings?> PickAllowed { get; } = [];
+    public static readonly CaptureSource Camera = new(CaptureSourceKind.Camera, IntPtr.Zero, "Webcam", "", 0, 0, 0, "camera-1");
 
-    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null, GroupSettings? allowed = null)
+    /// <summary>A resposta da prévia da câmera (null: a pessoa cancelou).</summary>
+    public Func<StreamLimits, ShareRequest?> OnPickCamera { get; set; } = limits => new ShareRequest(Camera, ShareSettings.ForCamera(limits));
+
+    /// <summary>Limites do caminho da mídia recebidos em cada prévia da câmera.</summary>
+    public List<StreamLimits> CameraPicks { get; } = [];
+
+    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null)
     {
         Picks.Add(initial);
         PickLimits.Add(limits);
         PickCurrents.Add(current);
-        PickAllowed.Add(allowed);
         return OnPick(initial);
+    }
+
+    public ShareRequest? PickCamera(StreamLimits limits)
+    {
+        CameraPicks.Add(limits);
+        return OnPickCamera(limits);
     }
 
     public void ShowViewer(StreamViewerViewModel viewer, Action closed)

@@ -85,7 +85,9 @@ public sealed record LocalRoomState(
 /// <summary>
 /// Mensagens da sala local, em JSON, uma por mensagem de texto do WebSocket.
 /// Quem entra envia <c>hello</c>; o anfitrião responde com <c>state</c> (e de novo a cada mudança) ou <c>closed</c>.
-/// Depois, quem entrou envia <c>share</c> e <c>unshare</c>.
+/// Depois, quem entrou envia <c>share</c> e <c>unshare</c>. Cada pessoa tem no máximo uma transmissão de cada tipo (tela e
+/// câmera, juntas); <c>share</c> substitui a do mesmo tipo e <c>unshare</c> encerra a do <paramref name="Kind"/> (sem ele,
+/// todas, que é o que as versões que só tinham uma por pessoa enviam).
 /// </summary>
 public sealed record LocalMessage(
     string Type,
@@ -93,7 +95,8 @@ public sealed record LocalMessage(
     LocalMember? Member = null,
     LocalRoomState? Room = null,
     LocalShare? Share = null,
-    string? Reason = null)
+    string? Reason = null,
+    ShareKind? Kind = null)
 {
     /// <summary>Versão do protocolo; a 2 passou a usar TLS (<c>wss://</c>) e a impressão digital do certificado.</summary>
     public const int CurrentProtocol = 2;
