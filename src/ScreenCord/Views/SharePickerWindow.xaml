@@ -97,16 +97,10 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal">
-                <!-- Só os tipos que o grupo aceita (configuração do grupo). -->
                 <RadioButton Content="{l:Tr ScreenKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="{l:Tr ShareAScreen}"
-                             Visibility="{Binding AllowsScreens, Converter={StaticResource BoolToVisibility}}" />
+                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="{l:Tr ShareAScreen}" />
                 <RadioButton Content="{l:Tr WindowKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="{l:Tr ShareAWindow}"
-                             Visibility="{Binding AllowsScreens, Converter={StaticResource BoolToVisibility}}" />
-                <RadioButton Content="{l:Tr CameraKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsCameraKind}" AutomationProperties.Name="{l:Tr ShareACamera}"
-                             Visibility="{Binding AllowsCameras, Converter={StaticResource BoolToVisibility}}" />
+                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="{l:Tr ShareAWindow}" />
             </StackPanel>
             <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
                     Command="{Binding RefreshCommand}" ToolTip="{l:Tr RefreshList}" AutomationProperties.Name="{l:Tr RefreshList}">
@@ -141,9 +135,6 @@
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding Kind}" Value="Window">
                                     <Setter TargetName="KindIcon" Property="Data" Value="{StaticResource WindowIcon}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding Kind}" Value="Camera">
-                                    <Setter TargetName="KindIcon" Property="Data" Value="{StaticResource CameraIcon}" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
@@ -207,8 +198,7 @@
             <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding BitrateText}" Style="{StaticResource MutedText}" FontSize="11" Margin="0,8,0,0" />
 
             <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0" IsChecked="{Binding ShareAudio}"
-                      Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand"
-                      Visibility="{Binding ShowAudioOption, Converter={StaticResource BoolToVisibility}}">
+                      Foreground="{StaticResource TextBrush}" VerticalContentAlignment="Center" Cursor="Hand">
                 <StackPanel Margin="4,0,0,0">
                     <TextBlock Text="{l:Tr ShareAudio}" FontSize="13" FontWeight="SemiBold" />
                     <TextBlock Text="{l:Tr WindowAudioHint}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"

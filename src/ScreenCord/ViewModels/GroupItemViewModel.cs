@@ -35,7 +35,8 @@ public sealed class GroupItemViewModel : ObservableObject
         ApplyPresence(CentralApiClient.ToPeople(group.ConnectedUsers), group.PresenceVersion, group.ScreenShares);
         _settings = group.Settings ?? GroupSettings.Default;
 
-        WatchCommand = new AsyncRelayCommand<Person>(person => _owner.WatchAsync(this, person));
+        WatchCommand = new AsyncRelayCommand<Person>(person => _owner.WatchAsync(this, person, ShareKind.Screen));
+        WatchCameraCommand = new AsyncRelayCommand<Person>(person => _owner.WatchAsync(this, person, ShareKind.Camera));
         AddMemberCommand = new AsyncRelayCommand<Person>(person => _owner.AddMemberAsync(this, person));
         LeaveGroupCommand = new AsyncRelayCommand(() => _owner.LeaveGroupAsync(this));
         ConfirmLeaveCommand = new RelayCommand(() => StartConfirmation(leave: true));
@@ -123,16 +124,22 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public int ConnectedCount => ConnectedUsers.Count;
 
-    /// <summary>Compartilhamentos de tela ativos na sala, por quem compartilha.</summary>
-    public IReadOnlyDictionary<Guid, ScreenShareDto> Shares { get; private set; } = new Dictionary<Guid, ScreenShareDto>();
+    /// <summary>Transmissões ativas na sala (telas e câmeras), por pessoa e tipo.</summary>
+    public IReadOnlyDictionary<ShareKey, ScreenShareDto> Shares { get; private set; } = new Dictionary<ShareKey, ScreenShareDto>();
 
     /// <summary>Quem está compartilhando a tela agora (marcado "AO VIVO" na lista de conectados).</summary>
     public IReadOnlySet<Guid> SharingUserIds { get; private set; } = new HashSet<Guid>();
+
+    /// <summary>Quem está com a câmera ligada agora (marcado com o ícone de câmera na lista de conectados).</summary>
+    public IReadOnlySet<Guid> CameraUserIds { get; private set; } = new HashSet<Guid>();
 
     public bool HasShares => Shares.Count > 0;
 
     /// <summary>Clicar em "AO VIVO" ao lado de alguém: abre a tela dessa pessoa.</summary>
     public AsyncRelayCommand<Person> WatchCommand { get; }
+
+    /// <summary>Clicar no ícone de câmera ao lado de alguém: abre a câmera dessa pessoa.</summary>
+    public AsyncRelayCommand<Person> WatchCameraCommand { get; }
 
     /// <summary>Contagem da linha: conectados / integrantes (ex.: "1/2").</summary>
     public string CountText => $"{ConnectedCount}/{MemberCount}";
@@ -363,12 +370,14 @@ public sealed class GroupItemViewModel : ObservableObject
         if (shares is not null)
         {
             Shares = shares
-                .Where(share => share is not null && share.UserId != Guid.Empty)
-                .DistinctBy(share => share.UserId)
-                .ToDictionary(share => share.UserId);
-            SharingUserIds = Shares.Keys.ToHashSet();
+                .Where(share => share is not null && share.UserId != Guid.Empty && Enum.IsDefined(share.Kind))
+                .DistinctBy(ShareKey.Of)
+                .ToDictionary(ShareKey.Of);
+            SharingUserIds = Shares.Keys.Where(k => k.Kind == ShareKind.Screen).Select(k => k.UserId).ToHashSet();
+            CameraUserIds = Shares.Keys.Where(k => k.Kind == ShareKind.Camera).Select(k => k.UserId).ToHashSet();
             OnPropertyChanged(nameof(Shares));
             OnPropertyChanged(nameof(SharingUserIds));
+            OnPropertyChanged(nameof(CameraUserIds));
             OnPropertyChanged(nameof(HasShares));
         }
 

@@ -435,8 +435,8 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
         lock (world.Lock)
         {
             var group = world.CurrentGroupId is { } id ? world.GetGroup(id) : throw MockupWorld.Error("Entre em uma sala para compartilhar a tela.");
-            share = new ScreenShareDto(world.Me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio);
-            group.Shares[world.Me.Id] = share;
+            share = new ScreenShareDto(world.Me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, start.Kind);
+            group.Shares[(world.Me.Id, start.Kind)] = share;
             group.Version++;
             presence = world.ToPresence(group);
         }
@@ -445,12 +445,12 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
         return Task.FromResult(share);
     }
 
-    public Task StopScreenShareAsync(CancellationToken cancellationToken = default)
+    public Task StopShareAsync(ShareKind kind, CancellationToken cancellationToken = default)
     {
         GroupPresenceDto? presence = null;
         lock (world.Lock)
         {
-            if (world.Groups.FirstOrDefault(g => g.Id == world.CurrentGroupId) is { } group && group.Shares.Remove(world.Me.Id))
+            if (world.Groups.FirstOrDefault(g => g.Id == world.CurrentGroupId) is { } group && group.Shares.Remove((world.Me.Id, kind)))
             {
                 group.Version++;
                 presence = world.ToPresence(group);
@@ -517,16 +517,16 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
             }
             else if (Random.Shared.Next(3) == 0)
             {
-                if (!group.Shares.Remove(userId))
+                if (!group.Shares.Remove((userId, ShareKind.Screen)))
                 {
                     var height = ScreenShareLimits.Heights[Random.Shared.Next(ScreenShareLimits.Heights.Length)];
-                    group.Shares[userId] = new ScreenShareDto(userId, height * 16 / 9, height, 30, ScreenShareLimits.MaxBitrateKbps, HasAudio: Random.Shared.Next(2) == 0);
+                    group.Shares[(userId, ShareKind.Screen)] = new ScreenShareDto(userId, height * 16 / 9, height, 30, ScreenShareLimits.MaxBitrateKbps, HasAudio: Random.Shared.Next(2) == 0);
                 }
             }
             else
             {
                 group.Connected.Remove(userId);
-                group.Shares.Remove(userId);
+                group.RemoveSharesOf(userId);
             }
 
             group.Version++;
@@ -551,7 +551,7 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
         }
 
         group.Connected.Remove(world.Me.Id);
-        group.Shares.Remove(world.Me.Id);
+        group.RemoveSharesOf(world.Me.Id);
         group.Version++;
         return world.ToPresence(group);
     }
@@ -585,7 +585,7 @@ public sealed class MockupScreenShareService(MockupWorld world, MockupGroupsReal
         var width = Math.Min(ScreenShareLimits.MaxWidth, settings.Height * 16 / 9 / 2 * 2);
         (replacing as ActiveShare)?.MarkReplaced();
         var share = await realtime.StartScreenShareAsync(
-            new ScreenShareStart(width, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio),
+            new ScreenShareStart(width, settings.Height, settings.Fps, settings.BitrateKbps, settings.ShareAudio && !request.Source.IsCamera, request.Source.ShareKind),
             cancellationToken);
         return new ActiveShare(share, request, realtime);
     }
@@ -613,7 +613,7 @@ public sealed class MockupScreenShareService(MockupWorld world, MockupGroupsReal
         public void MarkReplaced() => _replaced = true;
 
         // Substituído, o anúncio já é do novo compartilhamento e não pode ser removido.
-        public Task StopAsync() => _replaced ? Task.CompletedTask : realtime.StopScreenShareAsync();
+        public Task StopAsync() => _replaced ? Task.CompletedTask : realtime.StopShareAsync(share.Kind);
     }
 
     /// <summary>Gera quadros BGRA animados (gradiente que corre e um quadrado que quica) no ritmo do compartilhamento.</summary>

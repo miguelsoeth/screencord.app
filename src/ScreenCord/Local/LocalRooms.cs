@@ -1,4 +1,5 @@
 using ScreenCord.Localization;
+using System.Collections.Concurrent;
 using System.Net;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
@@ -79,13 +80,14 @@ public interface ILocalRooms
     /// <summary>Anuncia a transmissão (tela ou câmera) na sala atual, com os endereços deste computador.</summary>
     Task<ScreenShareDto> StartShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default);
 
-    Task StopShareAsync();
+    /// <summary>Encerra a transmissão desse tipo (a outra, tela ou câmera, continua).</summary>
+    Task StopShareAsync(ShareKind kind);
 
-    /// <summary>Para onde o encoder envia a mídia do compartilhamento anunciado.</summary>
-    IMediaSink OpenPublisher();
+    /// <summary>Para onde o encoder envia a mídia da transmissão anunciada desse tipo.</summary>
+    IMediaSink OpenPublisher(ShareKind kind);
 
-    /// <summary>Conecta direto ao computador de quem compartilha na sala atual.</summary>
-    Task<MediaSocket> WatchAsync(Guid roomId, Guid sharerId, CancellationToken cancellationToken = default);
+    /// <summary>Conecta direto ao computador de quem transmite (a tela ou a câmera) na sala atual.</summary>
+    Task<MediaSocket> WatchAsync(Guid roomId, Guid sharerId, ShareKind kind, CancellationToken cancellationToken = default);
 }
 
 public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
@@ -104,8 +106,8 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     private LocalRoomClient? _client;
     private LocalRoomClient? _pending;
     private Guid? _currentRoomId;
-    private LocalMediaHost? _media;
-    private ShareKind _mediaKind;
+    // Um canal de mídia por tipo de transmissão (tela e câmera); a rota de mídia lê de threads de fundo.
+    private readonly ConcurrentDictionary<ShareKind, LocalMediaHost> _media = new();
     private bool _started;
 
     /// <param name="port">Porta TCP das salas; 0 escolhe uma livre (testes).</param>
@@ -267,7 +269,11 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     public void Dispose()
     {
         _discovery.Stop();
-        _media?.Stop();
+        foreach (var media in _media.Values)
+        {
+            media.Stop();
+        }
+
         _ = _hosted?.CloseAsync(Strings.HostLeftRoomClosed);
         _ = _client?.DisposeAsync().AsTask();
         _ = _pending?.DisposeAsync().AsTask();
@@ -417,10 +423,13 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
                 throw new LocalNetworkException(Strings.OnlyHostChangesRoom);
             }
 
-            if (hosted.UpdateSettings(settings) && _hosted?.Id == _currentRoomId)
+            // As transmissões deste computador de um tipo que a sala deixou de aceitar terminam.
+            foreach (var kind in hosted.UpdateSettings(settings))
             {
-                // A transmissão deste computador é de um tipo que a sala deixou de aceitar.
-                StopShareLocked(NotAcceptedReason(_mediaKind));
+                if (_hosted?.Id == _currentRoomId)
+                {
+                    StopShareLocked(kind, NotAcceptedReason(kind));
+                }
             }
 
             return settings;
@@ -453,15 +462,19 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
                 throw new LocalNetworkException(Strings.NoLocalNetwork);
             }
 
-            // Trocar as configurações mantém o mesmo canal: quem assiste continua conectado.
-            _media ??= new LocalMediaHost(start.BitrateKbps);
-            var share = new LocalShare(_me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, _media.Id, endpoints, _media.Key, _certificate!.Fingerprint, start.Kind);
+            // Trocar as configurações mantém o mesmo canal: quem assiste continua conectado. Tela e câmera têm um canal cada.
+            if (!_media.TryGetValue(start.Kind, out var media))
+            {
+                media = new LocalMediaHost(start.BitrateKbps);
+            }
+
+            var share = new LocalShare(_me.Id, start.Width, start.Height, start.FrameRate, start.BitrateKbps, start.HasAudio, media.Id, endpoints, media.Key, _certificate!.Fingerprint, start.Kind);
             if (!share.IsValid)
             {
                 throw new LocalNetworkException(Strings.ShareSettingsOutOfLimits);
             }
 
-            _mediaKind = start.Kind;
+            _media[start.Kind] = media;
 
             if (_hosted is { } hosted && hosted.Id == _currentRoomId)
             {
@@ -480,12 +493,12 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
     }
 
-    public async Task StopShareAsync()
+    public async Task StopShareAsync(ShareKind kind)
     {
         await _gate.WaitAsync();
         try
         {
-            StopShareLocked();
+            StopShareLocked(kind);
         }
         finally
         {
@@ -493,13 +506,13 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
     }
 
-    public IMediaSink OpenPublisher() =>
-        _media?.Acquire() ?? throw new LocalNetworkException(Strings.ShareNotAnnounced);
+    public IMediaSink OpenPublisher(ShareKind kind) =>
+        _media.TryGetValue(kind, out var media) ? media.Acquire() : throw new LocalNetworkException(Strings.ShareNotAnnounced);
 
-    public async Task<MediaSocket> WatchAsync(Guid roomId, Guid sharerId, CancellationToken cancellationToken = default)
+    public async Task<MediaSocket> WatchAsync(Guid roomId, Guid sharerId, ShareKind kind, CancellationToken cancellationToken = default)
     {
         var state = _currentRoomId == roomId ? CurrentState() : null;
-        if (state?.Shares.FirstOrDefault(s => s.UserId == sharerId) is not { } share)
+        if (state?.Shares.FirstOrDefault(s => s.UserId == sharerId && s.Kind == kind) is not { } share)
         {
             throw new LocalNetworkException(Strings.ShareAlreadyEnded);
         }
@@ -546,7 +559,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         const string media = "/media/";
         if (request.Path.StartsWith(media, StringComparison.Ordinal) && Guid.TryParse(request.Path[media.Length..], out var mediaId))
         {
-            if (_media is not { } host || host.Id != mediaId)
+            if (_media.Values.FirstOrDefault(m => m.Id == mediaId) is not { } host)
             {
                 return LocalRoute.NotFound;
             }
@@ -564,9 +577,10 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
             if (_client == client)
             {
                 // O anfitrião passou a não aceitar o que este computador transmite: o anúncio já saiu da sala.
-                if (_media is not null && !(state.Settings ?? GroupSettings.Default).Allows(_mediaKind))
+                var settings = state.Settings ?? GroupSettings.Default;
+                foreach (var kind in _media.Keys.Where(k => !settings.Allows(k)).ToList())
                 {
-                    _ = StopNotAcceptedShareAsync();
+                    _ = StopNotAcceptedShareAsync(kind);
                 }
 
                 PresenceChanged?.Invoke(state.ToPresence());
@@ -586,7 +600,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         {
             if (_client == client)
             {
-                StopShareLocked();
+                StopAllSharesLocked();
                 _client = null;
                 _currentRoomId = null;
                 wasCurrent = true;
@@ -613,7 +627,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     /// <summary>Sai da sala atual; se ela era hospedada aqui, ela acaba para todos.</summary>
     private async Task LeaveLockedAsync()
     {
-        StopShareLocked();
+        StopAllSharesLocked();
         if (_client is { } client)
         {
             _client = null;
@@ -634,12 +648,12 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     private static string NotAcceptedReason(ShareKind kind) => kind == ShareKind.Camera ? Strings.GroupNoCamera : Strings.GroupNoScreenShare;
 
     /// <summary>A sala deixou de aceitar o que este computador transmite: para a captura, com o motivo.</summary>
-    private async Task StopNotAcceptedShareAsync()
+    private async Task StopNotAcceptedShareAsync(ShareKind kind)
     {
         await _gate.WaitAsync();
         try
         {
-            StopShareLocked(NotAcceptedReason(_mediaKind));
+            StopShareLocked(kind, NotAcceptedReason(kind));
         }
         finally
         {
@@ -647,23 +661,30 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
     }
 
-    /// <param name="reason">Quando a sala (e não quem compartilha) encerrou, o motivo; o encoder avisa o aplicativo.</param>
-    private void StopShareLocked(string? reason = null)
+    private void StopAllSharesLocked()
     {
-        if (_media is not { } media)
+        foreach (var kind in _media.Keys.ToList())
+        {
+            StopShareLocked(kind);
+        }
+    }
+
+    /// <param name="reason">Quando a sala (e não quem compartilha) encerrou, o motivo; o encoder avisa o aplicativo.</param>
+    private void StopShareLocked(ShareKind kind, string? reason = null)
+    {
+        if (!_media.TryRemove(kind, out var media))
         {
             return;
         }
 
-        _media = null;
         media.Stop(reason);
         if (_hosted is { } hosted && hosted.Id == _currentRoomId)
         {
-            hosted.SetHostShare(null);
+            hosted.RemoveHostShare(kind);
         }
         else
         {
-            _client?.Unshare();
+            _client?.Unshare(kind);
         }
     }
 

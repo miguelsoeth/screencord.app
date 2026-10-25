@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ScreenCord.Services;
 
-/// <summary>Compartilhamento de tela em andamento.</summary>
+/// <summary>Transmissão em andamento: a tela ou a câmera (cada uma é uma transmissão à parte).</summary>
 public interface IActiveScreenShare
 {
     ScreenShareDto Share { get; }
@@ -31,8 +31,9 @@ public interface IScreenShareService
     Guid? CurrentUserId { get; }
 
     /// <summary>
-    /// Começa a compartilhar na sala do grupo em que a conexão em tempo real está. Com <paramref name="replacing"/>,
-    /// troca o compartilhamento atual pelo novo (ex.: outra resolução) sem que ele termine para quem assiste:
+    /// Começa a transmitir (tela ou câmera, conforme a origem) na sala do grupo em que a conexão em tempo real está; a
+    /// transmissão do outro tipo continua. Com <paramref name="replacing"/>,
+    /// troca a transmissão atual do mesmo tipo pela nova (ex.: outra resolução) sem que ela termine para quem assiste:
     /// o novo assume o anúncio e o canal, e o antigo para em seguida. Se a troca falhar antes do anúncio, o
     /// antigo continua; depois dele, o antigo termina (<see cref="IActiveScreenShare.Ended"/>).
     /// </summary>
@@ -139,8 +140,8 @@ public sealed class ScreenShareService : IScreenShareService
             announced = true;
 
             socket = _local?.IsLocal(groupId) == true
-                ? _local.OpenPublisher()
-                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, settings.BitrateKbps, cancellationToken);
+                ? _local.OpenPublisher(request.Source.ShareKind)
+                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, request.Source.ShareKind, settings.BitrateKbps, cancellationToken);
             audioTarget = socket;
             var active = new ActiveScreenShare(share, request, capture, encoder, socket, audio, audioWarning, _realtime, _loggerFactory.CreateLogger<ActiveScreenShare>());
             active.Start();
@@ -169,7 +170,7 @@ public sealed class ScreenShareService : IScreenShareService
             {
                 try
                 {
-                    await _realtime.StopScreenShareAsync(CancellationToken.None);
+                    await _realtime.StopShareAsync(request.Source.ShareKind, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -193,8 +194,8 @@ public sealed class ScreenShareService : IScreenShareService
         try
         {
             var socket = _local?.IsLocal(groupId) == true
-                ? await _local.WatchAsync(groupId, share.UserId, cancellationToken)
-                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, share.BitrateKbps, cancellationToken);
+                ? await _local.WatchAsync(groupId, share.UserId, share.Kind, cancellationToken)
+                : await MediaSocket.ConnectAsync(_api, groupId, share.UserId, share.Kind, share.BitrateKbps, cancellationToken);
             return new StreamViewer(socket, decoder, share.HasAudio, _loggerFactory.CreateLogger<StreamViewer>());
         }
         catch
@@ -272,16 +273,19 @@ public sealed class ScreenShareService : IScreenShareService
 
         public event EventHandler<string>? Ended;
 
+        /// <summary>Tela e câmera podem estar no ar juntas: cada uma tem o seu grupo de campos no contexto dos relatórios de erro.</summary>
+        private string ContextPrefix => Request.Source.IsCamera ? "camera." : "share.";
+
         public void Start()
         {
-            ErrorContext.Clear("share.");
-            ErrorContext.Set("share.kind", Request.Source.Kind);
-            ErrorContext.Set("share.capture", _capture.Name);
-            ErrorContext.Set("share.encoder", _encoder.Name);
-            ErrorContext.Set("share.size", $"{_capture.Width}x{_capture.Height}");
-            ErrorContext.Set("share.fps", Request.Settings.Fps);
-            ErrorContext.Set("share.kbps", Request.Settings.BitrateKbps);
-            ErrorContext.Set("share.audio", _audio is not null);
+            ErrorContext.Clear(ContextPrefix);
+            ErrorContext.Set(ContextPrefix + "kind", Request.Source.Kind);
+            ErrorContext.Set(ContextPrefix + "capture", _capture.Name);
+            ErrorContext.Set(ContextPrefix + "encoder", _encoder.Name);
+            ErrorContext.Set(ContextPrefix + "size", $"{_capture.Width}x{_capture.Height}");
+            ErrorContext.Set(ContextPrefix + "fps", Request.Settings.Fps);
+            ErrorContext.Set(ContextPrefix + "kbps", Request.Settings.BitrateKbps);
+            ErrorContext.Set(ContextPrefix + "audio", _audio is not null);
             _clock.Start();
             _videoThread.Start();
         }
@@ -321,7 +325,7 @@ public sealed class ScreenShareService : IScreenShareService
 
             try
             {
-                await _realtime.StopScreenShareAsync();
+                await _realtime.StopShareAsync(Request.Source.ShareKind);
             }
             catch (Exception ex)
             {
@@ -347,7 +351,7 @@ public sealed class ScreenShareService : IScreenShareService
 
                 try
                 {
-                    await _realtime.StopScreenShareAsync();
+                    await _realtime.StopShareAsync(Request.Source.ShareKind);
                 }
                 catch (Exception)
                 {
@@ -375,7 +379,7 @@ public sealed class ScreenShareService : IScreenShareService
             _capture.Dispose();
             if (!_replaced)
             {
-                ErrorContext.Clear("share.");
+                ErrorContext.Clear(ContextPrefix);
             }
         }
 
@@ -478,7 +482,7 @@ public sealed class ScreenShareService : IScreenShareService
             software.RequestKeyframe(); // quem assiste precisa de um quadro-chave do encoder novo
             _encoder = software;
             _adaptiveBitrate = true;
-            ErrorContext.Set("share.encoder", $"{software.Name} (depois de falhar {failed.Name})");
+            ErrorContext.Set(ContextPrefix + "encoder", $"{software.Name} (depois de falhar {failed.Name})");
             failed.Dispose();
             _logger.LogInformation("Compartilhamento seguindo com o encoder {Encoder}.", software.Name);
             return true;

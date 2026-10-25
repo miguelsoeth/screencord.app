@@ -44,10 +44,14 @@ public interface IGroupsRealtime
 
     Task LeaveAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Anuncia o compartilhamento de tela na sala atual. A mídia vai depois pelo canal de mídia.</summary>
+    /// <summary>
+    /// Anuncia a transmissão (tela ou câmera) na sala atual. A mídia vai depois pelo canal de mídia. A outra transmissão
+    /// da mesma pessoa continua; uma do mesmo tipo é substituída.
+    /// </summary>
     Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default);
 
-    Task StopScreenShareAsync(CancellationToken cancellationToken = default);
+    /// <summary>Encerra a transmissão desse tipo; a outra (tela ou câmera) continua.</summary>
+    Task StopShareAsync(ShareKind kind, CancellationToken cancellationToken = default);
 
     Task StopAsync();
 }
@@ -170,11 +174,11 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
         return share ?? throw new DiscordException(DiscordErrorKind.Rejected, Strings.JoinGroupRoomToShare) { Source = ErrorSource.CentralApi };
     }
 
-    public Task StopScreenShareAsync(CancellationToken cancellationToken = default) =>
+    public Task StopShareAsync(ShareKind kind, CancellationToken cancellationToken = default) =>
         InvokeAsync<object?>(
             async connection =>
             {
-                await connection.InvokeAsync(GroupsHubContract.StopScreenShare, cancellationToken).ConfigureAwait(false);
+                await connection.InvokeAsync(GroupsHubContract.StopShare, kind, cancellationToken).ConfigureAwait(false);
                 return null;
             },
             cancellationToken);

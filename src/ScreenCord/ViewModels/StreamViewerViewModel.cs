@@ -59,6 +59,9 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
 
     public Guid SharerId => Sharer.UserId;
 
+    /// <summary>Tela ou câmera: a mesma pessoa pode ter as duas abertas, cada uma no seu lugar da grade.</summary>
+    public ShareKind Kind => _share.Kind;
+
     public string Title => string.Format(
         Loc.Culture, _share.Kind == ShareKind.Camera ? Strings.ViewerCameraTitleFormat : Strings.ViewerTitleFormat, Sharer.DisplayName, GroupName);
 

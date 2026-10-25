@@ -47,6 +47,10 @@ public sealed class GroupsViewModel : ObservableObject
     private IActiveScreenShare? _activeShare;
     private Guid? _shareGroupId;
     private bool _isStartingShare;
+    // A câmera é uma transmissão à parte, que fica no ar junto com a tela (ou sozinha).
+    private IActiveScreenShare? _activeCamera;
+    private Guid? _cameraGroupId;
+    private bool _isStartingCamera;
     private string? _shareMessage;
     private ShareSettings _lastShareSettings = ShareSettings.Default;
 
@@ -87,6 +91,7 @@ public sealed class GroupsViewModel : ObservableObject
         StartShareCommand = new AsyncRelayCommand(StartShareAsync, () => CanStartShare);
         StopShareCommand = new AsyncRelayCommand(StopShareAsync, () => IsSharing);
         ChangeShareCommand = new AsyncRelayCommand(ChangeShareAsync, () => CanChangeShare);
+        ToggleCameraCommand = new AsyncRelayCommand(ToggleCameraAsync, () => CanToggleCamera);
         JoinByAddressCommand = new AsyncRelayCommand(JoinByAddressAsync);
         ConfigureFirewallCommand = new AsyncRelayCommand(ConfigureFirewallAsync);
         DismissFirewallWarningCommand = new RelayCommand(() => ShowFirewallWarning = false);
@@ -193,7 +198,36 @@ public sealed class GroupsViewModel : ObservableObject
     /// <summary>Troca resolução, taxa de quadros, qualidade, áudio (ou a origem) sem encerrar para quem assiste.</summary>
     public AsyncRelayCommand ChangeShareCommand { get; }
 
+    /// <summary>
+    /// Liga a câmera (abre antes a prévia, com Cancelar e Ativar câmera) ou, com ela ligada, desliga. A câmera é uma
+    /// transmissão à parte: ocupa um lugar na grade de quem assiste e fica no ar junto com a tela.
+    /// </summary>
+    public AsyncRelayCommand ToggleCameraCommand { get; }
+
     public bool CanChangeShare => IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected;
+
+    /// <summary>A câmera está no ar na sala.</summary>
+    public bool IsCameraOn => _activeCamera is not null;
+
+    public bool IsStartingCamera
+    {
+        get => _isStartingCamera;
+        private set
+        {
+            if (SetProperty(ref _isStartingCamera, value))
+            {
+                OnShareStateChanged();
+            }
+        }
+    }
+
+    /// <summary>Ligar exige o grupo aceitar câmera; desligar vale sempre que a conexão está de pé.</summary>
+    public bool CanToggleCamera =>
+        IsInGroup && !IsStartingCamera && RealtimeState == RealtimeState.Connected &&
+        (IsCameraOn || CurrentGroup?.Settings.AllowCamera != false);
+
+    /// <summary>Dica do botão da câmera: ligar ou, com ela no ar, desligar.</summary>
+    public string CameraToolTip => IsCameraOn ? Strings.TurnOffCamera : Strings.TurnOnCamera;
 
     /// <summary>Aviso enquanto o compartilhamento começa ou recomeça com as novas configurações.</summary>
     public string ShareProgressText => IsSharing ? Strings.ApplyingSettings : Strings.StartingShare;
@@ -213,9 +247,9 @@ public sealed class GroupsViewModel : ObservableObject
         }
     }
 
-    public bool CanStartShare => IsInGroup && !IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected && CurrentGroup?.AllowsSharing != false;
+    public bool CanStartShare => IsInGroup && !IsSharing && !IsStartingShare && RealtimeState == RealtimeState.Connected && CurrentGroup?.Settings.AllowScreenShare != false;
 
-    /// <summary>O grupo atual não aceita nem tela nem câmera (o dono desligou as duas): o botão de compartilhar fica desligado.</summary>
+    /// <summary>O grupo atual não aceita nem tela nem câmera (o dono desligou as duas): os botões de transmitir ficam desligados.</summary>
     public bool ShowSharingDisabled => IsInGroup && CurrentGroup?.AllowsSharing == false;
 
     /// <summary>O que está sendo compartilhado: "Tela 1 (principal)" ou o título da janela.</summary>
@@ -419,6 +453,7 @@ public sealed class GroupsViewModel : ObservableObject
     public void Clear()
     {
         _ = EndShareAsync(null);
+        _ = EndCameraAsync(null);
         CloseViewers(null);
         ShareMessage = null;
         _isActive = false;
@@ -757,6 +792,11 @@ public sealed class GroupsViewModel : ObservableObject
                 await EndShareAsync(Strings.ShareStoppedServerLost);
             }
 
+            if (IsCameraOn)
+            {
+                await EndCameraAsync(Strings.ShareStoppedServerLost);
+            }
+
             return;
         }
 
@@ -942,14 +982,14 @@ public sealed class GroupsViewModel : ObservableObject
         }
     }
 
-    internal async Task WatchAsync(GroupItemViewModel group, Person sharer)
+    internal async Task WatchAsync(GroupItemViewModel group, Person sharer, ShareKind kind = ShareKind.Screen)
     {
         if (sharer.UserId == _screenShare.CurrentUserId || sharer.UserId == _localRooms?.Me.Id)
         {
             return;
         }
 
-        if (_viewers.FirstOrDefault(v => v.GroupId == group.Id && v.SharerId == sharer.UserId && !v.IsEnded) is { } open)
+        if (_viewers.FirstOrDefault(v => v.GroupId == group.Id && v.SharerId == sharer.UserId && v.Kind == kind && !v.IsEnded) is { } open)
         {
             _shareUi.ActivateViewer(open);
             return;
@@ -965,14 +1005,14 @@ public sealed class GroupsViewModel : ObservableObject
             }
         }
 
-        if (!group.Shares.TryGetValue(sharer.UserId, out var share))
+        if (!group.Shares.TryGetValue(new ShareKey(sharer.UserId, kind), out var share))
         {
             ErrorMessage = string.Format(Loc.Culture, Strings.NotSharingAnymoreFormat, sharer.DisplayName);
             return;
         }
 
         // Uma janela que já terminou é substituída pela nova.
-        foreach (var ended in _viewers.Where(v => v.GroupId == group.Id && v.SharerId == sharer.UserId).ToList())
+        foreach (var ended in _viewers.Where(v => v.GroupId == group.Id && v.SharerId == sharer.UserId && v.Kind == kind).ToList())
         {
             ended.RequestClose();
         }
@@ -994,7 +1034,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(_lastShareSettings, LimitsFor(group.Id), allowed: group.Settings);
+        var request = _shareUi.PickShare(_lastShareSettings, LimitsFor(group.Id));
         if (request is null || CurrentGroup != group)
         {
             return;
@@ -1039,7 +1079,7 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
-        var request = _shareUi.PickShare(current.Request.Settings, LimitsFor(group.Id), current.Request.Source, group.Settings);
+        var request = _shareUi.PickShare(current.Request.Settings, LimitsFor(group.Id), current.Request.Source);
         if (request is null || _activeShare != current)
         {
             return;
@@ -1109,11 +1149,100 @@ public sealed class GroupsViewModel : ObservableObject
         OnShareStateChanged();
     }
 
+    private async Task ToggleCameraAsync()
+    {
+        if (IsCameraOn)
+        {
+            await EndCameraAsync(null);
+            return;
+        }
+
+        if (CurrentGroup is not { } group || !CanToggleCamera)
+        {
+            return;
+        }
+
+        // Prévia da câmera antes de ligar: sem a confirmação, nada é transmitido.
+        var request = _shareUi.PickCamera(LimitsFor(group.Id));
+        if (request is null || CurrentGroup != group || IsCameraOn)
+        {
+            return;
+        }
+
+        ShareMessage = null;
+        IsStartingCamera = true;
+        try
+        {
+            var active = await _screenShare.StartAsync(group.Id, request);
+            if (CurrentGroup != group || !_isActive)
+            {
+                // Saiu da sala enquanto a câmera ligava.
+                await active.StopAsync();
+                return;
+            }
+
+            active.Ended += (_, reason) => Post(() => OnCameraEnded(active, reason));
+            _activeCamera = active;
+            _cameraGroupId = group.Id;
+        }
+        catch (Exception ex)
+        {
+            ShareMessage = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            IsStartingCamera = false;
+        }
+    }
+
+    private async Task EndCameraAsync(string? message)
+    {
+        if (_activeCamera is not { } active)
+        {
+            return;
+        }
+
+        _activeCamera = null;
+        _cameraGroupId = null;
+        if (message is not null)
+        {
+            ShareMessage = message;
+        }
+
+        OnShareStateChanged();
+        try
+        {
+            await active.StopAsync();
+        }
+        catch (Exception)
+        {
+            // Melhor esforço: o servidor encerra a transmissão quando a conexão de mídia cai.
+        }
+    }
+
+    private void OnCameraEnded(IActiveScreenShare active, string reason)
+    {
+        if (_activeCamera != active)
+        {
+            return;
+        }
+
+        _activeCamera = null;
+        _cameraGroupId = null;
+        ShareMessage = reason;
+        OnShareStateChanged();
+    }
+
     private void LeftRoom(Guid groupId)
     {
         if (_shareGroupId == groupId)
         {
             _ = EndShareAsync(null);
+        }
+
+        if (_cameraGroupId == groupId)
+        {
+            _ = EndCameraAsync(null);
         }
 
         CloseViewers(groupId);
@@ -1132,7 +1261,7 @@ public sealed class GroupsViewModel : ObservableObject
     {
         foreach (var viewer in _viewers.Where(v => v.GroupId == group.Id).ToList())
         {
-            viewer.UpdateShare(group.Shares.GetValueOrDefault(viewer.SharerId));
+            viewer.UpdateShare(group.Shares.GetValueOrDefault(new ShareKey(viewer.SharerId, viewer.Kind)));
         }
     }
 
@@ -1148,6 +1277,10 @@ public sealed class GroupsViewModel : ObservableObject
         ChangeShareCommand?.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanChangeShare));
         OnPropertyChanged(nameof(ShareProgressText));
+        OnPropertyChanged(nameof(IsCameraOn));
+        OnPropertyChanged(nameof(CanToggleCamera));
+        OnPropertyChanged(nameof(CameraToolTip));
+        ToggleCameraCommand?.NotifyCanExecuteChanged();
     }
 
     private void Post(Action action) => Post(() =>

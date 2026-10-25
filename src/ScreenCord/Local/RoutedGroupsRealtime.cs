@@ -119,8 +119,8 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
     public Task<ScreenShareDto> StartScreenShareAsync(ScreenShareStart start, CancellationToken cancellationToken = default) =>
         InLocalRoom ? _local.StartShareAsync(start, cancellationToken) : _api.StartScreenShareAsync(start, cancellationToken);
 
-    public Task StopScreenShareAsync(CancellationToken cancellationToken = default) =>
-        InLocalRoom ? _local.StopShareAsync() : _api.StopScreenShareAsync(cancellationToken);
+    public Task StopShareAsync(ShareKind kind, CancellationToken cancellationToken = default) =>
+        InLocalRoom ? _local.StopShareAsync(kind) : _api.StopShareAsync(kind, cancellationToken);
 
     public async Task StopAsync()
     {

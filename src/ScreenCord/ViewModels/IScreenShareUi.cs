@@ -9,10 +9,15 @@ public interface IScreenShareUi
     /// <summary>
     /// Abre a escolha do que compartilhar. Com <paramref name="current"/>, é a troca das configurações de um
     /// compartilhamento em andamento, com a origem atual já marcada. Só as opções dentro de <paramref name="limits"/>
-    /// (o caminho da mídia: servidor ou sala local) podem ser escolhidas, e só os tipos de origem que o grupo aceita
-    /// (<paramref name="allowed"/>; sem ele, todos). Retorna null se a pessoa cancelar.
+    /// (o caminho da mídia: servidor ou sala local) podem ser escolhidas. Retorna null se a pessoa cancelar.
     /// </summary>
-    ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null, GroupSettings? allowed = null);
+    ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null);
+
+    /// <summary>
+    /// Abre a prévia da câmera, com Cancelar e Ativar câmera. Retorna o pedido para transmitir a câmera escolhida
+    /// (qualidade dentro de <paramref name="limits"/>), ou null se a pessoa cancelar ou não houver câmera.
+    /// </summary>
+    ShareRequest? PickCamera(StreamLimits limits);
 
     /// <summary>
     /// Mostra a tela de alguém, ao lado da que já estava aberta (cabem duas; com as duas ocupadas, a mais antiga

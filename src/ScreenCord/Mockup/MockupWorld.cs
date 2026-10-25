@@ -24,7 +24,16 @@ public sealed class MockupWorld
 
         public List<Guid> Connected { get; } = [];
 
-        public Dictionary<Guid, ScreenShareDto> Shares { get; } = [];
+        /// <summary>Uma transmissão por pessoa e tipo (tela e câmera podem estar no ar juntas).</summary>
+        public Dictionary<(Guid UserId, ShareKind Kind), ScreenShareDto> Shares { get; } = [];
+
+        public void RemoveSharesOf(Guid userId)
+        {
+            foreach (var key in Shares.Keys.Where(k => k.UserId == userId).ToList())
+            {
+                Shares.Remove(key);
+            }
+        }
 
         public GroupSettings Settings { get; set; } = GroupSettings.Default;
 
@@ -55,7 +64,8 @@ public sealed class MockupWorld
 
         var games = AddGroup("Jogatina de sexta", Me.Id, [ana, bruno, carla, diego]);
         games.Connected.AddRange([bruno.Id, carla.Id]);
-        games.Shares[bruno.Id] = new ScreenShareDto(bruno.Id, 960, 540, 60, 3000, HasAudio: true);
+        games.Shares[(bruno.Id, ShareKind.Screen)] = new ScreenShareDto(bruno.Id, 960, 540, 60, 3000, HasAudio: true);
+        games.Shares[(carla.Id, ShareKind.Camera)] = new ScreenShareDto(carla.Id, 640, 360, 30, 1500, false, ShareKind.Camera);
 
         var work = AddGroup("Trabalho", ana.Id, [Me, ana, elisa, fabio]);
         work.Connected.Add(elisa.Id);

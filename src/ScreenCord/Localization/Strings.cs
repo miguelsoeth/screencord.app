@@ -216,7 +216,7 @@ public static class Strings
     public static string HostIp => T("IP de quem hospeda a sala", "IP of the room's host", "IP de quien aloja la sala");
 
     // Compartilhamento (lateral)
-    public static string ShareScreen => T("Compartilhar tela ou câmera", "Share screen or camera", "Compartir pantalla o cámara");
+    public static string ShareScreen => T("Compartilhar tela", "Share screen", "Compartir pantalla");
     public static string LeaveRoom => T("Sair da sala", "Leave room", "Salir de la sala");
     public static string ChangeSettings => T("Alterar configurações", "Change settings", "Cambiar configuración");
     public static string ChangeShareSettings => T("Alterar configurações do compartilhamento", "Change sharing settings", "Cambiar la configuración de la transmisión");
@@ -287,7 +287,19 @@ public static class Strings
     public static string ScreenKind => T("Tela", "Screen", "Pantalla");
     public static string WindowKind => T("Janela", "Window", "Ventana");
     public static string CameraKind => T("Câmera", "Camera", "Cámara");
-    public static string ShareACamera => T("Transmitir a câmera", "Share a camera", "Transmitir la cámara");
+    public static string TurnOnCamera => T("Ligar a câmera", "Turn on camera", "Encender la cámara");
+    public static string TurnOffCamera => T("Desligar a câmera", "Turn off camera", "Apagar la cámara");
+    public static string CameraPreviewHeader => T("Ativar a câmera", "Turn on the camera", "Activar la cámara");
+    public static string CameraPreviewHint => T(
+        "É assim que a sala vai ver você. Nada é transmitido até você ativar a câmera.",
+        "This is how the room will see you. Nothing is sent until you turn the camera on.",
+        "Así te verá la sala. No se transmite nada hasta que actives la cámara.");
+    public static string ActivateCamera => T("Ativar câmera", "Turn on camera", "Activar cámara");
+    public static string CameraPreviewFailed => T(
+        "Não foi possível abrir esta câmera. Ela pode estar em uso por outro programa.",
+        "Couldn't open this camera. It may be in use by another program.",
+        "No se pudo abrir esta cámara. Puede estar en uso por otro programa.");
+    public static string WatchCameraOfFormat => T("Assistir à câmera de {0}", "Watch {0}'s camera", "Ver la cámara de {0}");
     public static string NoCamerasFound => T(
         "Nenhuma câmera encontrada. Conecte uma e veja se o Windows permite o acesso das apps à câmera (Configurações → Privacidade → Câmera).",
         "No camera found. Plug one in and check that Windows lets apps use the camera (Settings → Privacy → Camera).",

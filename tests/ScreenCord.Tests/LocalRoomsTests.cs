@@ -155,7 +155,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
         };
 
         var share = await bruno.StartShareAsync(new ScreenShareStart(1920, 1080, 60, 5000, true));
-        var publisher = bruno.OpenPublisher();
+        var publisher = bruno.OpenPublisher(ShareKind.Screen);
         var keyframeRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         publisher.KeyframeRequested += () => keyframeRequested.TrySetResult();
 
@@ -163,7 +163,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
         Assert.Equal(share, Assert.Single((await WaitAsync(anaSawShare)).ScreenShares!));
 
         // Ana conecta direto no computador do Bruno; ele recebe o pedido de quadro-chave e envia.
-        var viewer = await ana.WatchAsync(roomId, bruno.Me.Id);
+        var viewer = await ana.WatchAsync(roomId, bruno.Me.Id, ShareKind.Screen);
         var received = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         viewer.PacketReceived += (type, flags, _, payload) =>
         {
@@ -426,7 +426,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
             }
         };
         await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera));
-        var publisher = bruno.OpenPublisher();
+        var publisher = bruno.OpenPublisher(ShareKind.Camera);
         var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         publisher.Closed += _ => closed.TrySetResult();
         await anaSawShare.Task.WaitAsync(Timeout);
@@ -443,7 +443,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
     {
         var (ana, _, roomId) = await RoomWithTwoAsync();
         await ana.StartShareAsync(new ScreenShareStart(1280, 720, 30, 1500, false, ShareKind.Camera));
-        var publisher = ana.OpenPublisher();
+        var publisher = ana.OpenPublisher(ShareKind.Camera);
         var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         publisher.Closed += _ => closed.TrySetResult();
 
@@ -451,6 +451,137 @@ public sealed class LocalRoomsTests : IAsyncLifetime
 
         await closed.Task.WaitAsync(Timeout);
         Assert.Empty(ana.Rooms.Single(r => r.Id == roomId).ScreenShares ?? []);
+    }
+
+    [Fact]
+    public async Task TelaECameraJuntas_AparecemAsDuasEChegamPorCanaisSeparados()
+    {
+        var (ana, bruno, roomId) = await RoomWithTwoAsync();
+        var anaSawBoth = new TaskCompletionSource<GroupPresenceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ana.PresenceChanged += p =>
+        {
+            if (p.ScreenShares is { Count: 2 })
+            {
+                anaSawBoth.TrySetResult(p);
+            }
+        };
+
+        // A câmera entra antes da tela, mas a lista traz a tela primeiro.
+        await bruno.StartShareAsync(new ScreenShareStart(640, 360, 30, 1500, false, ShareKind.Camera));
+        await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 3000, false));
+        var camera = bruno.OpenPublisher(ShareKind.Camera);
+        var screen = bruno.OpenPublisher(ShareKind.Screen);
+        var cameraAsked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var screenAsked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        camera.KeyframeRequested += () => cameraAsked.TrySetResult();
+        screen.KeyframeRequested += () => screenAsked.TrySetResult();
+
+        var shares = (await WaitAsync(anaSawBoth)).ScreenShares!;
+        Assert.Equal([ShareKind.Screen, ShareKind.Camera], shares.Select(s => s.Kind));
+        Assert.All(shares, s => Assert.Equal(bruno.Me.Id, s.UserId));
+
+        // Cada uma tem o seu canal: o pacote da câmera não chega a quem assiste a tela.
+        var cameraViewer = await ana.WatchAsync(roomId, bruno.Me.Id, ShareKind.Camera);
+        var screenViewer = await ana.WatchAsync(roomId, bruno.Me.Id, ShareKind.Screen);
+        var cameraKeyframe = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var screenKeyframe = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        cameraViewer.PacketReceived += (type, flags, _, payload) =>
+        {
+            if (type == MediaContract.Video && (flags & MediaContract.KeyframeFlag) != 0)
+            {
+                cameraKeyframe.TrySetResult(payload.ToArray());
+            }
+        };
+        screenViewer.PacketReceived += (type, flags, _, payload) =>
+        {
+            if (type == MediaContract.Video && (flags & MediaContract.KeyframeFlag) != 0)
+            {
+                screenKeyframe.TrySetResult(payload.ToArray());
+            }
+        };
+        cameraViewer.Start();
+        screenViewer.Start();
+        await cameraAsked.Task.WaitAsync(Timeout);
+        await screenAsked.Task.WaitAsync(Timeout);
+
+        camera.SendVideo(new EncodedFrame([1, 1], IsKeyframe: true, 0), 1);
+        screen.SendVideo(new EncodedFrame([2, 2], IsKeyframe: true, 0), 1);
+
+        Assert.Equal([1, 1], await WaitAsync(cameraKeyframe));
+        Assert.Equal([2, 2], await WaitAsync(screenKeyframe));
+        await cameraViewer.DisposeAsync();
+        await screenViewer.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task PararACamera_NaoPara_ATela()
+    {
+        var (ana, bruno, _) = await RoomWithTwoAsync();
+        var sawBoth = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sawScreenOnly = new TaskCompletionSource<ScreenShareDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ana.PresenceChanged += p =>
+        {
+            if (p.ScreenShares is { Count: 2 })
+            {
+                sawBoth.TrySetResult();
+            }
+            else if (sawBoth.Task.IsCompleted && p.ScreenShares is { Count: 1 } one)
+            {
+                sawScreenOnly.TrySetResult(one[0]);
+            }
+        };
+        await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 3000, false));
+        await bruno.StartShareAsync(new ScreenShareStart(640, 360, 30, 1500, false, ShareKind.Camera));
+        var screen = bruno.OpenPublisher(ShareKind.Screen);
+        var screenClosed = false;
+        screen.Closed += _ => screenClosed = true;
+        await sawBoth.Task.WaitAsync(Timeout);
+
+        await bruno.StopShareAsync(ShareKind.Camera);
+
+        Assert.Equal(ShareKind.Screen, (await WaitAsync(sawScreenOnly)).Kind);
+        Assert.False(screenClosed);
+    }
+
+    [Fact]
+    public async Task NovaCamera_SubstituiASuaCamera_ESemMexerNaTela()
+    {
+        var (ana, bruno, _) = await RoomWithTwoAsync();
+        var updated = new TaskCompletionSource<GroupPresenceDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ana.PresenceChanged += p =>
+        {
+            if (p.ScreenShares is { Count: 2 } shares && shares.Any(s => s.Kind == ShareKind.Camera && s.Height == 270))
+            {
+                updated.TrySetResult(p);
+            }
+        };
+        await bruno.StartShareAsync(new ScreenShareStart(1280, 720, 30, 3000, false));
+        await bruno.StartShareAsync(new ScreenShareStart(640, 360, 30, 1500, false, ShareKind.Camera));
+
+        await bruno.StartShareAsync(new ScreenShareStart(480, 270, 30, 1000, false, ShareKind.Camera));
+
+        var shares = (await WaitAsync(updated)).ScreenShares!;
+        Assert.Equal(720, shares.Single(s => s.Kind == ShareKind.Screen).Height);
+    }
+
+    [Fact]
+    public async Task Configuracao_DesligarACamera_NaoEncerraATelaDeQuemHospeda()
+    {
+        var (ana, _, roomId) = await RoomWithTwoAsync();
+        await ana.StartShareAsync(new ScreenShareStart(1280, 720, 30, 3000, false));
+        await ana.StartShareAsync(new ScreenShareStart(640, 360, 30, 1500, false, ShareKind.Camera));
+        var screen = ana.OpenPublisher(ShareKind.Screen);
+        var camera = ana.OpenPublisher(ShareKind.Camera);
+        var screenClosed = false;
+        var cameraClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        screen.Closed += _ => screenClosed = true;
+        camera.Closed += _ => cameraClosed.TrySetResult();
+
+        await ana.UpdateSettingsAsync(roomId, new GroupSettings(AllowScreenShare: true, AllowCamera: false));
+
+        await cameraClosed.Task.WaitAsync(Timeout);
+        Assert.False(screenClosed);
+        Assert.Equal(ShareKind.Screen, Assert.Single(ana.Rooms.Single(r => r.Id == roomId).ScreenShares!).Kind);
     }
 
     [Fact]

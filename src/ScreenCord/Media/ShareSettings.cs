@@ -45,6 +45,19 @@ public sealed record ShareSettings(
         return new ShareSettings(resolution, ShareFrameRate.Fps30, true, limits.MaxBitrateKbps);
     }
 
+    /// <summary>
+    /// A câmera não passa de 720p a 30 fps (a webcam é um rosto, não precisa de mais) nem de 1,5 Mbps, e fica abaixo
+    /// disso se o caminho pedir. Sem áudio: o som que o aplicativo captura é o do programa ou do computador.
+    /// </summary>
+    public static ShareSettings ForCamera(StreamLimits limits)
+    {
+        var resolution = IsAvailable(ShareResolution.P720, ShareFrameRate.Fps30, limits) ? ShareResolution.P720 : ShareResolution.P540;
+        return new ShareSettings(resolution, ShareFrameRate.Fps30, false, Math.Min(limits.MaxBitrateKbps, CameraBitrateKbps));
+    }
+
+    /// <summary>Taxa de bits da câmera em 720p a 30 fps.</summary>
+    public const int CameraBitrateKbps = 1500;
+
     /// <summary>A resolução tem ao menos um fps dentro do caminho.</summary>
     public static bool IsAvailable(ShareResolution resolution, StreamLimits limits) =>
         Enum.GetValues<ShareFrameRate>().Any(fps => IsAvailable(resolution, fps, limits));
