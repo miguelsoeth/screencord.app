@@ -95,20 +95,30 @@ public sealed class LocalMediaHost
         }
     }
 
-    /// <summary>Encerra o compartilhamento: quem assiste é desconectado.</summary>
-    public void Stop()
+    /// <summary>
+    /// Encerra o compartilhamento: quem assiste é desconectado. Com <paramref name="reason"/>, o encoder também é avisado
+    /// (a sala deixou de aceitar o que ele transmite) e para por conta própria; sem ele, quem pediu o fim já sabe.
+    /// </summary>
+    public void Stop(string? reason = null)
     {
         List<Viewer> viewers;
+        Lease? lease;
         lock (_lock)
         {
             _stopped = true;
             viewers = [.. _viewers];
             _viewers.Clear();
+            lease = _current;
         }
 
         foreach (var viewer in viewers)
         {
             viewer.Close();
+        }
+
+        if (reason is not null)
+        {
+            lease?.RaiseClosed(reason);
         }
     }
 
@@ -171,12 +181,10 @@ public sealed class LocalMediaHost
     {
         public event Action? KeyframeRequested;
 
-        // A mídia não depende de uma conexão com outro computador: só para quando o compartilhamento termina.
-        public event Action<string?>? Closed
-        {
-            add { }
-            remove { }
-        }
+        // A mídia não depende de uma conexão com outro computador: só fecha quando a sala encerra o compartilhamento (Stop com motivo).
+        public event Action<string?>? Closed;
+
+        public void RaiseClosed(string reason) => Closed?.Invoke(reason);
 
         /// <summary>O maior atraso entre os espectadores: é o upload de quem compartilha que limita.</summary>
         public long QueuedBytes => host.MaxQueuedBytes();

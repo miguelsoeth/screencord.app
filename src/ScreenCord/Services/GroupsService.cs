@@ -21,6 +21,9 @@ public interface IGroupsService
 
     /// <summary>Exclui o grupo para todos os integrantes (só quem o criou pode).</summary>
     Task DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken = default);
+
+    /// <summary>Muda o que o grupo aceita transmitir (só quem o criou pode). Retorna o que ficou valendo.</summary>
+    Task<GroupSettings> UpdateSettingsAsync(Guid groupId, GroupSettings settings, CancellationToken cancellationToken = default);
 }
 
 public sealed class CentralGroupsService : IGroupsService
@@ -51,8 +54,13 @@ public sealed class CentralGroupsService : IGroupsService
             }
         }
 
-        return new GroupDetails(group.Id, group.Name ?? "", members, group.PresenceVersion, group.CanDelete);
+        return new GroupDetails(group.Id, group.Name ?? "", members, group.PresenceVersion, group.CanDelete, group.Settings ?? GroupSettings.Default, group.CanEdit);
     }
+
+    public async Task<GroupSettings> UpdateSettingsAsync(Guid groupId, GroupSettings settings, CancellationToken cancellationToken = default) =>
+        await _api.SendAsync<GroupSettings>(
+            HttpMethod.Put, $"groups/{groupId}/settings", new GroupSettingsUpdate(settings.AllowScreenShare, settings.AllowCamera), cancellationToken).ConfigureAwait(false)
+        ?? settings;
 
     public async Task<GroupDto> CreateGroupAsync(string name, CancellationToken cancellationToken = default)
     {

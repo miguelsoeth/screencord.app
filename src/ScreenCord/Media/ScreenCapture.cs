@@ -33,11 +33,16 @@ public static class ScreenCapture
     public static bool IsSupported => GraphicsCapture.IsSupported;
 
     /// <summary>
-    /// Começa a capturar <paramref name="source"/>. Telas, onde o Windows não deixa tirar a borda amarela do
+    /// Começa a capturar <paramref name="source"/>. Câmeras usam o Media Foundation. Telas, onde o Windows não deixa tirar a borda amarela do
     /// Windows Graphics Capture (Windows 10), são capturadas com o Desktop Duplication, que não tem borda.
     /// </summary>
     public static IScreenCapture Create(CaptureSource source, int targetHeight, int frameRate, ILogger? logger = null)
     {
+        if (source.IsCamera)
+        {
+            return new CameraCapture(source.DeviceId ?? throw new ArgumentException("Câmera sem identificador.", nameof(source)), targetHeight, frameRate, logger);
+        }
+
         if (source.IsScreen && !GraphicsCapture.CanHideBorder)
         {
             try

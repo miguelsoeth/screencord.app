@@ -84,7 +84,7 @@ public sealed class ScreenShareService : IScreenShareService
     public async Task<IActiveScreenShare> StartAsync(Guid groupId, ShareRequest request, IActiveScreenShare? replacing = null, CancellationToken cancellationToken = default)
     {
         var previous = replacing as ActiveScreenShare;
-        if (!ScreenCapture.IsSupported)
+        if (!request.Source.IsCamera && !ScreenCapture.IsSupported)
         {
             throw new InvalidOperationException(Strings.CaptureNotSupported);
         }
@@ -114,7 +114,8 @@ public sealed class ScreenShareService : IScreenShareService
 
             // O áudio também vem antes do anúncio: a sala só vê "com áudio" se a captura começou de fato.
             // Os pacotes de antes do canal de mídia abrir se perdem.
-            if (settings.ShareAudio)
+            // A câmera vai sem áudio: o som que o aplicativo captura é o do programa ou do computador, não o microfone.
+            if (settings.ShareAudio && !request.Source.IsCamera)
             {
                 try
                 {
@@ -133,7 +134,7 @@ public sealed class ScreenShareService : IScreenShareService
             // (o servidor o troca pelo novo), ele não pode avisar o fim do compartilhamento.
             previous?.PrepareReplacement();
             var share = await _realtime.StartScreenShareAsync(
-                new ScreenShareStart(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, audio is not null),
+                new ScreenShareStart(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, audio is not null, request.Source.ShareKind),
                 cancellationToken);
             announced = true;
 
@@ -253,7 +254,12 @@ public sealed class ScreenShareService : IScreenShareService
                 _encoder.RequestKeyframe();
             };
             _socket.Closed += reason => End(reason ?? Strings.ServerEndedShare);
-            _capture.Closed += (_, _) => End(request.Source.IsScreen ? Strings.SharedScreenDisconnected : Strings.SharedWindowClosed);
+            _capture.Closed += (_, _) => End(request.Source.Kind switch
+            {
+                CaptureSourceKind.Screen => Strings.SharedScreenDisconnected,
+                CaptureSourceKind.Camera => Strings.SharedCameraDisconnected,
+                _ => Strings.SharedWindowClosed,
+            });
             _videoThread = new Thread(VideoLoop) { IsBackground = true, Name = "Compartilhamento de tela", Priority = ThreadPriority.AboveNormal };
             _socket.Start();
         }

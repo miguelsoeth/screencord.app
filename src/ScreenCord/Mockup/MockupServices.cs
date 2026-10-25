@@ -212,7 +212,23 @@ public sealed class MockupGroupsService(MockupWorld world, MockupGroupsRealtime 
                 }
             }
 
-            return Task.FromResult(new GroupDetails(group.Id, group.Name, members, group.Version, CanDelete: group.OwnerId == world.Me.Id));
+            var isOwner = group.OwnerId == world.Me.Id;
+            return Task.FromResult(new GroupDetails(group.Id, group.Name, members, group.Version, CanDelete: isOwner, Settings: group.Settings, CanEdit: isOwner));
+        }
+    }
+
+    public Task<GroupSettings> UpdateSettingsAsync(Guid groupId, GroupSettings settings, CancellationToken cancellationToken = default)
+    {
+        lock (world.Lock)
+        {
+            var group = world.GetGroup(groupId);
+            if (group.OwnerId != world.Me.Id)
+            {
+                throw MockupWorld.Error("Só quem criou o grupo pode mudar as configurações dele.");
+            }
+
+            group.Settings = settings;
+            return Task.FromResult(settings);
         }
     }
 

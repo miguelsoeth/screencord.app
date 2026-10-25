@@ -239,6 +239,12 @@ public sealed class FakeGroupsService : IGroupsService
     /// <summary>O que o servidor responde em <see cref="GroupDetails.CanDelete"/>.</summary>
     public bool CanDelete { get; set; }
 
+    /// <summary>O que o servidor responde em <see cref="GroupDetails.CanEdit"/>.</summary>
+    public bool CanEdit { get; set; }
+
+    /// <summary>O que cada grupo aceita transmitir; sem entrada, tudo.</summary>
+    public Dictionary<Guid, GroupSettings> Settings { get; } = [];
+
     public Exception? Failure { get; set; }
 
     public List<string> Calls { get; } = [];
@@ -251,7 +257,8 @@ public sealed class FakeGroupsService : IGroupsService
     }
 
     public GroupDto Dto(Guid id) =>
-        new(id, Groups[id].Name, Groups[id].Members.Count, Connected.GetValueOrDefault(id, []).Select(ToDto).ToList(), PresenceVersion);
+        new(id, Groups[id].Name, Groups[id].Members.Count, Connected.GetValueOrDefault(id, []).Select(ToDto).ToList(), PresenceVersion,
+            Settings: Settings.GetValueOrDefault(id, GroupSettings.Default));
 
     public static PresenceUserDto ToDto(Person person) =>
         new(person.UserId, person.DiscordId, person.Username, person.GlobalName, "0", null);
@@ -267,8 +274,11 @@ public sealed class FakeGroupsService : IGroupsService
         {
             var connected = Connected.GetValueOrDefault(groupId, []);
             var members = Groups[groupId].Members.Select(p => new GroupMember(p, connected.Any(c => c.UserId == p.UserId))).ToList();
-            return new GroupDetails(groupId, Groups[groupId].Name, members, PresenceVersion, CanDelete);
+            return new GroupDetails(groupId, Groups[groupId].Name, members, PresenceVersion, CanDelete, Settings.GetValueOrDefault(groupId, GroupSettings.Default), CanEdit);
         });
+
+    public Task<GroupSettings> UpdateSettingsAsync(Guid groupId, GroupSettings settings, CancellationToken cancellationToken = default) =>
+        Run($"settings:{settings.AllowScreenShare}:{settings.AllowCamera}", () => Settings[groupId] = settings);
 
     public Task<GroupDto> CreateGroupAsync(string name, CancellationToken cancellationToken = default) =>
         Run("create:" + name, () => Dto(Add(name)));

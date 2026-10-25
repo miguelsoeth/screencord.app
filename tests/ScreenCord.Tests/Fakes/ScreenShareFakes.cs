@@ -136,11 +136,15 @@ public sealed class FakeScreenShareUi : IScreenShareUi
     /// <summary>Limites do caminho da mídia recebidos em cada escolha.</summary>
     public List<StreamLimits> PickLimits { get; } = [];
 
-    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null)
+    /// <summary>O que o grupo aceitava transmitir (null: sem restrição) em cada escolha.</summary>
+    public List<GroupSettings?> PickAllowed { get; } = [];
+
+    public ShareRequest? PickShare(ShareSettings initial, StreamLimits limits, CaptureSource? current = null, GroupSettings? allowed = null)
     {
         Picks.Add(initial);
         PickLimits.Add(limits);
         PickCurrents.Add(current);
+        PickAllowed.Add(allowed);
         return OnPick(initial);
     }
 
