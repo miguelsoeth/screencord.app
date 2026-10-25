@@ -615,7 +615,7 @@ public sealed class MockupScreenShareService(MockupWorld world, MockupGroupsReal
         public void MarkReplaced() => _replaced = true;
 
         // Substituído, o anúncio já é do novo compartilhamento e não pode ser removido.
-        public Task StopAsync() => _replaced ? Task.CompletedTask : realtime.StopShareAsync(share.Kind);
+        public Task StopAsync() => _replaced ? Task.CompletedTask : realtime.StopShareAsync(Share.Kind);
     }
 
     /// <summary>Gera quadros BGRA animados (gradiente que corre e um quadrado que quica) no ritmo do compartilhamento.</summary>
