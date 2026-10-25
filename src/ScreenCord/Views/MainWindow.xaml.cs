@@ -30,6 +30,9 @@ public partial class MainWindow : Window
     /// <summary>Colunas da grade quando há mais de uma tela; as linhas vêm do número de telas.</summary>
     private int _columns = 1;
 
+    /// <summary>Largura do vídeo de cada tela na grade (a altura é 9/16 dela).</summary>
+    private double _videoWidth;
+
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
@@ -293,10 +296,11 @@ public partial class MainWindow : Window
     private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
 
     /// <summary>
-    /// Dimensiona a área das telas no maior bloco que cabe ao lado da lateral e abaixo do cabeçalho. Uma tela é
-    /// 16:9; com mais, o vídeo de cada uma é 16:9 numa grade cujo número de colunas é o que deixar o vídeo maior
-    /// (duas telas lado a lado ou empilhadas, quatro em 2 × 2). O bloco todo fica centralizado na janela, e a
-    /// lateral de grupos tem a mesma altura que ele.
+    /// Dimensiona a área das telas no maior bloco 16:9 que cabe ao lado da lateral e abaixo do cabeçalho. O bloco
+    /// tem sempre o tamanho de quando há uma só tela, não importa quantas estejam abertas: abrir outra não encolhe
+    /// a janela (cabeçalho e lateral de grupos acompanham esse bloco). Com mais telas, o vídeo de cada uma é 16:9
+    /// numa grade cujo número de colunas é o que deixar o vídeo maior (duas telas lado a lado ou empilhadas, quatro
+    /// em 2 × 2), centralizada no bloco.
     /// </summary>
     private void UpdateStageSize()
     {
@@ -310,12 +314,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        var stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
+        var stageHeight = Math.Floor(stageWidth * 9 / 16);
+        StageColumn.Width = new GridLength(stageWidth);
+        StageRow.Height = new GridLength(stageHeight + StageGap);
+
         var count = Math.Max(1, _slots.Count(s => s.Viewer is not null));
         var bestVideo = 0.0;
         for (var columns = 1; columns <= count; columns++)
         {
             var rows = (count + columns - 1) / columns;
-            var video = Math.Min((width - PlayerGap * (columns - 1)) / columns, (height - PlayerGap * (rows - 1)) / rows * 16 / 9);
+            var video = Math.Min((stageWidth - PlayerGap * (columns - 1)) / columns, (stageHeight - PlayerGap * (rows - 1)) / rows * 16 / 9);
             if (video > bestVideo)
             {
                 bestVideo = video;
@@ -323,11 +332,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var videoWidth = Math.Floor(bestVideo);
-        var videoHeight = Math.Floor(videoWidth * 9 / 16);
-        var gridRows = (count + _columns - 1) / _columns;
-        StageColumn.Width = new GridLength(videoWidth * _columns + PlayerGap * (_columns - 1));
-        StageRow.Height = new GridLength(videoHeight * gridRows + PlayerGap * (gridRows - 1) + StageGap);
+        _videoWidth = Math.Floor(bestVideo);
         ApplyPlayerLayout();
     }
 
@@ -340,6 +345,15 @@ public partial class MainWindow : Window
         var open = _slots.Where(s => s.Viewer is not null).OrderBy(s => s.Order).ToList();
         var columns = Math.Max(1, open.Count < 2 ? 1 : _columns);
         var rows = Math.Max(1, (open.Count + columns - 1) / columns);
+
+        // A grade tem o tamanho exato dos vídeos, centralizada no bloco de tamanho fixo (sobram faixas se não encher).
+        PlayerHost.Visibility = open.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_videoWidth > 0)
+        {
+            PlayerHost.Width = _videoWidth * columns + PlayerGap * (columns - 1);
+            PlayerHost.Height = Math.Floor(_videoWidth * 9 / 16) * rows + PlayerGap * (rows - 1);
+        }
+
         if (PlayerHost.ColumnDefinitions.Count != columns || PlayerHost.RowDefinitions.Count != rows)
         {
             PlayerHost.ColumnDefinitions.Clear();
