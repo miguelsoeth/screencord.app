@@ -517,12 +517,10 @@
 
                                                 <!-- O que o grupo aceita transmitir: só quem criou o grupo (ou hospeda a sala) muda; os outros veem. -->
                                                 <TextBlock Text="{l:Tr GroupAllowsHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,4" />
-                                                <CheckBox IsChecked="{Binding AllowScreenShare}" IsEnabled="{Binding CanEditSettings}"
-                                                          Content="{l:Tr AllowScreenShareOption}" Foreground="{StaticResource TextBrush}"
-                                                          FontSize="12" Margin="0,2" Cursor="Hand" />
-                                                <CheckBox IsChecked="{Binding AllowCamera}" IsEnabled="{Binding CanEditSettings}"
-                                                          Content="{l:Tr AllowCameraOption}" Foreground="{StaticResource TextBrush}"
-                                                          FontSize="12" Margin="0,2" Cursor="Hand" />
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowScreenShare}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowScreenShareOption}" Margin="0,4" />
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowCamera}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowCameraOption}" Margin="0,4" />
 
                                                 <!-- Convidar (abre a janela de amigos), sair do grupo e excluir o grupo (só quem criou), à direita -->
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
