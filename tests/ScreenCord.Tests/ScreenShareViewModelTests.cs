@@ -1,4 +1,5 @@
 using ScreenCord.Contracts;
+using ScreenCord.Localization;
 using ScreenCord.Media;
 using ScreenCord.Models;
 using ScreenCord.Services;
@@ -429,6 +430,24 @@ public class ScreenShareViewModelTests
         _ui.Open[0].RequestClose();
         Assert.Equal(carla.UserId, Assert.Single(_ui.Open).SharerId);
         Assert.Equal(carla.UserId, Assert.Single(vm.Viewers).SharerId);
+    }
+
+    [Fact]
+    public async Task Fixar_AlternaEATroca_OTextoDoBotao()
+    {
+        var (_, group) = await InRoomAsync();
+        RaisePresence(group, 200, ShareOf(_bruno));
+        await group.WatchCommand.ExecuteAsync(_bruno);
+        var viewer = Assert.Single(_ui.Open);
+        Assert.False(viewer.IsPinned);
+        Assert.Equal(Strings.PinTooltip, viewer.PinTooltip);
+
+        viewer.TogglePinCommand.Execute(null);
+        Assert.True(viewer.IsPinned);
+        Assert.Equal(Strings.UnpinTooltip, viewer.PinTooltip);
+
+        viewer.TogglePinCommand.Execute(null);
+        Assert.False(viewer.IsPinned);
     }
 
     [Fact]

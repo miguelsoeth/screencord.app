@@ -351,6 +351,8 @@ public static class Strings
     public static string ExitFullScreen => T("Sair da tela cheia", "Exit full screen", "Salir de pantalla completa");
     public static string ExitFullScreenTooltip => T("Sair da tela cheia (Esc)", "Exit full screen (Esc)", "Salir de pantalla completa (Esc)");
     public static string StopWatching => T("Parar de assistir", "Stop watching", "Dejar de ver");
+    public static string PinTooltip => T("Fixar como principal", "Pin as main", "Fijar como principal");
+    public static string UnpinTooltip => T("Desafixar", "Unpin", "Desfijar");
 
     // Atualização
     public static string UpdatingTitle => T("Atualizando o ScreenCord", "Updating ScreenCord", "Actualizando ScreenCord");

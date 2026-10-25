@@ -48,16 +48,25 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
-                            Visibility="{Binding IsEnded, Converter={StaticResource InverseBoolToVisibility}}">
-                        <TextBlock Text="{l:Tr Live}" FontSize="10" FontWeight="Bold" Foreground="White" />
-                    </Border>
-                    <TextBlock Text="{Binding Sharer.DisplayName}" FontSize="13" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock x:Name="QualityLabel" Text="{Binding QualityText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
+                <!-- O nome encolhe com reticências quando o player é pequeno (miniatura ao lado da principal). -->
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid x:Name="LiveHost" Margin="0,0,10,0">
+                        <Border Background="{StaticResource LiveBrush}" CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
+                                Visibility="{Binding IsEnded, Converter={StaticResource InverseBoolToVisibility}}">
+                            <TextBlock Text="{l:Tr Live}" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Grid.Column="1" Text="{Binding Sharer.DisplayName}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="QualityLabel" Grid.Column="2" Text="{Binding QualityText}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                </Grid>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <StackPanel Orientation="Horizontal" Visibility="{Binding HasAudio, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel x:Name="AudioControls" Orientation="Horizontal" Visibility="{Binding HasAudio, Converter={StaticResource BoolToVisibility}}">
                         <Button Style="{StaticResource GhostIconButton}" Width="32" Height="32"
                                 Command="{Binding ToggleMuteCommand}" ToolTip="{l:Tr MuteTooltip}" AutomationProperties.Name="{l:Tr Mute}">
                             <Path Width="18" Height="18">
@@ -79,6 +88,21 @@
                                 PreviewMouseWheel="OnVolumeMouseWheel"
                                 AutomationProperties.Name="{l:Tr Volume}" IsEnabled="{Binding IsMuted, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
+                    <!-- Fixa como principal (grande, com as outras em miniatura ao lado); só com mais de uma transmissão aberta. -->
+                    <Button x:Name="PinButton" Width="32" Height="32" Command="{Binding TogglePinCommand}"
+                            ToolTip="{Binding PinTooltip}" AutomationProperties.Name="{Binding PinTooltip}"
+                            Visibility="{Binding CanPin, Converter={StaticResource BoolToVisibility}}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource GhostIconButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Path Data="{StaticResource PinIcon}" Style="{StaticResource IconPath}" Width="18" Height="18" />
+                    </Button>
                     <Button x:Name="FullScreenButton" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
                             Command="{x:Static views:ViewerCommands.ToggleFullScreen}" ToolTip="{l:Tr FullScreenTooltip}" AutomationProperties.Name="{l:Tr FullScreen}">
                         <Path Data="{StaticResource FullscreenIcon}" Style="{StaticResource IconPath}" Width="18" Height="18" />

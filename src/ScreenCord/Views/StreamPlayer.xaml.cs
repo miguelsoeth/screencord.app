@@ -30,6 +30,9 @@ public partial class StreamPlayer : UserControl
     /// <summary>Abaixo desta largura a barra de controles esconde a qualidade do vídeo.</summary>
     private const double NarrowWidth = 520;
 
+    /// <summary>Abaixo desta largura (miniatura ao lado da principal) a barra também esconde o "ao vivo" e o volume.</summary>
+    private const double CompactWidth = 300;
+
     private readonly Lock _frameLock = new();
     private readonly DispatcherTimer _hideControls;
     private StreamViewerViewModel? _viewer;
@@ -56,6 +59,11 @@ public partial class StreamPlayer : UserControl
 
         // Em tela cheia, sair é pelo Esc/F11/duplo clique; parar de assistir fica na janela principal.
         CloseButton.Visibility = isFullScreen ? Visibility.Collapsed : Visibility.Visible;
+        // Fixar só vale na grade da janela principal; a tela cheia mostra uma transmissão só.
+        if (isFullScreen)
+        {
+            PinButton.Visibility = Visibility.Collapsed;
+        }
         // O tooltip muda com o idioma enquanto o player está na tela.
         UpdateFullScreenTooltip();
         Loaded += (_, _) =>
@@ -73,7 +81,14 @@ public partial class StreamPlayer : UserControl
         VolumeSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnVolumeMouseDown), handledEventsToo: true);
 
         // Com várias telas lado a lado o player fica estreito: a qualidade sai da barra para sobrar lugar aos botões.
-        SizeChanged += (_, e) => QualityLabel.Visibility = e.NewSize.Width < NarrowWidth ? Visibility.Collapsed : Visibility.Visible;
+        SizeChanged += (_, e) =>
+        {
+            QualityLabel.Visibility = e.NewSize.Width < NarrowWidth ? Visibility.Collapsed : Visibility.Visible;
+            var compact = e.NewSize.Width < CompactWidth;
+            LiveHost.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            VolumeSlider.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            ControlBar.Padding = compact ? new Thickness(8, 4, 8, 4) : new Thickness(14, 8, 14, 8);
+        };
 
         _hideControls = new DispatcherTimer { Interval = ControlsHideDelay };
         _hideControls.Tick += (_, _) => HideControls();
