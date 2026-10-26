@@ -5,7 +5,7 @@
 <h1 align="center">ScreenCord</h1>
 
 <p align="center">
-  <strong>Compartilhe a tela com os amigos em até 1080p a 60 fps. Grátis, código aberto, e funciona até sem internet, na rede local.</strong>
+  <strong>Compartilhe a tela e a câmera com os amigos em até 1080p a 60 fps. Grátis, código aberto, e funciona até sem internet, na rede local.</strong>
 </p>
 
 <p align="center">
@@ -15,35 +15,39 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-ao-vivo.jpg" width="820" alt="Janela do ScreenCord com uma transmissão ao vivo e a lista de grupos com quem está conectado">
+  <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-ao-vivo.jpg" width="820" alt="Janela do ScreenCord com quatro transmissões ao vivo em grade (duas telas e duas câmeras) e a lista de grupos com quem está conectado">
 </p>
 
-O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com a sua conta do Discord, adicione os amigos, crie um grupo e clique em **AO VIVO** para ver quem está transmitindo. Sem assinatura, sem anúncios.
+O ScreenCord é um app para Windows para assistir à tela dos amigos: entre com a sua conta do Discord, adicione os amigos, crie um grupo e clique em **AO VIVO** (ou no ícone de câmera) para ver quem está transmitindo. Sem assinatura, sem anúncios.
 
 > O ScreenCord é um projeto independente, **não oficial**, sem ligação com o Discord. Ele usa a conta do Discord só para identificar você (escopo `identify`): não lê suas mensagens, servidores nem lista de amigos.
 
 ## Destaques
 
-- **Tela inteira ou uma janela**, com o som junto, e a resolução e os quadros que você escolher. A **câmera (webcam)** liga num botão à parte, ao lado do de compartilhar, e fica no ar junto com a tela. Cada grupo define se aceita compartilhamento de tela, câmera ou os dois.
-- **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia, ou a até quatro telas ao mesmo tempo, numa grade que se ajusta ao espaço da janela, sem mudar o tamanho dela (volume, mudo e tela cheia por transmissão; ao abrir a quinta, a mais antiga fecha). Dá para fixar uma transmissão como principal: ela fica grande e as outras em miniatura ao lado. Se a conexão com o servidor cai, as telas fecham; com uma tela em tela cheia, o vídeo das outras pausa para poupar banda.
+- **Tela, janela e câmera**: compartilhe a tela inteira ou uma janela, com o som junto e a resolução e os quadros que você escolher. A **câmera (webcam)** liga num botão à parte, ao lado do de compartilhar, com prévia antes de ir ao ar, e fica no ar junto com a tela. Quem criou o grupo define se ele aceita compartilhamento de tela, câmera ou os dois.
+- **Grupos com os amigos**: veja quem está conectado e quem está ao vivo, e assista em tela cheia ou a até **quatro transmissões ao mesmo tempo**, numa grade que se ajusta ao espaço da janela, sem mudar o tamanho dela (volume, mudo e tela cheia por transmissão; ao abrir a quinta, a mais antiga fecha). Dá para **fixar uma transmissão como principal**: ela fica grande e as outras em miniatura ao lado. Clicar no seu próprio selo coloca a sua tela ou câmera na grade, para você se ver ao lado dos outros. Se a conexão com o servidor cai, as telas fecham; com uma tela em tela cheia, o vídeo das outras pausa para poupar banda.
 - **Salas locais, sem servidor**: na mesma rede (LAN, Hamachi, Radmin ou Tailscale), a tela vai direto entre os computadores, até **1080p a 60 fps**. Dá para usar até **sem conta**, só com um nome.
 - **Atualiza sozinho**: ao abrir, o app instala a versão nova. Em Configurações → Atualizações dá para desligar e escolher na hora (atualizar, agora não ou pular a versão); só uma versão que o servidor não aceita mais precisa ser instalada para continuar.
 - **Português, inglês e espanhol**, com troca na hora.
 
-| Amigos | Compartilhar | Sala local |
+| Grupo | Várias telas | Compartilhar |
 |---|---|---|
-| <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/amigos.jpg" alt="Lista de amigos"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/compartilhar.jpg" alt="Escolha de tela, resolução e quadros"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-local.jpg" alt="Sala local na rede"> |
+| <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/grupo.jpg" alt="Painel do grupo com os integrantes conectados e os interruptores de tela e câmera"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/fixar.jpg" alt="Transmissão fixada como principal, com as outras em miniatura ao lado"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/compartilhar.jpg" alt="Escolha de tela, resolução e quadros"> |
+
+| Amigos | Sala local | Configurações |
+|---|---|---|
+| <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/amigos.jpg" alt="Lista de amigos"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/sala-local.jpg" alt="Sala local na rede"> | <img src="https://raw.githubusercontent.com/miguelsoeth/screencord/main/img/login.jpg" alt="Tela inicial com o menu de configurações: idioma, privacidade e atualizações"> |
 
 ## Como usar
 
 1. Baixe o `ScreenCord-Setup-<versão>-x64.msi` na [versão mais recente](https://github.com/miguelsoeth/screencord/releases/latest) e instale (sem administrador; Windows 10 2004 ou mais recente, ou Windows 11, x64).
 2. Entre com o Discord (ou **Usar sem conta**, para as salas locais).
 3. Adicione os amigos pelo @ (eles também precisam ter o ScreenCord) e crie um grupo.
-4. Entre na sala e clique em compartilhar. Quem estiver na sala clica em **AO VIVO** para assistir.
+4. Entre na sala e clique em compartilhar (ou no botão da câmera, para ligar a webcam). Quem estiver na sala clica em **AO VIVO** ou no ícone de câmera para assistir.
 
 **"O Windows protegeu o computador"?** O instalador ainda não é assinado: clique em **Mais informações → Executar assim mesmo**. O código está todo aqui, e o instalador é gerado pelo [pipeline público](.github/workflows/release.yml) a partir dele. Veja a [Code signing policy](#code-signing-policy).
 
-**Pelo servidor ou direto?** Nos grupos pela internet a tela passa pelo servidor do projeto, 720p a 60 fps ou 1080p a 30 fps (o limite é da API e pode mudar). Nas salas locais vai direto entre os computadores, até 1080p a 60 fps.
+**Pelo servidor ou direto?** Nos grupos pela internet a tela passa pelo servidor do projeto, 720p a 60 fps ou 1080p a 30 fps (o limite é da API e pode mudar), e a câmera vai em até 720p a 30 fps, sem áudio. Nas salas locais vai direto entre os computadores, até 1080p a 60 fps.
 
 ## Ajude o projeto
 
@@ -67,7 +71,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 <details>
 <summary><strong>English</strong></summary>
 
-ScreenCord is a free, open-source Windows app to share your screen with friends at up to 1080p 60 fps. Sign in with Discord (identity only), add friends, create a group and click **LIVE** to watch. Local rooms work without any server, peer to peer on the same network (LAN, Hamachi, Radmin, Tailscale), even without an account. Available in English, Portuguese and Spanish. [Download the latest version](https://github.com/miguelsoeth/screencord/releases/latest). Unofficial project, not affiliated with Discord.
+ScreenCord is a free, open-source Windows app to share your screen and webcam with friends at up to 1080p 60 fps. Sign in with Discord (identity only), add friends, create a group and click **LIVE** to watch. Local rooms work without any server, peer to peer on the same network (LAN, Hamachi, Radmin, Tailscale), even without an account. Available in English, Portuguese and Spanish. [Download the latest version](https://github.com/miguelsoeth/screencord/releases/latest). Unofficial project, not affiliated with Discord.
 
 **Code signing policy:** free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) (application pending: until it is approved, the installer is still unsigned). Only `ScreenCord.exe` and the MSI built by the public [`release.yml`](.github/workflows/release.yml) from this repository are signed, each release approved by hand. Committers, reviewers and approvers: [Miguel Soeth](https://github.com/miguelsoeth). Privacy: see [Privacidade](#privacidade) (error reports, which can be turned off in the app's Settings menu, under Privacy; the update check on GitHub; Discord sign-in).
 
