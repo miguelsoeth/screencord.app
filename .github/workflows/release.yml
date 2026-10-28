@@ -41,14 +41,42 @@ jobs:
           mkdir -p dist
           cp installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.msi "dist/ScreenCord-Setup-$VERSION-x64.msi"
 
+      # Envia o MSI para o VirusTotal analisar, para o link das notas já abrir o relatório. Sem a chave
+      # (secret VIRUSTOTAL_API_KEY, da conta gratuita) ou com o VirusTotal fora do ar, a release segue sem o envio.
+      - name: Enviar ao VirusTotal
+        continue-on-error: true
+        run: |
+          if [ -z "$VT_API_KEY" ]; then
+            echo "::notice::Sem o secret VIRUSTOTAL_API_KEY: o instalador não foi enviado ao VirusTotal."
+            exit 0
+          fi
+          # Acima de 32 MB a API exige pedir antes uma URL de envio.
+          upload_url=$(curl -fsS -H "x-apikey: $VT_API_KEY" https://www.virustotal.com/api/v3/files/upload_url | jq -r .data)
+          curl -fsS -H "x-apikey: $VT_API_KEY" -F "file=@$(ls dist/*.msi)" "$upload_url" > /dev/null
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+
       - name: Criar a GitHub Release
         run: gh release create "$GITHUB_REF_NAME" dist/*.msi --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # As notas são lidas com o token do job: o PUBLIC_RELEASES_TOKEN só enxerga o repo público.
+      # Ganham no fim o SHA-256 do instalador e o link da análise no VirusTotal (o release-status.ps1 mexe só no começo).
       - name: Ler as notas da release
-        run: gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          msi=$(ls dist/*.msi)
+          sha=$(sha256sum "$msi" | cut -d' ' -f1)
+          cat >> notes.md <<EOF
+
+          ## Verificar o instalador
+
+          SHA-256 de \`$(basename "$msi")\`: \`$sha\`
+
+          Análise no VirusTotal: https://www.virustotal.com/gui/file/$sha
+          EOF
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -64,8 +64,9 @@ git push origin v0.2.0
 O `release.yml` então:
 1. roda os testes;
 2. gera o instalador MSI (`dotnet build installer/ScreenCord.Installer -p:AppVersion=<versão>`, que publica o app como exe único autocontido com a versão da tag);
-3. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-x64.msi` anexado;
-4. cria a mesma release (mesmas notas e MSI) no repo público `miguelsoeth/screencord`, usando o secret `PUBLIC_RELEASES_TOKEN` (fine-grained PAT com `Contents: read and write` só nesse repo).
+3. envia o MSI ao VirusTotal (secret `VIRUSTOTAL_API_KEY`, chave da API pública gratuita; sem ela, ou com o VirusTotal fora do ar, segue sem enviar);
+4. cria a GitHub Release com notas geradas a partir dos commits e o `ScreenCord-Setup-<versão>-x64.msi` anexado, e acrescenta no fim das notas a seção "Verificar o instalador" (SHA-256 e link da análise no VirusTotal);
+5. cria a mesma release (mesmas notas e MSI) no repo público `miguelsoeth/screencord`, usando o secret `PUBLIC_RELEASES_TOKEN` (fine-grained PAT com `Contents: read and write` só nesse repo).
 
 Um MSI de versão maior substitui a instalação anterior (mesmo `UpgradeCode`), preservando a sessão do Discord.
 
