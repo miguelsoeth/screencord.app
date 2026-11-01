@@ -320,7 +320,6 @@ public static class Strings
     public static string OnlyHostChangesRoom => T("Só quem hospeda a sala pode mudar as configurações dela.", "Only the room's host can change its settings.", "Solo quien aloja la sala puede cambiar su configuración.");
     public static string ShareAScreen => T("Compartilhar uma tela", "Share a screen", "Compartir una pantalla");
     public static string ShareAWindow => T("Compartilhar uma janela", "Share a window", "Compartir una ventana");
-    public static string RefreshList => T("Atualizar lista", "Refresh list", "Actualizar lista");
     public static string WhatToShare => T("O que compartilhar", "What to share", "Qué compartir");
     public static string ResolutionHeader => T("RESOLUÇÃO", "RESOLUTION", "RESOLUCIÓN");
     public static string FrameRateHeader => T("TAXA DE QUADROS", "FRAME RATE", "FOTOGRAMAS POR SEGUNDO");

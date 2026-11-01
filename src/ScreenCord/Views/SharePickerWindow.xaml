@@ -91,22 +91,12 @@
         </Grid>
 
         <!-- Tela inteira ou uma janela -->
-        <Grid Grid.Row="1" Margin="0,16,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal">
-                <RadioButton Content="{l:Tr ScreenKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="{l:Tr ShareAScreen}" />
-                <RadioButton Content="{l:Tr WindowKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
-                             IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="{l:Tr ShareAWindow}" />
-            </StackPanel>
-            <Button Grid.Column="1" Style="{StaticResource GhostIconButton}" Width="32" Height="32"
-                    Command="{Binding RefreshCommand}" ToolTip="{l:Tr RefreshList}" AutomationProperties.Name="{l:Tr RefreshList}">
-                <Path Data="{StaticResource RefreshIcon}" Style="{StaticResource IconPath}" Width="16" Height="16" />
-            </Button>
-        </Grid>
+        <StackPanel Grid.Row="1" Margin="0,16,0,8" Orientation="Horizontal">
+            <RadioButton Content="{l:Tr ScreenKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                         IsChecked="{Binding IsScreenKind}" AutomationProperties.Name="{l:Tr ShareAScreen}" />
+            <RadioButton Content="{l:Tr WindowKind}" Style="{StaticResource SegmentRadio}" GroupName="Kind"
+                         IsChecked="{Binding IsWindowKind}" AutomationProperties.Name="{l:Tr ShareAWindow}" />
+        </StackPanel>
 
         <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="6">
             <Grid>

@@ -579,6 +579,9 @@ public sealed class GroupsViewModel : ObservableObject
 
     public bool IsConfirming => ConfirmingGroup is not null;
 
+    /// <summary>A conexão com a API voltou (ou abriu): quem ficou sem dados por causa de uma falha tenta de novo.</summary>
+    public event Action? Reconnected;
+
     /// <summary>Pedido de convidar amigos para um grupo; a janela de amigos abre para ele.</summary>
     public event Action<GroupItemViewModel>? InviteRequested;
 
@@ -801,6 +804,12 @@ public sealed class GroupsViewModel : ObservableObject
         }
 
         // (Re)conectado: a presença pode ter mudado enquanto a conexão estava fora, e a sala precisa ser retomada.
+        foreach (var group in Groups.Where(g => g.IsApiGroup))
+        {
+            group.ForgetPresenceVersion();
+        }
+
+        Reconnected?.Invoke();
         try
         {
             await RefreshGroupsAsync(CancellationToken.None);
@@ -810,6 +819,12 @@ public sealed class GroupsViewModel : ObservableObject
                 var presence = await _realtime.JoinAsync(groupId);
                 CurrentGroup = group;
                 ApplyPresence(group, presence);
+            }
+
+            // O popup aberto durante a queda (com erro ou com a lista antiga) se atualiza sozinho.
+            foreach (var open in Groups.Where(g => g.IsMembersOpen && !g.IsLoadingMembers).ToList())
+            {
+                _ = LoadMembersAsync(open);
             }
         }
         catch (Exception ex)

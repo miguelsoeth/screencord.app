@@ -63,8 +63,7 @@ public sealed class SharePickerViewModel : ObservableObject
 
         ShowScreensCommand = new RelayCommand(() => Kind = CaptureSourceKind.Screen);
         ShowWindowsCommand = new RelayCommand(() => Kind = CaptureSourceKind.Window);
-        RefreshCommand = new RelayCommand(Refresh);
-        Refresh();
+        Apply(ReadSources(_kind));
     }
 
     private static string DirectOnly => Strings.DirectOnly;
@@ -96,8 +95,6 @@ public sealed class SharePickerViewModel : ObservableObject
 
     public RelayCommand ShowWindowsCommand { get; }
 
-    public RelayCommand RefreshCommand { get; }
-
     public CaptureSourceKind Kind
     {
         get => _kind;
@@ -107,7 +104,7 @@ public sealed class SharePickerViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsScreenKind));
                 OnPropertyChanged(nameof(IsWindowKind));
-                Refresh();
+                Apply(ReadSources(value));
             }
         }
     }
@@ -186,23 +183,62 @@ public sealed class SharePickerViewModel : ObservableObject
         }
     }
 
-    private void Refresh()
+    /// <summary>
+    /// Confere as telas e janelas abertas agora; a janela chama no ritmo dela enquanto está aberta. A leitura vai fora
+    /// da thread da interface: o nome do programa de cada janela não sai de graça.
+    /// </summary>
+    public async Task RefreshAsync()
     {
-        var previous = SelectedSource;
-        IReadOnlyList<CaptureSource> sources;
+        var kind = Kind;
+        var sources = await Task.Run(() => ReadSources(kind));
+        if (kind == Kind)
+        {
+            Apply(sources);
+        }
+    }
+
+    private IReadOnlyList<CaptureSource> ReadSources(CaptureSourceKind kind)
+    {
         try
         {
-            sources = Kind == CaptureSourceKind.Screen ? _screens() : _windows();
+            return kind == CaptureSourceKind.Screen ? _screens() : _windows();
         }
         catch (Exception)
         {
-            sources = [];
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Aplica só o que mudou, para a lista não piscar nem perder a rolagem. Quem já estava na lista fica no lugar: o
+    /// Windows devolve as janelas na ordem da frente para trás, e elas pulariam sob o mouse a cada troca de foco.
+    /// </summary>
+    private void Apply(IReadOnlyList<CaptureSource> sources)
+    {
+        var previous = SelectedSource;
+        for (var i = Sources.Count - 1; i >= 0; i--)
+        {
+            if (!sources.Any(s => s.IsSameSource(Sources[i])))
+            {
+                Sources.RemoveAt(i);
+            }
         }
 
-        Sources.Clear();
+        var position = 0;
         foreach (var source in sources)
         {
-            Sources.Add(source);
+            if (Sources.FirstOrDefault(s => s.IsSameSource(source)) is not { } known)
+            {
+                Sources.Insert(position++, source);
+                continue;
+            }
+
+            position = Sources.IndexOf(known) + 1;
+            if (known != source)
+            {
+                // O título ou o tamanho mudou.
+                Sources[position - 1] = source;
+            }
         }
 
         // Mantém a escolha ao atualizar; na troca de aba, a primeira tela (a principal) ou câmera já vem marcada.

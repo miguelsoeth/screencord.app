@@ -29,6 +29,7 @@ public sealed class CameraPreviewViewModel : ObservableObject, IDisposable
     private bool _loaded;
     private bool _disposed;
     private int _version;
+    private int _searchVersion;
 
     /// <param name="cameras">Lista das câmeras (padrão: as do Windows).</param>
     /// <param name="open">Abre a prévia de uma câmera (padrão: a captura da câmera em tamanho pequeno).</param>
@@ -103,9 +104,14 @@ public sealed class CameraPreviewViewModel : ObservableObject, IDisposable
 
     public string EmptyText => Strings.NoCamerasFound;
 
-    /// <summary>Procura as câmeras e abre a prévia da primeira.</summary>
+    /// <summary>
+    /// Procura as câmeras e abre a prévia da escolhida: a primeira, ao abrir a janela. Chamado de novo quando o Windows
+    /// avisa que um dispositivo entrou ou saiu: a escolhida continua aberta enquanto existir; se ela saiu, a prévia passa
+    /// para a primeira que sobrou; e a que tinha caído volta sozinha ao ser reconectada.
+    /// </summary>
     public async Task LoadAsync()
     {
+        var search = ++_searchVersion;
         IReadOnlyList<CaptureSource> cameras;
         try
         {
@@ -116,12 +122,18 @@ public sealed class CameraPreviewViewModel : ObservableObject, IDisposable
             cameras = [];
         }
 
-        if (_disposed)
+        if (_disposed || search != _searchVersion)
         {
             return;
         }
 
-        foreach (var camera in cameras)
+        var previous = SelectedCamera;
+        foreach (var gone in Cameras.Where(c => !cameras.Any(c.IsSameSource)).ToList())
+        {
+            Cameras.Remove(gone);
+        }
+
+        foreach (var camera in cameras.Where(c => !Cameras.Any(c.IsSameSource)))
         {
             Cameras.Add(camera);
         }
@@ -129,7 +141,14 @@ public sealed class CameraPreviewViewModel : ObservableObject, IDisposable
         _loaded = true;
         OnPropertyChanged(nameof(HasChoice));
         OnPropertyChanged(nameof(HasNoCameras));
-        SelectedCamera = Cameras.FirstOrDefault();
+        if (previous is null || !Cameras.Any(previous.IsSameSource))
+        {
+            SelectedCamera = Cameras.FirstOrDefault();
+        }
+        else if (HasError && !IsOpening)
+        {
+            await OpenAsync();
+        }
     }
 
     /// <summary>

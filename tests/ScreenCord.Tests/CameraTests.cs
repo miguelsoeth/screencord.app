@@ -162,6 +162,78 @@ public class CameraTests
     }
 
     [Fact]
+    public async Task Previa_CameraPlugadaComAJanelaAberta_AbreSozinha()
+    {
+        IReadOnlyList<CaptureSource> cameras = [];
+        using var preview = new CameraPreviewViewModel(StreamLimits.Relay, () => cameras, _ => new FakePreviewCapture());
+        await preview.LoadAsync();
+        Assert.True(preview.HasNoCameras);
+
+        cameras = [Webcam];
+        await preview.LoadAsync();
+        await WaitForAsync(() => preview.HasPreview);
+
+        Assert.False(preview.HasNoCameras);
+        Assert.Equal(Webcam, preview.SelectedCamera);
+    }
+
+    [Fact]
+    public async Task Previa_OutraCameraPlugada_NaoInterrompeAPreviaAtual()
+    {
+        var other = Webcam with { Title = "Outra", DeviceId = "outra" };
+        IReadOnlyList<CaptureSource> cameras = [Webcam];
+        var opened = 0;
+        using var preview = new CameraPreviewViewModel(StreamLimits.Relay, () => cameras, _ =>
+        {
+            Interlocked.Increment(ref opened);
+            return new FakePreviewCapture();
+        });
+        await preview.LoadAsync();
+        await WaitForAsync(() => preview.HasPreview);
+
+        cameras = [Webcam, other];
+        await preview.LoadAsync();
+
+        Assert.True(preview.HasChoice);
+        Assert.Equal(Webcam, preview.SelectedCamera);
+        Assert.True(preview.HasPreview);
+        Assert.Equal(1, opened);
+    }
+
+    [Fact]
+    public async Task Previa_CameraEscolhidaDesplugada_PassaParaAQueSobrou()
+    {
+        var other = Webcam with { Title = "Outra", DeviceId = "outra" };
+        IReadOnlyList<CaptureSource> cameras = [Webcam, other];
+        using var preview = new CameraPreviewViewModel(StreamLimits.Relay, () => cameras, _ => new FakePreviewCapture());
+        await preview.LoadAsync();
+        await WaitForAsync(() => preview.HasPreview);
+
+        cameras = [other];
+        await preview.LoadAsync();
+        await WaitForAsync(() => preview.HasPreview);
+
+        Assert.Equal(other, preview.SelectedCamera);
+        Assert.False(preview.HasChoice);
+    }
+
+    [Fact]
+    public async Task Previa_CameraReconectada_VoltaSozinha()
+    {
+        FakePreviewCapture? capture = null;
+        using var preview = Preview(open: _ => capture = new FakePreviewCapture());
+        await preview.LoadAsync();
+        await WaitForAsync(() => preview.HasPreview);
+        capture!.Disconnect();
+        await WaitForAsync(() => preview.HasError);
+
+        await preview.LoadAsync();
+
+        Assert.True(preview.HasPreview);
+        Assert.False(preview.HasError);
+    }
+
+    [Fact]
     public async Task Previa_Ativar_PedeACameraSemAudioNaQualidadeDoCaminho()
     {
         using var preview = Preview(StreamLimits.Relay);

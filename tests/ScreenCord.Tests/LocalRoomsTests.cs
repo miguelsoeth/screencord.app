@@ -304,6 +304,25 @@ public sealed class LocalRoomsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task VoltaDaApi_DentroDaSalaLocal_AvisaParaAtualizarOsGrupos()
+    {
+        var api = new FakeGroupsRealtime();
+        var ana = Create("Ana");
+        var routed = new RoutedGroupsRealtime(new ApiRealtime(api), ana);
+        routed.Start();
+        api.SetState(RealtimeState.Connected);
+        var room = await ana.CreateRoomAsync("Sala");
+        await routed.JoinAsync(room.Id);
+        api.SetState(RealtimeState.Reconnecting);
+        var states = new List<RealtimeState>();
+        routed.StateChanged += (_, state) => states.Add(state);
+
+        api.SetState(RealtimeState.Connected);
+
+        Assert.Equal([RealtimeState.Connected], states);
+    }
+
+    [Fact]
     public async Task ContaLocal_NaoUsaAApi()
     {
         var api = new FakeGroupsRealtime();

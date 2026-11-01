@@ -361,6 +361,7 @@ public sealed class GroupItemViewModel : ObservableObject
     /// </summary>
     public bool ApplyPresence(IReadOnlyList<Person> connectedUsers, long version, IReadOnlyList<ScreenShareDto>? shares = null)
     {
+        // Dentro de uma mesma conexão as versões só sobem; quem reconecta chama ForgetPresenceVersion.
         if (version < PresenceVersion)
         {
             return false;
@@ -410,6 +411,12 @@ public sealed class GroupItemViewModel : ObservableObject
         SortMembers();
         return true;
     }
+
+    /// <summary>
+    /// A contagem de versões fica na memória da API e recomeça quando ela reinicia: ao reconectar, a próxima presença
+    /// vale mesmo com um número menor que o guardado aqui.
+    /// </summary>
+    public void ForgetPresenceVersion() => PresenceVersion = -1;
 
     public void SetMembers(IEnumerable<GroupMember> members)
     {

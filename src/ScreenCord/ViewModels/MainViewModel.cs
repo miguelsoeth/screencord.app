@@ -26,6 +26,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ILocalIdentityStore? _localIdentity;
     private readonly IBrowserLauncher? _browser;
     private bool _isLocalSession;
+    private bool _isLoadingProfile;
     private bool _isLocalForm;
     private string _localName = "";
 
@@ -50,6 +51,7 @@ public sealed class MainViewModel : ObservableObject
         Friends = friends;
         Groups = groups;
         groups.InviteRequested += friends.OpenInvite;
+        groups.Reconnected += () => _ = RetryProfileAsync();
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);
@@ -394,17 +396,7 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            try
-            {
-                Profile = await _profileService.GetProfileAsync();
-                // Nas salas locais, quem tem conta aparece com o nome e a foto do Discord.
-                _localRooms?.SetIdentity(Profile.DisplayName, Profile.Id, Profile.AvatarHash);
-            }
-            catch (Exception ex)
-            {
-                HandleError(ex);
-            }
-
+            await LoadProfileAsync();
             if (IsConnected)
             {
                 await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
@@ -414,6 +406,37 @@ public sealed class MainViewModel : ObservableObject
         {
             IsRefreshing = false;
         }
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _isLoadingProfile = true;
+        try
+        {
+            Profile = await _profileService.GetProfileAsync();
+            // Nas salas locais, quem tem conta aparece com o nome e a foto do Discord.
+            _localRooms?.SetIdentity(Profile.DisplayName, Profile.Id, Profile.AvatarHash);
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+        }
+        finally
+        {
+            _isLoadingProfile = false;
+        }
+    }
+
+    /// <summary>O perfil falhou ao abrir (sem rede, por exemplo): a conexão de volta é a deixa para tentar de novo.</summary>
+    private async Task RetryProfileAsync()
+    {
+        if (!IsConnected || IsLocalSession || Profile is not null || _isLoadingProfile)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        await LoadProfileAsync();
     }
 
     private void HandleError(Exception exception)

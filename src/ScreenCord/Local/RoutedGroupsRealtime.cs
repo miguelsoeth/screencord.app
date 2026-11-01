@@ -25,7 +25,17 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
         _api = api.Inner;
         _local = local;
         _state = Effective();
-        _api.StateChanged += (_, _) => RaiseStateIfChanged();
+        _api.StateChanged += (_, state) =>
+        {
+            // Numa sala local o estado segue "conectado", mas a volta da API ainda precisa atualizar os grupos dela.
+            if (state == RealtimeState.Connected && InLocalRoom)
+            {
+                StateChanged?.Invoke(this, state);
+                return;
+            }
+
+            RaiseStateIfChanged();
+        };
         _api.PresenceChanged += (_, presence) => PresenceChanged?.Invoke(this, presence);
         _api.GroupChanged += (_, group) => GroupChanged?.Invoke(this, group);
         _api.GroupRemoved += (_, groupId) => GroupRemoved?.Invoke(this, groupId);

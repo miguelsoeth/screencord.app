@@ -1,4 +1,5 @@
 using ScreenCord.Contracts;
+using ScreenCord.Infrastructure;
 using ScreenCord.Models;
 using ScreenCord.Services;
 using ScreenCord.Tests.Fakes;
@@ -416,6 +417,40 @@ public class GroupsViewModelTests
         Assert.Equal([$"join:{id}"], _realtime.Calls);
         Assert.Same(vm.Groups[0], vm.CurrentGroup);
         Assert.False(vm.HasRealtimeStatus);
+    }
+
+    [Fact]
+    public async Task Reconectado_ApiReiniciada_AceitaAPresencaComVersaoMenor()
+    {
+        var id = _groups.Add("Amigos");
+        _groups.PresenceVersion = 500;
+        var vm = await LoadedAsync();
+
+        // A contagem de versões fica na memória da API: reiniciar recomeça do zero.
+        _realtime.SetState(RealtimeState.Reconnecting);
+        _groups.PresenceVersion = 1;
+        _realtime.SetState(RealtimeState.Connected);
+        _realtime.RaisePresence(FakeGroupsService.Presence(id, 2, _bruno));
+
+        Assert.Equal("Bruno", Assert.Single(vm.Groups[0].ConnectedUsers).DisplayName);
+    }
+
+    [Fact]
+    public async Task Reconectado_PopupDeIntegrantesAberto_RecarregaETiraOErro()
+    {
+        _groups.Add("Amigos", _bruno);
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        _groups.Failure = new DiscordException(DiscordErrorKind.Network, "offline") { Source = ErrorSource.CentralApi };
+        group.IsMembersOpen = true;
+        Assert.True(group.HasMembersError);
+
+        _realtime.SetState(RealtimeState.Reconnecting);
+        _groups.Failure = null;
+        _realtime.SetState(RealtimeState.Connected);
+
+        Assert.False(group.HasMembersError);
+        Assert.Equal(2, group.Members.Count);
     }
 
     [Fact]
