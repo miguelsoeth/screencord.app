@@ -63,6 +63,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<GroupsRealtimeClient>();
         services.AddSingleton(sp => new ApiRealtime(sp.GetRequiredService<GroupsRealtimeClient>()));
         services.AddSingleton<IServerLimits, CentralServerLimits>();
+        services.AddSingleton<IProfileSync, CentralProfileSync>();
         services.AddSingleton<IApiHealthCheck, CentralApiHealthCheck>();
 
         // Salas locais: sem API, com a mídia direto entre os computadores. A tela de grupos usa a conexão que junta as duas.

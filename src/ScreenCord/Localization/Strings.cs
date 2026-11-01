@@ -110,7 +110,7 @@ public static class Strings
 
     // Cabeçalho da conta
     public static string Friends => T("Amigos", "Friends", "Amigos");
-    public static string RefreshProfile => T("Atualizar perfil", "Refresh profile", "Actualizar perfil");
+    public static string RefreshProfile => T("Atualizar com o Discord", "Update from Discord", "Actualizar desde Discord");
     public static string Disconnect => T("Desconectar", "Sign out", "Desconectar");
     public static string AccountConnected => T("Conta conectada", "Account connected", "Cuenta conectada");
     public static string NoAccountLocalOnly => T("Sem conta · só salas locais", "No account · local rooms only", "Sin cuenta · solo salas locales");

@@ -205,6 +205,59 @@
                                         <ImageBrush ImageSource="{Binding Profile.AvatarUrl, TargetNullValue={x:Null}}" Stretch="UniformToFill" />
                                     </Ellipse.Fill>
                                 </Ellipse>
+                                <!-- Ao passar o mouse, a foto vira o botão de atualizar com o Discord. Sem conta, não há o que atualizar. -->
+                                <Button Command="{Binding RefreshProfileCommand}" Foreground="White" Cursor="Hand"
+                                        Visibility="{Binding IsDiscordSession, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="{l:Tr RefreshProfile}"
+                                        AutomationProperties.Name="{l:Tr RefreshProfile}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Grid>
+                                                <Ellipse Fill="Transparent" />
+                                                <Grid x:Name="Overlay" Opacity="0">
+                                                    <Ellipse Fill="#99000000" />
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Overlay" Property="Opacity" Value="1" />
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="Overlay" Property="Opacity" Value="1" />
+                                                </Trigger>
+                                                <!-- Desabilitado enquanto atualiza, mas o ícone continua girando sobre a foto. -->
+                                                <DataTrigger Binding="{Binding IsRefreshing}" Value="True">
+                                                    <Setter TargetName="Overlay" Property="Opacity" Value="1" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Path Data="{StaticResource RefreshIcon}" RenderTransformOrigin="0.5,0.5">
+                                        <Path.RenderTransform>
+                                            <RotateTransform Angle="0" />
+                                        </Path.RenderTransform>
+                                        <Path.Style>
+                                            <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRefreshing}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="RefreshSpin">
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                     From="0" To="360" Duration="0:0:0.9" RepeatBehavior="Forever" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <RemoveStoryboard BeginStoryboardName="RefreshSpin" />
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Path.Style>
+                                    </Path>
+                                </Button>
                             </Grid>
 
                             <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
@@ -246,47 +299,6 @@
                                              RenderTransformOrigin="0.5,0.5"
                                              views:Motion.IsShown="{Binding Friends.HasIncomingRequests}" views:Motion.Kind="Pop" />
                                 </Grid>
-                                <Button Margin="2,0,0,0"
-                                        Command="{Binding RefreshProfileCommand}"
-                                        ToolTip="{l:Tr RefreshProfile}"
-                                        AutomationProperties.Name="{l:Tr RefreshProfile}">
-                                    <!-- Desabilitado enquanto atualiza, mas sem esmaecer: o ícone girando na cor de destaque mostra o progresso. -->
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsRefreshing}" Value="True">
-                                                    <Setter Property="Opacity" Value="1" />
-                                                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                    <!-- Gira enquanto o perfil, os amigos e os grupos recarregam. -->
-                                    <Path Data="{StaticResource RefreshIcon}" RenderTransformOrigin="0.5,0.5">
-                                        <Path.RenderTransform>
-                                            <RotateTransform Angle="0" />
-                                        </Path.RenderTransform>
-                                        <Path.Style>
-                                            <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRefreshing}" Value="True">
-                                                        <DataTrigger.EnterActions>
-                                                            <BeginStoryboard x:Name="RefreshSpin">
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                                                     From="0" To="360" Duration="0:0:0.9" RepeatBehavior="Forever" />
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </DataTrigger.EnterActions>
-                                                        <DataTrigger.ExitActions>
-                                                            <RemoveStoryboard BeginStoryboardName="RefreshSpin" />
-                                                        </DataTrigger.ExitActions>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Path.Style>
-                                    </Path>
-                                </Button>
                                 <!-- Idioma, relatório de erros e "Sobre", num só menu. -->
                                 <views:SettingsMenu Margin="2,0,0,0" />
                                 <!-- Separa a ação destrutiva das demais. -->

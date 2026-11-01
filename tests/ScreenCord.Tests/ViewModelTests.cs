@@ -488,6 +488,80 @@ public class MainViewModelTests
         Assert.False(vm.HasError);
     }
 
+    private sealed class FakeProfileSync : IProfileSync
+    {
+        public int Calls { get; private set; }
+
+        public Exception? Failure { get; set; }
+
+        public Task SyncAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
+        }
+    }
+
+    private MainViewModel CreateWithSync(FakeProfileSync sync) =>
+        new(
+            _session,
+            _profile,
+            new FriendsViewModel(_friends),
+            new GroupsViewModel(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi()),
+            NullLogger<MainViewModel>.Instance,
+            profileSync: sync);
+
+    [Fact]
+    public async Task Atualizar_TrazOPerfilELevaAApi_SemRecarregarAmigosEGrupos()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync();
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        var renamed = FakeProfileService.SampleProfile with { GlobalName = "Nelly Nova" };
+        _profile.OnGet = () => Task.FromResult(renamed);
+        var starts = _realtime.StartCount;
+        _groups.Groups[Guid.NewGuid()] = ("Novo", []);
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(renamed, vm.Profile);
+        Assert.Equal(1, sync.Calls);
+        Assert.Empty(vm.Groups.Groups);
+        Assert.Equal(starts, _realtime.StartCount);
+    }
+
+    [Fact]
+    public async Task Atualizar_ApiFora_MantemOPerfilNovoSemErro()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync { Failure = new DiscordException(DiscordErrorKind.Network, "offline") };
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        var renamed = FakeProfileService.SampleProfile with { GlobalName = "Nelly Nova" };
+        _profile.OnGet = () => Task.FromResult(renamed);
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(renamed, vm.Profile);
+        Assert.False(vm.HasError);
+        Assert.False(vm.IsRefreshing);
+    }
+
+    [Fact]
+    public async Task Atualizar_DiscordFalhou_NaoChamaAApi()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync();
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        _profile.OnGet = () => Task.FromException<UserProfile>(new DiscordException(DiscordErrorKind.Network, "offline"));
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(0, sync.Calls);
+        Assert.True(vm.HasError);
+    }
+
     [Fact]
     public async Task Atualizar_SemConexao_MantemSessaoEMostraErro()
     {

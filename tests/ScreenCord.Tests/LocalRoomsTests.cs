@@ -702,6 +702,21 @@ public sealed class LocalLoginTests : IDisposable
     }
 
     [Fact]
+    public async Task UsarSemConta_NaoAtualizaOPerfilComODiscord()
+    {
+        var (vm, rooms, _) = Create();
+        await vm.InitializeAsync();
+        vm.StartLocalCommand.Execute(null);
+        vm.LocalName = "Ana";
+
+        await vm.ConfirmLocalCommand.ExecuteAsync();
+
+        Assert.True(vm.IsConnected);
+        Assert.False(vm.RefreshProfileCommand.CanExecute(null));
+        await rooms.StopAsync();
+    }
+
+    [Fact]
     public async Task UsarSemConta_SemNome_PedeONome()
     {
         var (vm, rooms, _) = Create();
