@@ -40,6 +40,7 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
         _api.GroupChanged += (_, group) => GroupChanged?.Invoke(this, group);
         _api.GroupRemoved += (_, groupId) => GroupRemoved?.Invoke(this, groupId);
         _api.FriendsChanged += (_, _) => FriendsChanged?.Invoke(this, EventArgs.Empty);
+        _api.LimitsChanged += (_, limits) => LimitsChanged?.Invoke(this, limits);
         _local.PresenceChanged += presence => PresenceChanged?.Invoke(this, presence);
         _local.RoomChanged += room => GroupChanged?.Invoke(this, room);
         _local.RoomRemoved += roomId =>
@@ -60,6 +61,8 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
     public event EventHandler<Guid>? GroupRemoved;
 
     public event EventHandler? FriendsChanged;
+
+    public event EventHandler<ServerLimitsDto>? LimitsChanged;
 
     private bool InLocalRoom => _local.CurrentRoomId is not null;
 

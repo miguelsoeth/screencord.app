@@ -355,6 +355,13 @@ public sealed class MockupGroupsRealtime(MockupWorld world) : IGroupsRealtime, I
         remove { }
     }
 
+    // O mockup não tem painel para mudar os limites.
+    public event EventHandler<ServerLimitsDto>? LimitsChanged
+    {
+        add { }
+        remove { }
+    }
+
     public void Start()
     {
         CancellationTokenSource lifetime;

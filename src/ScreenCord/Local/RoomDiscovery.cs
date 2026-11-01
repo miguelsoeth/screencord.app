@@ -1,12 +1,17 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using ScreenCord.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace ScreenCord.Local;
 
 /// <summary>Anúncio de uma sala local, enviado por broadcast UDP a cada poucos segundos.</summary>
 /// <param name="Fingerprint">Impressão digital do certificado do anfitrião: quem entra pela lista só aceita esse.</param>
+/// <param name="Shares">
+/// O que está no ar, para marcar "AO VIVO" para quem ainda não entrou. Só o resumo: endereços e a chave da mídia
+/// (<see cref="LocalShare"/>) ficam dentro da sala. Ausente num anfitrião de uma versão anterior.
+/// </param>
 public sealed record RoomBeacon(
     Guid RoomId,
     string Name,
@@ -15,7 +20,8 @@ public sealed record RoomBeacon(
     IReadOnlyList<LocalMember> Members,
     string Fingerprint,
     string Kind = RoomBeacon.ScreenCordKind,
-    int Protocol = LocalMessage.CurrentProtocol)
+    int Protocol = LocalMessage.CurrentProtocol,
+    IReadOnlyList<ScreenShareDto>? Shares = null)
 {
     public const string ScreenCordKind = "screencord-room";
 
@@ -34,7 +40,16 @@ public sealed record RoomBeacon(
             }
 
             var state = LocalRoomClient.Sanitize(new LocalRoomState(beacon.RoomId, beacon.Name, Guid.Empty, beacon.Version, beacon.Members ?? [], []));
-            return state is null ? null : beacon with { Name = state.Name, Members = state.Members };
+            if (state is null)
+            {
+                return null;
+            }
+
+            var shares = (beacon.Shares ?? [])
+                .Where(s => s is not null && Enum.IsDefined(s.Kind) && state.Members.Any(m => m.Id == s.UserId))
+                .DistinctBy(s => (s.UserId, s.Kind))
+                .ToList();
+            return beacon with { Name = state.Name, Members = state.Members, Shares = shares };
         }
         catch (JsonException)
         {
@@ -132,6 +147,9 @@ public sealed class RoomDiscovery : IDisposable
             Tick();
         }
     }
+
+    /// <summary>O anúncio que sai no próximo intervalo.</summary>
+    public RoomBeacon? Announced() => _announce?.Invoke();
 
     /// <summary>Esquece uma sala (ex.: ela foi encerrada), até o próximo anúncio dela.</summary>
     public void Forget(Guid roomId)

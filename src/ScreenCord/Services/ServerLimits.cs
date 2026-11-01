@@ -9,6 +9,9 @@ public interface IServerLimits
     StreamLimits Relay { get; }
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Passa a valer o que o servidor avisou pelo hub.</summary>
+    void Apply(StreamLimits? relay);
 }
 
 public sealed class CentralServerLimits(CentralApiClient api) : IServerLimits
@@ -20,15 +23,20 @@ public sealed class CentralServerLimits(CentralApiClient api) : IServerLimits
         try
         {
             var limits = await api.SendAsync<ServerLimitsDto>(HttpMethod.Get, "limits", null, cancellationToken).ConfigureAwait(false);
-            // Os dados vêm do servidor: limites que o app não sabe fazer são ignorados.
-            if (limits.Relay is { IsSane: true } relay)
-            {
-                Relay = relay;
-            }
+            Apply(limits.Relay);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // Sem resposta, vale o padrão; a API recusa de qualquer jeito o que passar do limite dela.
+        }
+    }
+
+    public void Apply(StreamLimits? relay)
+    {
+        // Os dados vêm do servidor: limites que o app não sabe fazer são ignorados.
+        if (relay is { IsSane: true })
+        {
+            Relay = relay;
         }
     }
 }

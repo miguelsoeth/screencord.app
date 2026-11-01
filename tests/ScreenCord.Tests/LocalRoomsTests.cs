@@ -304,6 +304,41 @@ public sealed class LocalRoomsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Anuncio_LevaOQueEstaNoAr_SemEnderecosNemChaveDaMidia()
+    {
+        var discovery = new RoomDiscovery(NullLogger.Instance, port: 0);
+        var ana = Create("Ana", discovery);
+        var room = await ana.CreateRoomAsync("Jogatina");
+        await ana.JoinAsync(room.Id);
+        await ana.StartShareAsync(new ScreenShareStart(1280, 720, 30, 3000, false));
+
+        var data = RoomBeacon.Serialize(new RoomBeacon(room.Id, "Jogatina", 47830, 3, [ana.Me], new string('a', LocalCertificate.FingerprintLength),
+            Shares: [new ScreenShareDto(ana.Me.Id, 1280, 720, 30, 3000, false), new ScreenShareDto(Guid.NewGuid(), 1280, 720, 30, 3000, false)]));
+        var beacon = RoomBeacon.Parse(data)!;
+
+        // Quem não é da sala não conta como "ao vivo".
+        Assert.Equal(ana.Me.Id, Assert.Single(beacon.Shares!).UserId);
+        var sent = System.Text.Encoding.UTF8.GetString(RoomBeacon.Serialize(discovery.Announced()!));
+        Assert.Contains("\"shares\":[{", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("key", sent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("endpoints", sent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RedeMudou_AtualizaALinhaDaSalaHospedada()
+    {
+        var ana = Create("Ana");
+        var room = await ana.CreateRoomAsync("Jogatina");
+        await ana.JoinAsync(room.Id);
+        var changed = new List<Guid>();
+        ana.RoomChanged += group => changed.Add(group.Id);
+
+        ana.RefreshAddresses();
+
+        Assert.Equal([room.Id], changed);
+    }
+
+    [Fact]
     public async Task VoltaDaApi_DentroDaSalaLocal_AvisaParaAtualizarOsGrupos()
     {
         var api = new FakeGroupsRealtime();

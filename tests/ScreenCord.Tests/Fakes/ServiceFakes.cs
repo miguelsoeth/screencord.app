@@ -326,6 +326,8 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
 
     public event EventHandler? FriendsChanged;
 
+    public event EventHandler<ServerLimitsDto>? LimitsChanged;
+
     public void Start() => StartCount++;
 
     public Task<GroupPresenceDto> JoinAsync(Guid groupId, CancellationToken cancellationToken = default)
@@ -374,4 +376,22 @@ public sealed class FakeGroupsRealtime : IGroupsRealtime
     public void RaiseGroupRemoved(Guid groupId) => GroupRemoved?.Invoke(this, groupId);
 
     public void RaiseFriendsChanged() => FriendsChanged?.Invoke(this, EventArgs.Empty);
+
+    public void RaiseLimitsChanged(StreamLimits relay) => LimitsChanged?.Invoke(this, new ServerLimitsDto(relay));
+}
+
+/// <summary>Limites do servidor em memória: conta quantas vezes foram buscados.</summary>
+public sealed class FakeServerLimits : IServerLimits
+{
+    public StreamLimits Relay { get; private set; } = StreamLimits.Relay;
+
+    public int RefreshCount { get; private set; }
+
+    public Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        RefreshCount++;
+        return Task.CompletedTask;
+    }
+
+    public void Apply(StreamLimits? relay) => Relay = relay ?? Relay;
 }
