@@ -98,8 +98,12 @@ public sealed record LocalMessage(
     string? Reason = null,
     ShareKind? Kind = null)
 {
-    /// <summary>Versão do protocolo; a 2 passou a usar TLS (<c>wss://</c>) e a impressão digital do certificado.</summary>
-    public const int CurrentProtocol = 2;
+    /// <summary>
+    /// Versão do protocolo; a 2 passou a usar TLS (<c>wss://</c>) e a impressão digital do certificado; a 3, o token
+    /// da sala (exigido de quem vem de fora das redes locais) e o id da sala no pedido de conexão
+    /// (<see cref="LocalRoomHost.TokenHeader"/>, <see cref="LocalRoomHost.RoomHeader"/>).
+    /// </summary>
+    public const int CurrentProtocol = 3;
 
     public const string Hello = "hello";
     public const string State = "state";
@@ -109,6 +113,9 @@ public sealed record LocalMessage(
 
     /// <summary>Maior mensagem aceita (uma sala cheia com todos compartilhando fica bem abaixo disso).</summary>
     public const int MaxBytes = 64 * 1024;
+
+    /// <summary>Maior <c>hello</c> aceito: chega antes de a sala aceitar a pessoa.</summary>
+    public const int MaxHelloBytes = 4 * 1024;
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -122,21 +129,21 @@ public sealed record LocalMessage(
     }
 
     /// <summary>Lê a próxima mensagem; null quando a conexão fecha. Mensagens inválidas viram <see cref="InvalidDataException"/>.</summary>
-    public static async Task<LocalMessage?> ReceiveAsync(WebSocket socket, CancellationToken cancellationToken)
+    public static async Task<LocalMessage?> ReceiveAsync(WebSocket socket, CancellationToken cancellationToken, int maxBytes = MaxBytes)
     {
-        var buffer = new byte[4096];
+        var buffer = new byte[Math.Min(4096, maxBytes)];
         var length = 0;
         ValueWebSocketReceiveResult result;
         do
         {
             if (length == buffer.Length)
             {
-                if (buffer.Length >= MaxBytes)
+                if (buffer.Length >= maxBytes)
                 {
                     throw new InvalidDataException("Mensagem grande demais.");
                 }
 
-                Array.Resize(ref buffer, Math.Min(buffer.Length * 2, MaxBytes));
+                Array.Resize(ref buffer, Math.Min(buffer.Length * 2, maxBytes));
             }
 
             result = await socket.ReceiveAsync(buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);

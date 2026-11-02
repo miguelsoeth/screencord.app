@@ -1,6 +1,8 @@
 using ScreenCord.Localization;
 using System.IO;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using ScreenCord.Contracts;
@@ -10,10 +12,21 @@ namespace ScreenCord.Local;
 /// <summary>
 /// Sala local hospedada neste computador: guarda quem está nela e quem está compartilhando, e envia o estado a
 /// todos a cada mudança. Quem hospeda é integrante desde a criação; quando ele sai, a sala acaba para todos.
+/// <para>
+/// A sala tem um token (<see cref="Token"/>, 256 bits aleatórios), que vai no convite e é exigido de quem conecta de
+/// fora das redes locais. Ele só vale enquanto a sala existe; <see cref="RenewToken"/> troca e revoga o anterior.
+/// </para>
 /// </summary>
 public sealed class LocalRoomHost
 {
     public const int MaxMembers = 20;
+
+    /// <summary>Cabeçalho do pedido de conexão com o token da sala (do convite).</summary>
+    public const string TokenHeader = "X-ScreenCord-Room-Token";
+
+    /// <summary>Cabeçalho do pedido de conexão com o id da sala esperada (do convite): outra sala responde 404.</summary>
+    public const string RoomHeader = "X-ScreenCord-Room";
+
     private static readonly TimeSpan HelloTimeout = TimeSpan.FromSeconds(5);
 
     private readonly Lock _lock = new();
@@ -22,6 +35,7 @@ public sealed class LocalRoomHost
     private readonly Dictionary<Guid, Connection> _connections = [];
     private readonly ILogger _logger;
     private GroupSettings _settings = GroupSettings.Default;
+    private string _token = RoomInvite.NewToken();
     private long _version;
     private bool _closed;
 
@@ -39,6 +53,46 @@ public sealed class LocalRoomHost
     public string Name { get; }
 
     public Guid HostId { get; }
+
+    /// <summary>Token atual da sala. Nunca vai para logs nem para o relatório de erros.</summary>
+    public string Token
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _token;
+            }
+        }
+    }
+
+    /// <summary>Troca o token: os convites anteriores deixam de valer (quem já está na sala continua).</summary>
+    public string RenewToken()
+    {
+        lock (_lock)
+        {
+            _token = RoomInvite.NewToken();
+            return _token;
+        }
+    }
+
+    /// <summary>Confere o token em tempo constante (compara os hashes, para o tamanho também não vazar).</summary>
+    public bool AcceptsToken(string? token)
+    {
+        if (string.IsNullOrEmpty(token) || token.Length > RoomInvite.MaxTokenLength)
+        {
+            return false;
+        }
+
+        string expected;
+        lock (_lock)
+        {
+            expected = _token;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(
+            SHA256.HashData(Encoding.UTF8.GetBytes(token)), SHA256.HashData(Encoding.UTF8.GetBytes(expected)));
+    }
 
     /// <summary>O estado mudou (para quem hospeda, que não recebe pela rede). Vem de threads de fundo.</summary>
     public event Action<LocalRoomState>? Changed;
@@ -128,7 +182,7 @@ public sealed class LocalRoomHost
         {
             using var hello = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             hello.CancelAfter(HelloTimeout);
-            var message = await LocalMessage.ReceiveAsync(socket, hello.Token).ConfigureAwait(false);
+            var message = await LocalMessage.ReceiveAsync(socket, hello.Token, LocalMessage.MaxHelloBytes).ConfigureAwait(false);
             member = message is { Type: LocalMessage.Hello, Protocol: LocalMessage.CurrentProtocol } ? message.Member?.Sanitize() : null;
             if (member is null || member.Id == HostId)
             {

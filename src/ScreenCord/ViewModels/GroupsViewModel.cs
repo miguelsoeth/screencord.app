@@ -27,7 +27,11 @@ public sealed class GroupsViewModel : ObservableObject
     private readonly ILocalRooms? _localRooms;
     private readonly IServerLimits? _serverLimits;
     private readonly IFirewallRule? _firewall;
+    private readonly IClipboard? _clipboard;
     private bool _newGroupIsLocal;
+    private RoomInvite? _pendingInvite;
+    private bool _isJoiningInvite;
+    private bool _internetGuestsAllowed;
     private string _joinAddress = "";
     private bool _isJoiningByAddress;
     private bool _showFirewallWarning;
@@ -61,7 +65,8 @@ public sealed class GroupsViewModel : ObservableObject
         IScreenShareUi shareUi,
         ILocalRooms? localRooms = null,
         IServerLimits? serverLimits = null,
-        IFirewallRule? firewall = null)
+        IFirewallRule? firewall = null,
+        IClipboard? clipboard = null)
     {
         _groupsService = groupsService;
         _realtime = realtime;
@@ -70,6 +75,7 @@ public sealed class GroupsViewModel : ObservableObject
         _localRooms = localRooms;
         _serverLimits = serverLimits;
         _firewall = firewall;
+        _clipboard = clipboard;
 
         // Criado na thread da interface; os eventos do hub chegam de outras threads e são trazidos para cá.
         _ui = SynchronizationContext.Current;
@@ -96,6 +102,166 @@ public sealed class GroupsViewModel : ObservableObject
         JoinByAddressCommand = new AsyncRelayCommand(JoinByAddressAsync);
         ConfigureFirewallCommand = new AsyncRelayCommand(ConfigureFirewallAsync);
         DismissFirewallWarningCommand = new RelayCommand(() => ShowFirewallWarning = false);
+        AcceptInviteCommand = new AsyncRelayCommand(AcceptInviteAsync, () => HasPendingInvite && !IsJoiningInvite);
+        DeclineInviteCommand = new RelayCommand(() => PendingInvite = null);
+    }
+
+    /// <summary>Entra na sala do convite recebido, depois da confirmação.</summary>
+    public AsyncRelayCommand AcceptInviteCommand { get; }
+
+    public RelayCommand DeclineInviteCommand { get; }
+
+    /// <summary>Convite recebido (link <c>screencord://</c>) esperando a confirmação para conectar.</summary>
+    public RoomInvite? PendingInvite
+    {
+        get => _pendingInvite;
+        private set
+        {
+            if (SetProperty(ref _pendingInvite, value))
+            {
+                OnPropertyChanged(nameof(HasPendingInvite));
+                OnPropertyChanged(nameof(InviteQuestion));
+                AcceptInviteCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasPendingInvite => PendingInvite is not null;
+
+    /// <summary>"Entrar na sala X em 1.2.3.4:47830?": o nome e o primeiro endereço vêm do link, já validados.</summary>
+    public string? InviteQuestion => PendingInvite is { } invite
+        ? string.Format(Loc.Culture, Strings.JoinInviteQuestionFormat, invite.Name, invite.Addresses[0])
+        : null;
+
+    public bool IsJoiningInvite
+    {
+        get => _isJoiningInvite;
+        private set
+        {
+            if (SetProperty(ref _isJoiningInvite, value))
+            {
+                AcceptInviteCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Recebeu um link de convite (ao abrir o app por ele, de outra instância ou colado no "Entrar pelo IP"). O link
+    /// é dado não confiável: inválido vira o erro na tela; válido só conecta depois da confirmação.
+    /// </summary>
+    public void OfferInvite(string link)
+    {
+        if (_localRooms is null)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        if (!RoomInvite.TryParse(link, out var invite, out var error))
+        {
+            PendingInvite = null;
+            ErrorMessage = error;
+            return;
+        }
+
+        PendingInvite = invite;
+    }
+
+    private async Task AcceptInviteAsync()
+    {
+        if (_localRooms is null || PendingInvite is not { } invite)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        IsJoiningInvite = true;
+        try
+        {
+            var room = await _localRooms.FindInviteAsync(invite);
+            PendingInvite = null;
+            await JoinAsync(Upsert(room));
+        }
+        catch (Exception ex)
+        {
+            PendingInvite = null;
+            ErrorMessage = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            IsJoiningInvite = false;
+        }
+    }
+
+    /// <summary>
+    /// Gera o convite da sala hospedada aqui e o copia (fora do histórico da área de transferência). O link não é
+    /// mostrado na tela, que pode estar sendo transmitida; o aviso diz que ele leva o IP público.
+    /// </summary>
+    internal async Task CopyInviteAsync(GroupItemViewModel group, bool renew)
+    {
+        if (_localRooms is null || group.IsCreatingInvite)
+        {
+            return;
+        }
+
+        group.MembersError = null;
+        group.InviteNoticeKind = InviteNotice.None;
+        group.IsCreatingInvite = true;
+        try
+        {
+            var invite = await _localRooms.CreateInviteAsync(group.Id, renew);
+            if (_clipboard?.TrySetText(invite.Link, sensitive: true) == false)
+            {
+                group.InviteNoticeKind = InviteNotice.CopyFailed;
+                return;
+            }
+
+            group.InviteNoticeKind = !invite.HasPublicAddress ? InviteNotice.CopiedWithoutPublicAddress
+                : renew ? InviteNotice.Renewed
+                : InviteNotice.Copied;
+        }
+        catch (Exception ex)
+        {
+            group.MembersError = ErrorMessages.For(ex);
+        }
+        finally
+        {
+            group.IsCreatingInvite = false;
+        }
+    }
+
+    /// <summary>Cria ou apaga a regra do firewall para convidados de fora da rede (pede a permissão do Windows).</summary>
+    internal async Task SetInternetGuestsAsync(GroupItemViewModel group, bool allowed)
+    {
+        if (_firewall is null || IsConfiguringFirewall)
+        {
+            return;
+        }
+
+        group.MembersError = null;
+        IsConfiguringFirewall = true;
+        try
+        {
+            if (!await _firewall.SetInternetAllowedAsync(allowed))
+            {
+                group.MembersError = Strings.InternetFirewallNotChanged;
+            }
+
+            ApplyInternetGuests(await _firewall.IsInternetAllowedAsync());
+        }
+        finally
+        {
+            IsConfiguringFirewall = false;
+        }
+    }
+
+    private void ApplyInternetGuests(bool allowed)
+    {
+        _internetGuestsAllowed = allowed;
+        foreach (var group in Groups.Where(g => g.IsLocalHost))
+        {
+            group.InternetGuestsAllowed = allowed;
+        }
     }
 
     /// <summary>Entra numa sala local digitando o IP de quem hospeda (ex.: no Tailscale, que não repassa os anúncios).</summary>
@@ -697,6 +863,15 @@ public sealed class GroupsViewModel : ObservableObject
             return;
         }
 
+        // Colou o link do convite em vez do IP: pede a mesma confirmação de quando o link abre o app.
+        if (RoomInvite.IsInviteLink(JoinAddress))
+        {
+            var link = JoinAddress;
+            CancelCreate();
+            OfferInvite(link);
+            return;
+        }
+
         CreateError = null;
         IsJoiningByAddress = true;
         try
@@ -739,10 +914,17 @@ public sealed class GroupsViewModel : ObservableObject
     /// <summary>Sem a regra do firewall, os outros computadores podem não alcançar este: mostra o aviso com o botão.</summary>
     private async Task CheckFirewallAsync()
     {
-        if (_firewall is not null && !await _firewall.IsConfiguredAsync())
+        if (_firewall is null)
+        {
+            return;
+        }
+
+        if (!await _firewall.IsConfiguredAsync())
         {
             ShowFirewallWarning = true;
         }
+
+        ApplyInternetGuests(await _firewall.IsInternetAllowedAsync());
     }
 
     private async Task ConfigureFirewallAsync()
@@ -979,6 +1161,8 @@ public sealed class GroupsViewModel : ObservableObject
         if (_localRooms?.Info(item.Id) is { } info)
         {
             item.SetLocal(info.IsHost, info.Addresses);
+            item.SetLanAddress(info.LanAddress);
+            item.InternetGuestsAllowed = info.IsHost && _internetGuestsAllowed;
         }
     }
 

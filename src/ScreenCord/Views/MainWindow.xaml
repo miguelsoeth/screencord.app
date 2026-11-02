@@ -145,7 +145,7 @@
                         <!-- Rodapé com altura reservada para até três linhas de erro; sem erro, mostra um texto de apoio. -->
                         <Grid Margin="0,18,0,0" MinHeight="76">
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" VerticalAlignment="Center"
-                                       Text="{l:Tr LoginHint}"
+                                       Text="{Binding LoginHintText}"
                                        views:Motion.IsShown="{Binding HasError, Converter={StaticResource InverseBool}}" />
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" VerticalAlignment="Center"
                                     views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
@@ -516,6 +516,36 @@
                                                     </ItemsControl>
                                                 </StackPanel>
 
+                                                <!-- Sala hospedada aqui: convite pela internet (link screencord://), a porta a encaminhar e o firewall. -->
+                                                <!-- O link não aparece na tela (ela pode estar sendo transmitida): só vai para a área de transferência. -->
+                                                <StackPanel Visibility="{Binding IsLocalHost, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{l:Tr InviteFromInternetHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,4" />
+                                                    <TextBlock Text="{Binding PortForwardHint}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <Button Content="{l:Tr CopyInvite}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                                Command="{Binding CopyInviteCommand}" />
+                                                        <Button Content="{l:Tr RenewInvite}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                                Command="{Binding RenewInviteCommand}" ToolTip="{l:Tr RenewInviteTooltip}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{l:Tr CreatingInvite}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,6,0,0"
+                                                               Visibility="{Binding IsCreatingInvite, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,8,0,0"
+                                                            views:Motion.IsShown="{Binding HasInviteNotice}" views:Motion.Kind="SlideDown">
+                                                        <TextBlock Text="{Binding InviteNotice}" TextWrapping="Wrap" FontSize="12" />
+                                                    </Border>
+                                                    <!-- Liberar a porta para qualquer endereço é escolha de quem hospeda, nunca o padrão. -->
+                                                    <StackPanel Margin="0,8,0,0" Visibility="{Binding InternetGuestsBlocked, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding AllowInternetGuestsHint}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                        <Button Content="{l:Tr AllowInternetGuests}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
+                                                                HorizontalAlignment="Left" Margin="0,6,0,0" Command="{Binding AllowInternetGuestsCommand}" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,8,0,0" Visibility="{Binding InternetGuestsAllowed, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{l:Tr InternetGuestsAllowed}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                        <Button Content="{l:Tr RestrictToLocalNetwork}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12"
+                                                                HorizontalAlignment="Left" Margin="0,6,0,0" Command="{Binding RestrictToLocalNetworkCommand}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+
                                                 <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
                                                         views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
                                                     <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
@@ -747,6 +777,23 @@
                                         <Button Content="{l:Tr NotNow}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                 Command="{Binding DismissFirewallWarningCommand}" />
                                     </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <!-- Convite recebido (link screencord://): só conecta depois de confirmar. -->
+                            <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                    views:Motion.IsShown="{Binding HasPendingInvite}" views:Motion.Kind="SlideDown">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding InviteQuestion}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" />
+                                    <TextBlock Text="{l:Tr JoinInviteHint}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                                               Foreground="{StaticResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="{l:Tr Join}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                Command="{Binding AcceptInviteCommand}" />
+                                        <Button Content="{l:Tr NotNow}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                Command="{Binding DeclineInviteCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{l:Tr Connecting}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,6,0,0"
+                                               Visibility="{Binding IsJoiningInvite, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
                             </Border>
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"

@@ -26,17 +26,23 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Iniciado elevado (pelo instalador ou pelo "Liberar no firewall") só para criar a regra do firewall.
-        if (e.Args.Contains(FirewallRule.CommandLineFlag) && Environment.ProcessPath is { } exe)
+        // Aberto por um link screencord:// (convite de sala local): o Windows passa só o link, que vem de fora (uma
+        // página, uma mensagem). Nenhum outro argumento vale nesse caso, para um link não virar opção do app.
+        var inviteLink = UrlProtocol.FindLink(e.Args);
+        string[] args = inviteLink is null ? e.Args : [];
+
+        // Iniciado elevado (pelo instalador, pelo "Liberar no firewall" ou pelo "Permitir convidados de fora da rede")
+        // só para criar ou mudar as regras do firewall.
+        if (args.Contains(FirewallRule.CommandLineFlag) && Environment.ProcessPath is { } exe)
         {
-            Shutdown(FirewallRule.Apply(exe));
+            Shutdown(FirewallRule.Apply(exe, FirewallRule.InternetChoice(args)));
             return;
         }
 
-        // Iniciado pelo instalador ao desinstalar, para apagar a regra do firewall (só pede permissão se ela existir).
-        if (e.Args.Contains(FirewallRule.RemoveFlag) && Environment.ProcessPath is { } installedExe)
+        // Iniciado pelo instalador ao desinstalar, para apagar as regras do firewall (só pede permissão se houver alguma).
+        if (args.Contains(FirewallRule.RemoveFlag) && Environment.ProcessPath is { } installedExe)
         {
-            Shutdown(FirewallRule.Remove(installedExe, e.Args.Contains(FirewallRule.ElevatedFlag)));
+            Shutdown(FirewallRule.Remove(installedExe, args.Contains(FirewallRule.ElevatedFlag)));
             return;
         }
 
@@ -45,24 +51,30 @@ public partial class App : Application
 
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
-            Args = e.Args,
+            Args = args,
             ContentRootPath = AppContext.BaseDirectory,
         });
         builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
         // A linha de comando volta a valer por último, acima do appsettings.Local.json (o screencord.ps1 escolhe a API assim).
-        builder.Configuration.AddCommandLine(e.Args);
+        builder.Configuration.AddCommandLine(args);
         builder.Services.AddScreenCord(builder.Configuration);
         // Na versão instalada não há console: o arquivo é o que dá para pedir a quem relata um problema.
         builder.Logging.AddProvider(new FileLoggerProvider(FileLoggerProvider.DefaultFolder));
         // Ambiente de mockup (DOTNET_ENVIRONMENT=Mockup, escolhido no screencord.ps1): dados falsos, sem Discord e sem API.
         var mockup = builder.Environment.IsEnvironment("Mockup");
 
-        // Já aberto (talvez só na bandeja): a outra instância aparece e esta fecha.
-        _instance = SingleInstance.Acquire(builder.Environment.EnvironmentName);
+        // Já aberto (talvez só na bandeja): a outra instância aparece, recebe o convite (se veio um) e esta fecha.
+        _instance = SingleInstance.Acquire(builder.Environment.EnvironmentName, inviteLink);
         if (!_instance.IsFirst)
         {
             Shutdown();
             return;
+        }
+
+        // Builds fora do MSI registram o screencord:// por conta própria (o instalador já registra).
+        if (!mockup && Environment.ProcessPath is { } appExe)
+        {
+            UrlProtocol.EnsureRegistered(appExe);
         }
 
         if (mockup)
@@ -119,6 +131,20 @@ public partial class App : Application
         _instance.OnActivationRequested(() => Dispatcher.BeginInvoke(mainWindow.BringToFront));
 
         mainWindow.Show();
+
+        // Convites: o link com que o app abriu e os que chegam de instâncias abertas depois (já com esta na frente).
+        var main = _host.Services.GetRequiredService<MainViewModel>();
+        _instance.OnMessage(message => Dispatcher.BeginInvoke(() =>
+        {
+            if (RoomInvite.IsInviteLink(message))
+            {
+                main.HandleInviteLink(message);
+            }
+        }));
+        if (inviteLink is not null)
+        {
+            main.HandleInviteLink(inviteLink);
+        }
 
         // O app passa dias na bandeja: confere a versão de tempos em tempos, sem interromper uma transmissão.
         if (!mockup && updates.IsEnabled)

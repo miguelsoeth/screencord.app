@@ -67,6 +67,23 @@
         <File Id="ThirdPartyNoticesTxt" Source="..\..\THIRD-PARTY-NOTICES.txt" />
         <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="LicenseFiles" Type="integer" Value="1" KeyPath="yes" />
       </Component>
+      <!--
+        Protocolo screencord:// (convites das salas locais), por usuário e sem administrador. O Windows passa o link
+        como único argumento; o app só o lê como convite e pede confirmação antes de conectar. Sai na desinstalação.
+      -->
+      <Component Id="UrlProtocol" Guid="732BF857-E5DF-47B2-AB64-489C99129C8E">
+        <RegistryKey Root="HKCU" Key="Software\Classes\screencord">
+          <RegistryValue Type="string" Value="URL:ScreenCord" />
+          <RegistryValue Name="URL Protocol" Type="string" Value="" />
+          <RegistryKey Key="DefaultIcon">
+            <RegistryValue Type="string" Value="&quot;[#ScreenCordExe]&quot;,0" />
+          </RegistryKey>
+          <RegistryKey Key="shell\open\command">
+            <RegistryValue Type="string" Value="&quot;[#ScreenCordExe]&quot; &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+        <RegistryValue Root="HKCU" Key="Software\ScreenCord\Installer" Name="UrlProtocol" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
 
     <StandardDirectory Id="ProgramMenuFolder">

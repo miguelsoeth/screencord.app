@@ -52,6 +52,19 @@ public static class LocalNetwork
         };
     }
 
+    /// <summary>Rede de casa (10/8, 172.16/12, 192.168/16): para onde o roteador encaminha a porta. Não inclui as VPNs.</summary>
+    public static bool IsHomeNetwork(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        var b = address.GetAddressBytes();
+        return address.AddressFamily == AddressFamily.InterNetwork &&
+               (b[0] == 10 || (b[0] == 172 && b[1] is >= 16 and <= 31) || (b[0] == 192 && b[1] == 168));
+    }
+
     /// <summary>Nome da rede de um endereço, para exibição: "Hamachi", "Radmin", "Tailscale" ou "Rede local".</summary>
     public static string NetworkName(IPAddress address)
     {

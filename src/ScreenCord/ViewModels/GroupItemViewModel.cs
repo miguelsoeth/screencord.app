@@ -25,6 +25,10 @@ public sealed class GroupItemViewModel : ObservableObject
     private GroupSettings _settings = GroupSettings.Default;
     private bool _isExpanded = true;
     private string? _membersError;
+    private InviteNotice _inviteNotice;
+    private bool _isCreatingInvite;
+    private bool _internetGuestsAllowed;
+    private string? _lanAddress;
 
     public GroupItemViewModel(GroupsViewModel owner, GroupDto group)
     {
@@ -45,6 +49,89 @@ public sealed class GroupItemViewModel : ObservableObject
         CancelConfirmationCommand = new RelayCommand(() => IsConfirmingLeave = IsConfirmingDelete = false);
         InviteCommand = new RelayCommand(() => _owner.RequestInvite(this));
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
+        CopyInviteCommand = new AsyncRelayCommand(() => _owner.CopyInviteAsync(this, renew: false), () => !IsCreatingInvite);
+        RenewInviteCommand = new AsyncRelayCommand(() => _owner.CopyInviteAsync(this, renew: true), () => !IsCreatingInvite);
+        AllowInternetGuestsCommand = new AsyncRelayCommand(() => _owner.SetInternetGuestsAsync(this, allowed: true));
+        RestrictToLocalNetworkCommand = new AsyncRelayCommand(() => _owner.SetInternetGuestsAsync(this, allowed: false));
+    }
+
+    /// <summary>Copia o link <c>screencord://</c> da sala hospedada aqui, para convidar quem está fora da rede.</summary>
+    public AsyncRelayCommand CopyInviteCommand { get; }
+
+    /// <summary>Troca o token (o convite anterior deixa de valer) e copia o novo link.</summary>
+    public AsyncRelayCommand RenewInviteCommand { get; }
+
+    /// <summary>Libera a porta das salas no firewall para qualquer endereço (pede a permissão do Windows).</summary>
+    public AsyncRelayCommand AllowInternetGuestsCommand { get; }
+
+    public AsyncRelayCommand RestrictToLocalNetworkCommand { get; }
+
+    public bool IsCreatingInvite
+    {
+        get => _isCreatingInvite;
+        internal set
+        {
+            if (SetProperty(ref _isCreatingInvite, value))
+            {
+                CopyInviteCommand.NotifyCanExecuteChanged();
+                RenewInviteCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>O aviso depois de copiar o convite (o texto acompanha a troca de idioma).</summary>
+    internal InviteNotice InviteNoticeKind
+    {
+        get => _inviteNotice;
+        set
+        {
+            if (SetProperty(ref _inviteNotice, value))
+            {
+                OnPropertyChanged(nameof(InviteNotice));
+                OnPropertyChanged(nameof(HasInviteNotice));
+            }
+        }
+    }
+
+    public string? InviteNotice => _inviteNotice switch
+    {
+        ViewModels.InviteNotice.Copied => Strings.InviteCopied,
+        ViewModels.InviteNotice.Renewed => Strings.InviteRenewed,
+        ViewModels.InviteNotice.CopiedWithoutPublicAddress => Strings.InviteCopiedNoPublicIp,
+        ViewModels.InviteNotice.CopyFailed => Strings.InviteCopyFailed,
+        _ => null,
+    };
+
+    public bool HasInviteNotice => _inviteNotice != ViewModels.InviteNotice.None;
+
+    /// <summary>A regra do firewall para convidados de fora da rede existe.</summary>
+    public bool InternetGuestsAllowed
+    {
+        get => _internetGuestsAllowed;
+        internal set
+        {
+            if (SetProperty(ref _internetGuestsAllowed, value))
+            {
+                OnPropertyChanged(nameof(InternetGuestsBlocked));
+            }
+        }
+    }
+
+    public bool InternetGuestsBlocked => !InternetGuestsAllowed;
+
+    /// <summary>Qual porta encaminhar no roteador e para qual IP, o que não precisa ser aberto e o caso do CGNAT.</summary>
+    public string PortForwardHint => string.Format(
+        Loc.Culture, Strings.PortForwardHintFormat, LocalNetwork.RoomPort, _lanAddress ?? Strings.LocalIpUnknown, LocalNetwork.DiscoveryPort);
+
+    public string AllowInternetGuestsHint => string.Format(Loc.Culture, Strings.AllowInternetGuestsHintFormat, LocalNetwork.RoomPort);
+
+    internal void SetLanAddress(string? address)
+    {
+        if (_lanAddress != address)
+        {
+            _lanAddress = address;
+            OnPropertyChanged(nameof(PortForwardHint));
+        }
     }
 
     public Guid Id { get; }
@@ -471,4 +558,14 @@ public sealed class GroupMemberItem : ObservableObject
         get => _isConnected;
         set => SetProperty(ref _isConnected, value);
     }
+}
+
+/// <summary>Aviso mostrado na sala hospedada depois de copiar o convite.</summary>
+internal enum InviteNotice
+{
+    None,
+    Copied,
+    Renewed,
+    CopiedWithoutPublicAddress,
+    CopyFailed,
 }
