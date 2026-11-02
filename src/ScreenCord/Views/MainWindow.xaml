@@ -11,7 +11,7 @@
         Title="ScreenCord"
         Icon="/ScreenCord;component/Assets/screencord.ico"
         Width="1180" Height="656"
-        MinWidth="820" MinHeight="500"
+        MinWidth="640" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         StateChanged="OnWindowStateChanged"
         Background="{StaticResource WindowBackgroundBrush}"
@@ -172,7 +172,8 @@
 
             <!-- Tela principal -->
             <!-- Desabilitada enquanto a confirmação está aberta, para o teclado não alcançar os controles por trás. -->
-            <!-- A largura da coluna da esquerda e a altura da tela são calculadas no code-behind para a tela ficar em 16:9. -->
+            <!-- A largura da coluna da esquerda e a altura da tela são calculadas no code-behind (StageLayout.Stage): 16:9 numa
+                 janela comum, mais alta num monitor vertical e mais larga numa ultrawide. -->
             <Grid x:Name="MainGrid" Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center"
                   views:Motion.IsShown="{Binding IsConnected}"
                   IsEnabled="{Binding IsMainInteractive}">
@@ -279,7 +280,7 @@
                                     AutomationProperties.Name="{l:Tr SupportScreenCordOnKofi}">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="{StaticResource CoffeeIcon}" Style="{StaticResource IconPath}" Width="14" Height="14" />
-                                    <TextBlock Text="{l:Tr Support}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="SupportLabel" Text="{l:Tr Support}" Margin="6,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Border Background="{StaticResource WindowBrush}" CornerRadius="8" Padding="3"
@@ -331,8 +332,8 @@
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,6,0,0"
                                        Text="{l:Tr NoScreenHint}" />
                         </StackPanel>
-                        <!-- Até quatro telas ao mesmo tempo, numa grade montada em ApplyPlayerLayout; o fundo aparece como a linha entre elas. -->
-                        <Grid x:Name="PlayerHost" Background="{StaticResource BorderBrush}">
+                        <!-- Até quatro telas ao mesmo tempo, cada uma posicionada em ApplyPlayerLayout (StageLayout) no tamanho do seu vídeo. -->
+                        <Grid x:Name="PlayerHost">
                             <views:StreamPlayer Visibility="Collapsed" />
                             <views:StreamPlayer Visibility="Collapsed" />
                             <views:StreamPlayer Visibility="Collapsed" />

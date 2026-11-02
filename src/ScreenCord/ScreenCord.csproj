@@ -40,6 +40,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Os testes usam o conversor NV12 da GPU direto, sem uma captura de tela de verdade. -->
+    <InternalsVisibleTo Include="ScreenCord.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Assets\screencord.ico" />
     <Resource Include="Assets\screencord.png" />
     <Resource Include="Assets\mascot-monitor.png" />

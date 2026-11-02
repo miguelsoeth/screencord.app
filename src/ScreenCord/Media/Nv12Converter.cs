@@ -44,7 +44,15 @@ internal sealed class Nv12Converter : IDisposable
     /// <summary>Converte a área (0, 0, <paramref name="sourceWidth"/>, <paramref name="sourceHeight"/>) de <paramref name="texture"/>.</summary>
     public void Convert(ID3D11Texture2D texture, uint sourceWidth, uint sourceHeight)
     {
+        // Quadro vazio (ex.: janela no meio de ser minimizada): fica o anterior.
+        if (sourceWidth == 0 || sourceHeight == 0)
+        {
+            return;
+        }
+
         var description = texture.Description;
+        sourceWidth = Math.Min(sourceWidth, description.Width);
+        sourceHeight = Math.Min(sourceHeight, description.Height);
         if (_processor is null || _processorInput != (description.Width, description.Height))
         {
             CreateProcessor(description.Width, description.Height);
@@ -57,11 +65,7 @@ internal sealed class Nv12Converter : IDisposable
         });
 
         // Encaixa a origem no quadro de saída mantendo a proporção; o resto fica preto.
-        var scale = Math.Min(Width / (double)sourceWidth, Height / (double)sourceHeight);
-        var destWidth = Math.Min(Width, (int)Math.Round(sourceWidth * scale) & ~1);
-        var destHeight = Math.Min(Height, (int)Math.Round(sourceHeight * scale) & ~1);
-        var left = (Width - destWidth) / 2 & ~1;
-        var top = (Height - destHeight) / 2 & ~1;
+        var (left, top, destWidth, destHeight) = ScreenCapture.Letterbox((int)sourceWidth, (int)sourceHeight, Width, Height);
 
         _videoContext.VideoProcessorSetStreamSourceRect(_processor!, 0, true, new Vortice.RawRect(0, 0, (int)sourceWidth, (int)sourceHeight));
         _videoContext.VideoProcessorSetStreamDestRect(_processor!, 0, true, new Vortice.RawRect(left, top, left + destWidth, top + destHeight));
@@ -154,7 +158,8 @@ internal sealed class Nv12Converter : IDisposable
         _videoContext.VideoProcessorSetOutputColorSpace(_processor, new VideoProcessorColorSpace { YCbCr_Matrix = 1, Nominal_Range = 1 });
         _videoContext.VideoProcessorSetStreamFrameFormat(_processor, 0, VideoFrameFormat.Progressive);
         _videoContext.VideoProcessorSetStreamAutoProcessingMode(_processor, 0, false);
-        _videoContext.VideoProcessorSetOutputBackgroundColor(_processor, false, new VideoColor { Rgba = new VideoColorRgba { R = 0, G = 0, B = 0, A = 1 } });
+        // Faixas pretas no preto da faixa limitada (Y = 16), como o resto da imagem; em RGB o driver as deixava em Y = 0.
+        _videoContext.VideoProcessorSetOutputBackgroundColor(_processor, true, new VideoColor { YCbCr = new VideoColorYCbCrA { Y = 16 / 255f, Cb = 0.5f, Cr = 0.5f, A = 1 } });
         _processorInput = (inputWidth, inputHeight);
     }
 }

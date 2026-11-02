@@ -1,8 +1,10 @@
 using ScreenCord.Localization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -163,7 +165,8 @@ public partial class StreamPlayer : UserControl
             Content = new StreamPlayer(isFullScreen: true) { DataContext = _viewer },
         };
 
-        // Abre no mesmo monitor da janela principal: posiciona sobre ela e só então maximiza.
+        // Abre no mesmo monitor da janela principal: posiciona sobre ele e só então maximiza. Pelo monitor, não por
+        // Left/Top: maximizada, a janela informa a posição de quando for restaurada, que pode ser em outro monitor.
         if (owner is not null)
         {
             window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -171,6 +174,7 @@ public partial class StreamPlayer : UserControl
             window.Top = owner.Top;
             window.Width = owner.ActualWidth;
             window.Height = owner.ActualHeight;
+            window.SourceInitialized += (_, _) => MoveToMonitorOf(owner, window);
         }
 
         window.Loaded += (_, _) => window.WindowState = WindowState.Maximized;
@@ -184,6 +188,52 @@ public partial class StreamPlayer : UserControl
         FullScreenChanged?.Invoke(this, EventArgs.Empty);
         window.Show();
     }
+
+    /// <summary>Põe <paramref name="window"/> sobre o monitor onde está a maior parte de <paramref name="owner"/> (em pixels físicos).</summary>
+    private static void MoveToMonitorOf(Window owner, Window window)
+    {
+        var monitor = MonitorFromWindow(new WindowInteropHelper(owner).Handle, MonitorDefaultToNearest);
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info))
+        {
+            return;
+        }
+
+        var bounds = info.Monitor;
+        SetWindowPos(new WindowInteropHelper(window).Handle, IntPtr.Zero, bounds.Left, bounds.Top,
+            bounds.Right - bounds.Left, bounds.Bottom - bounds.Top, SwpNoZOrder | SwpNoActivate);
+    }
+
+    private const uint MonitorDefaultToNearest = 2;
+    private const uint SwpNoZOrder = 0x4;
+    private const uint SwpNoActivate = 0x10;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public MonitorRect Monitor;
+        public MonitorRect Work;
+        public int Flags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
     private void Attach(StreamViewerViewModel? viewer)
     {

@@ -258,6 +258,20 @@ public delegate void DecodedFrameHandler(byte[] bgra, int width, int height, lon
 /// <summary>Conversão NV12 (BT.709, 16–235) → BGRA, a mesma faixa de cor usada na captura.</summary>
 public static class Nv12
 {
+    /// <summary>Converte um quadro NV12 contíguo (plano Y com <paramref name="width"/> bytes por linha, seguido do UV).</summary>
+    public static unsafe void ToBgra(ReadOnlySpan<byte> nv12, int width, int height, byte[] destination)
+    {
+        if (nv12.Length < width * height * 3 / 2 || destination.Length < width * height * 4)
+        {
+            throw new ArgumentException("Buffer pequeno demais para o quadro.");
+        }
+
+        fixed (byte* y = nv12)
+        {
+            ToBgra(y, y + (long)width * height, width, width, height, destination);
+        }
+    }
+
     public static unsafe void ToBgra(byte* yPlane, byte* uvPlane, int pitch, int width, int height, byte[] destination)
     {
         fixed (byte* output = destination)

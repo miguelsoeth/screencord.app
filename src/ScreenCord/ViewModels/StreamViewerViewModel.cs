@@ -33,6 +33,7 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
     private bool _isPinned;
     private bool _canPin;
     private bool _hasFrame;
+    private (int Width, int Height) _frameSize;
     private bool _disposed;
 
     public StreamViewerViewModel(IScreenShareService service, Guid groupId, string groupName, Person sharer, ScreenShareDto share)
@@ -139,6 +140,19 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         _ => Strings.WaitingForImage,
     };
 
+    /// <summary>
+    /// Largura / altura do vídeo, para a grade dar mais espaço a quem precisa (ex.: a tela de um monitor vertical fica
+    /// em pé). Vem do anúncio e, depois, do tamanho dos quadros que chegam; 16:9 enquanto não se sabe.
+    /// </summary>
+    public double VideoAspect
+    {
+        get
+        {
+            var (width, height) = _frameSize is ( > 0, > 0) ? _frameSize : (_share.Width, _share.Height);
+            return width > 0 && height > 0 ? width / (double)height : 16.0 / 9;
+        }
+    }
+
     /// <summary>"1280 × 720 · 30 fps · 4000 kbps".</summary>
     public string QualityText => $"{_share.Width} × {_share.Height} · {_share.FrameRate} fps · {_share.BitrateKbps} kbps";
 
@@ -229,9 +243,14 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        var aspect = VideoAspect;
         _share = share;
         OnPropertyChanged(nameof(QualityText));
         OnPropertyChanged(nameof(HasAudio));
+        if (VideoAspect != aspect)
+        {
+            OnPropertyChanged(nameof(VideoAspect));
+        }
     }
 
     public void RequestClose() => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -261,6 +280,13 @@ public sealed class StreamViewerViewModel : ObservableObject, IAsyncDisposable
         {
             _hasFrame = true;
             Post(() => OnPropertyChanged(nameof(ShowOverlay)));
+        }
+
+        // Quadros de outro tamanho (quem compartilha trocou de resolução ou de tela): a grade se reorganiza.
+        if (_frameSize != (width, height))
+        {
+            _frameSize = (width, height);
+            Post(() => OnPropertyChanged(nameof(VideoAspect)));
         }
 
         FrameReady?.Invoke(bgra, width, height, timestamp);

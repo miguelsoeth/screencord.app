@@ -441,7 +441,8 @@ public sealed class ScreenShareService : IScreenShareService
                         return;
                     }
 
-                    Nv12ToBgra.Convert(_previewNv12, _width, _height, _previewBgra);
+                    // Com a mesma conversão de cor do decodificador de quem assiste (BT.709), para a prévia mostrar o que eles veem.
+                    Nv12.ToBgra(_previewNv12, _width, _height, _previewBgra);
                     foreach (var target in targets)
                     {
                         target.Push(_previewBgra, _width, _height, timestamp);
