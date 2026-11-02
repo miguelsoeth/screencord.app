@@ -33,7 +33,7 @@ dotnet run --project src/ScreenCord     # Development: API local (http://localho
 - **MAJOR**: mudança incompatível para quem usa o app (ex.: passa a exigir uma API nova que quebra versões antigas). Enquanto estiver em `0.x`, quebras sobem o MINOR.
 - **MINOR**: funcionalidade nova.
 - **PATCH**: correção.
-- Se a versão nova do app depende de algo novo na API, lance a API primeiro.
+- API primeiro, app depois. Se a versão nova do app depende de algo novo na API, lance a API antes; em quebra sem transição (caso 3 abaixo), lance o app logo em seguida, na mesma sessão. A API usa CalVer (`vAAAA.M.N`) e só o `minClientVersion` do `/health` é comparado com a versão do app; a versão da API nunca é lida como SemVer.
 
 ## Compatibilidade com a API e atualização automática
 
@@ -50,7 +50,7 @@ dotnet run --project src/ScreenCord     # Development: API local (http://localho
 
 1. **Compatível (o normal):** a API ganha campos opcionais, endpoints ou métodos do hub novos e continua atendendo o formato antigo. O app ignora campos que não conhece. Lance a API, depois o app; nada de versão mínima.
 2. **Quebra com transição (expandir e contrair):** a API passa a aceitar o formato novo e o antigo ao mesmo tempo (se precisar, ramifique pela versão com `HttpContext.GetClientVersion()` na API). Lance a API, depois o app (que usa o formato novo). Quando os usuários já tiverem se atualizado (por padrão o app se atualiza ao abrir, mas dá para desligar ou pular uma versão), suba `Clients:MinVersion` da API para a versão do app e remova o formato antigo numa release da API.
-3. **Quebra sem transição possível:** numa release da API, faça a mudança e suba `Clients:MinVersion` para a versão do app que a acompanha; publique o app logo em seguida. Entre as duas releases, quem abrir o app vê o aviso de versão não aceita; depois da release do app, todos se atualizam sozinhos.
+3. **Quebra sem transição possível:** numa release da API, faça a mudança e suba `Clients:MinVersion` para a versão do app que a acompanha; publique o app logo em seguida, na mesma sessão (deixe tudo pronto antes, para a janela ser mínima). Entre as duas releases, quem abrir o app vê o aviso de versão não aceita; depois da release do app, todos se atualizam sozinhos.
 
 ## Release
 
