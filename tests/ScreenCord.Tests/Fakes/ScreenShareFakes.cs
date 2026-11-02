@@ -118,6 +118,9 @@ public sealed class FakeStreamViewer(bool hasAudio) : IStreamViewer
 
     public void RaiseFrame() => FrameReady?.Invoke(new byte[16], 2, 2, 0);
 
+    /// <summary>Quadro de um tamanho qualquer (ex.: quem compartilha trocou para uma tela vertical).</summary>
+    public void RaiseFrame(int width, int height) => FrameReady?.Invoke(new byte[width * height * 4], width, height, 0);
+
     public void RaiseEnded(string? reason) => Ended?.Invoke(this, reason);
 
     public ValueTask DisposeAsync()

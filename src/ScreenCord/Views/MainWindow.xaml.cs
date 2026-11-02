@@ -23,20 +23,16 @@ public partial class MainWindow : Window
     /// <summary>Linha entre telas mostradas juntas.</summary>
     private const double PlayerGap = 2;
 
+    /// <summary>Abaixo desta largura do cabeçalho, o botão de apoio fica só com o ícone.</summary>
+    private const double CompactHeaderWidth = 470;
+
     private readonly MainViewModel _viewModel;
     private readonly StreamSlot[] _slots;
     private long _streamCounter;
 
-    /// <summary>Colunas da grade quando há mais de uma tela; as linhas vêm do número de telas.</summary>
-    private int _columns = 1;
-
-    /// <summary>Tamanho do bloco das telas (o de uma tela só, 16:9) e largura do vídeo de cada tela na grade.</summary>
+    /// <summary>Área de dentro do bloco das telas (sem a borda do cartão), onde a grade é montada.</summary>
     private double _stageWidth;
     private double _stageHeight;
-    private double _videoWidth;
-
-    /// <summary>A última disposição foi a da transmissão fixada (a grade normal precisa de linhas e colunas novas).</summary>
-    private bool _wasPinned;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -301,11 +297,9 @@ public partial class MainWindow : Window
     private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
 
     /// <summary>
-    /// Dimensiona a área das telas no maior bloco 16:9 que cabe ao lado da lateral e abaixo do cabeçalho. O bloco
-    /// tem sempre o tamanho de quando há uma só tela, não importa quantas estejam abertas: abrir outra não encolhe
-    /// a janela (cabeçalho e lateral de grupos acompanham esse bloco). Com mais telas, o vídeo de cada uma é 16:9
-    /// numa grade cujo número de colunas é o que deixar o vídeo maior (duas telas lado a lado ou empilhadas, quatro
-    /// em 2 × 2), centralizada no bloco.
+    /// Dimensiona o bloco das telas no espaço ao lado da lateral e abaixo do cabeçalho (<see cref="StageLayout.Stage"/>:
+    /// 16:9 numa janela comum, mais alto num monitor vertical, mais largo numa ultrawide). O bloco não muda com o
+    /// número de telas abertas: abrir outra não mexe no cabeçalho nem na lateral de grupos, que o acompanham.
     /// </summary>
     private void UpdateStageSize()
     {
@@ -313,37 +307,32 @@ public partial class MainWindow : Window
         var width = RootGrid.ActualWidth - margin.Left - margin.Right - SidebarSpace;
         var above = HeaderCard.ActualHeight + (ProfileError.IsVisible ? ProfileError.ActualHeight + ProfileError.Margin.Top : 0);
         var height = RootGrid.ActualHeight - margin.Top - margin.Bottom - above - StageGap;
-        if (width <= 0 || height <= 0)
+        var (stageWidth, stageHeight) = StageLayout.Stage(width, height);
+        if (stageWidth <= 0 || stageHeight <= 0)
         {
             ApplyPlayerLayout();
             return;
         }
 
-        var stageWidth = _stageWidth = Math.Floor(Math.Min(width, height * 16 / 9));
-        var stageHeight = _stageHeight = Math.Floor(stageWidth * 9 / 16);
         StageColumn.Width = new GridLength(stageWidth);
         StageRow.Height = new GridLength(stageHeight + StageGap);
 
-        var count = Math.Max(1, _slots.Count(s => s.Viewer is not null));
-        var bestVideo = 0.0;
-        for (var columns = 1; columns <= count; columns++)
-        {
-            var rows = (count + columns - 1) / columns;
-            var video = Math.Min((stageWidth - PlayerGap * (columns - 1)) / columns, (stageHeight - PlayerGap * (rows - 1)) / rows * 16 / 9);
-            if (video > bestVideo)
-            {
-                bestVideo = video;
-                _columns = columns;
-            }
-        }
-
-        _videoWidth = Math.Floor(bestVideo);
+        // A grade é montada por dentro da borda do cartão.
+        var border = Stage.BorderThickness;
+        _stageWidth = Math.Max(0, stageWidth - border.Left - border.Right);
+        _stageHeight = Math.Max(0, stageHeight - border.Top - border.Bottom);
+        UpdateHeaderDensity(stageWidth);
         ApplyPlayerLayout();
     }
 
+    /// <summary>Cabeçalho estreito (janela pequena ou monitor vertical com escala alta): o apoio fica só com o ícone, para o nome caber.</summary>
+    private void UpdateHeaderDensity(double headerWidth) =>
+        SupportLabel.Visibility = headerWidth < CompactHeaderWidth ? Visibility.Collapsed : Visibility.Visible;
+
     /// <summary>
-    /// Distribui as telas abertas pela grade, da mais antiga para a mais nova, com <see cref="PlayerGap"/> entre
-    /// elas. Se sobra lugar na última linha, a última tela ocupa o resto.
+    /// Distribui as telas abertas pelo bloco, da mais antiga para a mais nova (<see cref="StageLayout.Grid"/>, ou
+    /// <see cref="StageLayout.Pinned"/> com uma fixada), cada uma no tamanho do seu vídeo e com
+    /// <see cref="PlayerGap"/> entre elas.
     /// </summary>
     private void ApplyPlayerLayout()
     {
@@ -359,103 +348,42 @@ public partial class MainWindow : Window
             }
         }
 
-        if (open.FirstOrDefault(s => s.Viewer!.IsPinned) is { } pinned)
+        PlayerHost.Visibility = open.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        PlayerHost.Width = _stageWidth;
+        PlayerHost.Height = _stageHeight;
+        if (open.Count == 0 || _stageWidth <= 0 || _stageHeight <= 0)
         {
-            ApplyPinnedLayout(pinned, [.. open.Where(s => s != pinned)]);
             return;
         }
 
-        PlayerHost.Background = (System.Windows.Media.Brush)FindResource("BorderBrush");
-        var columns = Math.Max(1, open.Count < 2 ? 1 : _columns);
-        var rows = Math.Max(1, (open.Count + columns - 1) / columns);
-
-        // A grade tem o tamanho exato dos vídeos, centralizada no bloco de tamanho fixo (sobram faixas se não encher).
-        PlayerHost.Visibility = open.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (_videoWidth > 0)
+        if (open.FirstOrDefault(s => s.Viewer!.IsPinned) is { } pinned)
         {
-            PlayerHost.Width = _videoWidth * columns + PlayerGap * (columns - 1);
-            PlayerHost.Height = Math.Floor(_videoWidth * 9 / 16) * rows + PlayerGap * (rows - 1);
-        }
-
-        // Depois do modo fixado as linhas e colunas têm tamanhos em pixels: refaz sempre que ele estava ativo.
-        if (_wasPinned || PlayerHost.ColumnDefinitions.Count != columns || PlayerHost.RowDefinitions.Count != rows)
-        {
-            _wasPinned = false;
-            PlayerHost.ColumnDefinitions.Clear();
-            PlayerHost.RowDefinitions.Clear();
-            for (var i = 0; i < columns; i++)
+            var others = open.Where(s => s != pinned).ToList();
+            var (main, thumbnails) = StageLayout.Pinned(_stageWidth, _stageHeight, pinned.Viewer!.VideoAspect, [.. others.Select(s => s.Viewer!.VideoAspect)], PlayerGap);
+            Place(pinned.Player, main);
+            for (var index = 0; index < others.Count; index++)
             {
-                PlayerHost.ColumnDefinitions.Add(new ColumnDefinition());
+                Place(others[index].Player, thumbnails[index]);
             }
 
-            for (var i = 0; i < rows; i++)
-            {
-                PlayerHost.RowDefinitions.Add(new RowDefinition());
-            }
+            return;
         }
 
+        var tiles = StageLayout.Grid(_stageWidth, _stageHeight, [.. open.Select(s => s.Viewer!.VideoAspect)], PlayerGap);
         for (var index = 0; index < open.Count; index++)
         {
-            var player = open[index].Player;
-            var row = index / columns;
-            var column = index % columns;
-            var span = index == open.Count - 1 ? columns - column : 1;
-            Grid.SetRow(player, row);
-            Grid.SetRowSpan(player, 1);
-            Grid.SetColumn(player, column);
-            Grid.SetColumnSpan(player, span);
-            player.Margin = new Thickness(
-                column > 0 ? PlayerGap / 2 : 0,
-                row > 0 ? PlayerGap / 2 : 0,
-                column + span < columns ? PlayerGap / 2 : 0,
-                row < rows - 1 ? PlayerGap / 2 : 0);
+            Place(open[index].Player, tiles[index]);
         }
     }
 
-    /// <summary>
-    /// A transmissão fixada ocupa a maior parte do bloco e as outras (até três) ficam em miniatura, empilhadas numa
-    /// coluna ao lado, da mais antiga para a mais nova. O bloco tem o mesmo tamanho da grade normal.
-    /// </summary>
-    private void ApplyPinnedLayout(StreamSlot main, List<StreamSlot> others)
+    /// <summary>Põe o player na posição calculada; sem lugar (mais miniaturas do que cabem), ele fica com tamanho zero.</summary>
+    private static void Place(StreamPlayer player, LayoutRect rect)
     {
-        _wasPinned = true;
-        PlayerHost.Background = System.Windows.Media.Brushes.Transparent;
-        if (_stageWidth > 0 && _stageHeight > 0)
-        {
-            PlayerHost.Width = _stageWidth;
-            PlayerHost.Height = _stageHeight;
-        }
-
-        var sideWidth = Math.Floor(_stageWidth / 4);
-        var thumbHeight = Math.Floor((sideWidth - PlayerGap) * 9 / 16);
-        PlayerHost.ColumnDefinitions.Clear();
-        PlayerHost.RowDefinitions.Clear();
-        PlayerHost.ColumnDefinitions.Add(new ColumnDefinition());
-        PlayerHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(sideWidth) });
-
-        // Linhas livres acima e abaixo das miniaturas: a coluna fica centralizada na altura da principal.
-        PlayerHost.RowDefinitions.Add(new RowDefinition());
-        foreach (var _ in others)
-        {
-            PlayerHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(thumbHeight + PlayerGap) });
-        }
-
-        PlayerHost.RowDefinitions.Add(new RowDefinition());
-
-        Grid.SetRow(main.Player, 0);
-        Grid.SetRowSpan(main.Player, others.Count + 2);
-        Grid.SetColumn(main.Player, 0);
-        Grid.SetColumnSpan(main.Player, 1);
-        main.Player.Margin = new Thickness(0);
-        for (var index = 0; index < others.Count; index++)
-        {
-            var player = others[index].Player;
-            Grid.SetRow(player, index + 1);
-            Grid.SetRowSpan(player, 1);
-            Grid.SetColumn(player, 1);
-            Grid.SetColumnSpan(player, 1);
-            player.Margin = new Thickness(PlayerGap, 0, 0, PlayerGap);
-        }
+        player.HorizontalAlignment = HorizontalAlignment.Left;
+        player.VerticalAlignment = VerticalAlignment.Top;
+        player.Margin = new Thickness(rect.X, rect.Y, 0, 0);
+        player.Width = rect.Width;
+        player.Height = rect.Height;
     }
 
     /// <summary>
@@ -479,9 +407,15 @@ public partial class MainWindow : Window
         Motion.Show(slot.Player, MotionKind.Fade);
     }
 
-    /// <summary>Só uma transmissão fica fixada: fixar outra solta a anterior.</summary>
+    /// <summary>Só uma transmissão fica fixada: fixar outra solta a anterior. O vídeo mudou de proporção: a grade se refaz.</summary>
     private void OnViewerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(StreamViewerViewModel.VideoAspect))
+        {
+            ApplyPlayerLayout();
+            return;
+        }
+
         if (e.PropertyName != nameof(StreamViewerViewModel.IsPinned))
         {
             return;

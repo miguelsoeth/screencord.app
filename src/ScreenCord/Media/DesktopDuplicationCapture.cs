@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -9,7 +10,9 @@ namespace ScreenCord.Media;
 /// <summary>
 /// Captura uma tela com o Desktop Duplication do DXGI, que, ao contrário do Windows Graphics Capture no
 /// Windows 10, não desenha borda amarela. O cursor não vem na imagem: é desenhado por cima com GDI.
-/// Telas giradas não são suportadas (a imagem vem na orientação física do monitor).
+/// Telas giradas não são suportadas (a imagem vem na orientação física do monitor): se a tela girar no meio da
+/// transmissão, ou a placa de vídeo for reiniciada, a captura passa para o Windows Graphics Capture no mesmo
+/// tamanho de saída, e a transmissão continua (com a borda).
 /// Não é thread-safe: <see cref="Update"/> e <see cref="ReadNv12"/> devem ser chamados pela mesma thread.
 /// </summary>
 public sealed class DesktopDuplicationCapture : IScreenCapture
@@ -18,11 +21,18 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
     private const long RetryMilliseconds = 250;
 
     private readonly IntPtr _monitor;
+    private readonly int _frameRate;
+    private readonly ILogger? _logger;
     private readonly ID3D11Device _device;
     private readonly ID3D11DeviceContext _context;
     private readonly IDXGIOutput1 _output;
-    private readonly Vortice.RawRect _bounds;
     private readonly Nv12Converter _converter;
+
+    /// <summary>Retângulo da tela na área de trabalho; muda quando a resolução dela ou de uma vizinha muda.</summary>
+    private Vortice.RawRect _bounds;
+
+    /// <summary>Captura que assumiu depois de o Desktop Duplication não poder continuar.</summary>
+    private IScreenCapture? _fallback;
 
     private IDXGIOutputDuplication? _duplication;
     private ID3D11Texture2D? _desktop;
@@ -33,9 +43,11 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
     private bool _closed;
     private bool _disposed;
 
-    public DesktopDuplicationCapture(IntPtr monitor, int targetHeight, int frameRate)
+    public DesktopDuplicationCapture(IntPtr monitor, int targetHeight, int frameRate, ILogger? logger = null)
     {
         _monitor = monitor;
+        _frameRate = frameRate;
+        _logger = logger;
         using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
         var (adapter, output) = FindOutput(factory, monitor);
         try
@@ -80,7 +92,7 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
 
     public event EventHandler? Closed;
 
-    public string Name => "Desktop Duplication";
+    public string Name => _fallback is { } fallback ? $"Desktop Duplication → {fallback.Name}" : "Desktop Duplication";
 
     public int Width => _converter.Width;
 
@@ -89,29 +101,47 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
     public bool Update()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_fallback is not null)
+        {
+            return _fallback.Update();
+        }
+
         if (_closed)
         {
             return false;
         }
 
-        var imageChanged = AcquireFrame();
-        var cursorChanged = UpdateCursor();
-        if (_desktop is null || _composed is null || !imageChanged && !cursorChanged)
+        try
         {
+            var imageChanged = AcquireFrame();
+            if (_fallback is not null)
+            {
+                return false;
+            }
+
+            var cursorChanged = UpdateCursor();
+            if (_desktop is null || _composed is null || !imageChanged && !cursorChanged)
+            {
+                return false;
+            }
+
+            _context.CopyResource(_composed, _desktop);
+            DrawCursor(_composed);
+            var description = _composed.Description;
+            _converter.Convert(_composed, description.Width, description.Height);
+            return true;
+        }
+        catch (SharpGenException ex) when (IsDeviceLost(ex.ResultCode))
+        {
+            SwitchToFallback($"placa de vídeo reiniciada ({ex.ResultCode})");
             return false;
         }
-
-        _context.CopyResource(_composed, _desktop);
-        DrawCursor(_composed);
-        var description = _composed.Description;
-        _converter.Convert(_composed, description.Width, description.Height);
-        return true;
     }
 
     public bool ReadNv12(Span<byte> destination)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return _converter.ReadNv12(destination);
+        return _fallback?.ReadNv12(destination) ?? _converter.ReadNv12(destination);
     }
 
     public void Dispose()
@@ -122,6 +152,7 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
         }
 
         _disposed = true;
+        _fallback?.Dispose();
         _duplication?.Dispose();
         _composed?.Dispose();
         _desktop?.Dispose();
@@ -150,6 +181,12 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
             // Mudou a resolução, entrou um jogo em tela cheia ou a área de trabalho segura (UAC): recria a duplicação.
             _duplication.Dispose();
             _duplication = null;
+            return false;
+        }
+
+        if (IsDeviceLost(result))
+        {
+            SwitchToFallback($"placa de vídeo reiniciada ({result})");
             return false;
         }
 
@@ -193,14 +230,47 @@ public sealed class DesktopDuplicationCapture : IScreenCapture
 
         try
         {
+            // A tela pode ter girado, mudado de resolução ou de lugar (a vizinha mudou de resolução) enquanto a captura estava perdida.
+            var description = _output.Description;
+            if (description.Rotation is not (ModeRotation.Identity or ModeRotation.Unspecified))
+            {
+                SwitchToFallback("a tela foi girada");
+                return false;
+            }
+
+            _bounds = description.DesktopCoordinates;
             _duplication = _output.DuplicateOutput(_device);
             return true;
+        }
+        catch (SharpGenException ex) when (IsDeviceLost(ex.ResultCode) || ex.ResultCode == Vortice.DXGI.ResultCode.Unsupported)
+        {
+            SwitchToFallback($"Desktop Duplication indisponível ({ex.ResultCode})");
+            return false;
         }
         catch (SharpGenException)
         {
             // Ainda na área de trabalho segura ou no meio da troca de modo de vídeo: tenta de novo depois.
             return false;
         }
+    }
+
+    private static bool IsDeviceLost(Result result) =>
+        result == Vortice.DXGI.ResultCode.DeviceRemoved || result == Vortice.DXGI.ResultCode.DeviceReset ||
+        result == Vortice.DXGI.ResultCode.DeviceHung || result == Vortice.DXGI.ResultCode.DriverInternalError;
+
+    /// <summary>
+    /// O Desktop Duplication não pode continuar: a mesma tela passa a ser capturada pelo Windows Graphics Capture,
+    /// no mesmo tamanho de saída (o encoder e quem assiste não percebem a troca). Se nem ele abrir, a transmissão para.
+    /// </summary>
+    private void SwitchToFallback(string reason)
+    {
+        _duplication?.Dispose();
+        _duplication = null;
+        var fallback = new GraphicsCapture(new CaptureSource(CaptureSourceKind.Screen, _monitor, "", "", 0, 0, 0), Width, Height, _frameRate);
+        fallback.Closed += (_, _) => Closed?.Invoke(this, EventArgs.Empty);
+        _fallback = fallback;
+        Infrastructure.ErrorContext.Set("share.capture", Name);
+        _logger?.LogWarning("Desktop Duplication parou ({Reason}); a transmissão segue com o Windows Graphics Capture.", reason);
     }
 
     private void EnsureTextures(Texture2DDescription source)

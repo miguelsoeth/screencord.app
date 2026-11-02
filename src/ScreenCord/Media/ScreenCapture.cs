@@ -47,7 +47,7 @@ public static class ScreenCapture
         {
             try
             {
-                return new DesktopDuplicationCapture(source.Handle, targetHeight, frameRate);
+                return new DesktopDuplicationCapture(source.Handle, targetHeight, frameRate, logger);
             }
             catch (Exception ex)
             {
@@ -77,5 +77,23 @@ public static class ScreenCapture
 
         static int Even(int value) => Math.Max(Contracts.ScreenShareLimits.MinSize, value & ~1);
         return (Even(width), Even(height));
+    }
+
+    /// <summary>
+    /// Onde a imagem da origem fica no quadro de saída quando as proporções não batem (ex.: a janela foi
+    /// redimensionada ou a tela girou no meio da transmissão): o maior retângulo com a proporção da origem,
+    /// centralizado, com posição e lados pares (NV12) e pelo menos 2 × 2. O resto fica preto.
+    /// </summary>
+    public static (int Left, int Top, int Width, int Height) Letterbox(int sourceWidth, int sourceHeight, int outputWidth, int outputHeight)
+    {
+        if (sourceWidth <= 0 || sourceHeight <= 0 || outputWidth < 2 || outputHeight < 2)
+        {
+            return (0, 0, outputWidth & ~1, outputHeight & ~1);
+        }
+
+        var scale = Math.Min(outputWidth / (double)sourceWidth, outputHeight / (double)sourceHeight);
+        var width = Math.Clamp((int)Math.Round(sourceWidth * scale) & ~1, 2, outputWidth & ~1);
+        var height = Math.Clamp((int)Math.Round(sourceHeight * scale) & ~1, 2, outputHeight & ~1);
+        return ((outputWidth - width) / 2 & ~1, (outputHeight - height) / 2 & ~1, width, height);
     }
 }

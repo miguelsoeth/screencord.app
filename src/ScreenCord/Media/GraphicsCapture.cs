@@ -29,6 +29,20 @@ public sealed class GraphicsCapture : IScreenCapture
     private bool _disposed;
 
     public GraphicsCapture(CaptureSource source, int targetHeight, int frameRate)
+        : this(source, frameRate, item => ScreenCapture.OutputSize(item.Width, item.Height, targetHeight))
+    {
+    }
+
+    /// <summary>
+    /// Captura com o tamanho de saída já fixado (ex.: substitui no meio da transmissão outra captura, cujo encoder
+    /// continua no mesmo tamanho); se a proporção não bater, a imagem ganha faixas pretas.
+    /// </summary>
+    public GraphicsCapture(CaptureSource source, int outputWidth, int outputHeight, int frameRate)
+        : this(source, frameRate, _ => (outputWidth, outputHeight))
+    {
+    }
+
+    private GraphicsCapture(CaptureSource source, int frameRate, Func<SizeInt32, (int Width, int Height)> outputSize)
     {
         _item = CreateItem(source);
         _item.Closed += (_, _) => Closed?.Invoke(this, EventArgs.Empty);
@@ -39,7 +53,7 @@ public sealed class GraphicsCapture : IScreenCapture
             [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0]);
         _winrtDevice = CreateWinRtDevice(_device);
 
-        var (width, height) = ScreenCapture.OutputSize(_item.Size.Width, _item.Size.Height, targetHeight);
+        var (width, height) = outputSize(_item.Size);
         _converter = new Nv12Converter(_device, width, height, frameRate);
 
         _poolSize = _item.Size;
@@ -82,7 +96,13 @@ public sealed class GraphicsCapture : IScreenCapture
 
         using (latest)
         {
+            // Janela no meio de ser minimizada: o quadro vem vazio e o anterior continua.
             var contentSize = latest.ContentSize;
+            if (contentSize.Width <= 0 || contentSize.Height <= 0)
+            {
+                return false;
+            }
+
             using var texture = GetTexture(latest.Surface);
             var description = texture.Description;
             _converter.Convert(texture, (uint)Math.Min(contentSize.Width, (int)description.Width), (uint)Math.Min(contentSize.Height, (int)description.Height));

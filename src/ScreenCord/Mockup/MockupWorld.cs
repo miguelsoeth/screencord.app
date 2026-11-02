@@ -63,9 +63,12 @@ public sealed class MockupWorld
         Outgoing.Add(Users.Single(u => u.Username == "igor.lima").Id);
 
         var games = AddGroup("Jogatina de sexta", Me.Id, [ana, bruno, carla, diego]);
-        games.Connected.AddRange([bruno.Id, carla.Id]);
+        games.Connected.AddRange([bruno.Id, carla.Id, diego.Id]);
         games.Shares[(bruno.Id, ShareKind.Screen)] = new ScreenShareDto(bruno.Id, 960, 540, 60, 3000, HasAudio: true);
         games.Shares[(carla.Id, ShareKind.Camera)] = new ScreenShareDto(carla.Id, 640, 360, 30, 1500, false, ShareKind.Camera);
+
+        // Monitor vertical (em pé, como sai do 1080p), para ver a grade com vídeos de proporções diferentes.
+        games.Shares[(diego.Id, ShareKind.Screen)] = new ScreenShareDto(diego.Id, 608, 1080, 30, 3000, HasAudio: false);
 
         var work = AddGroup("Trabalho", ana.Id, [Me, ana, elisa, fabio]);
         work.Connected.Add(elisa.Id);
