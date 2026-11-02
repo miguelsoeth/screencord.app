@@ -77,6 +77,7 @@ public sealed class GroupsViewModel : ObservableObject
         _realtime.PresenceChanged += (_, presence) => Post(() => OnPresenceChanged(presence));
         _realtime.GroupChanged += (_, group) => Post(() => OnGroupChanged(group));
         _realtime.GroupRemoved += (_, groupId) => Post(() => RemoveGroup(groupId));
+        _realtime.LimitsChanged += (_, limits) => _serverLimits?.Apply(limits.Relay);
         if (_localRooms is not null)
         {
             _localRooms.RoomEnded += (_, reason) => Post(() => ErrorMessage = reason);
@@ -579,6 +580,9 @@ public sealed class GroupsViewModel : ObservableObject
 
     public bool IsConfirming => ConfirmingGroup is not null;
 
+    /// <summary>A conexão com a API voltou (ou abriu): quem ficou sem dados por causa de uma falha tenta de novo.</summary>
+    public event Action? Reconnected;
+
     /// <summary>Pedido de convidar amigos para um grupo; a janela de amigos abre para ele.</summary>
     public event Action<GroupItemViewModel>? InviteRequested;
 
@@ -801,6 +805,18 @@ public sealed class GroupsViewModel : ObservableObject
         }
 
         // (Re)conectado: a presença pode ter mudado enquanto a conexão estava fora, e a sala precisa ser retomada.
+        foreach (var group in Groups.Where(g => g.IsApiGroup))
+        {
+            group.ForgetPresenceVersion();
+        }
+
+        Reconnected?.Invoke();
+        if (!IsLocalOnly && _serverLimits is not null)
+        {
+            // Sem conexão, o aviso de limites novos não chegou (e a primeira leitura pode ter falhado).
+            _ = _serverLimits.RefreshAsync(CancellationToken.None);
+        }
+
         try
         {
             await RefreshGroupsAsync(CancellationToken.None);
@@ -810,6 +826,13 @@ public sealed class GroupsViewModel : ObservableObject
                 var presence = await _realtime.JoinAsync(groupId);
                 CurrentGroup = group;
                 ApplyPresence(group, presence);
+            }
+
+            // O popup aberto durante a queda (com erro ou com a lista antiga) se atualiza sozinho, e a lista que
+            // ficou guardada para a janela de convite também.
+            foreach (var stale in Groups.Where(g => !g.IsLoadingMembers && (g.IsMembersOpen || HasStaleMembers(g, g.MemberCount))).ToList())
+            {
+                _ = LoadMembersAsync(stale);
             }
         }
         catch (Exception ex)
@@ -837,12 +860,16 @@ public sealed class GroupsViewModel : ObservableObject
         var countChanged = existing is not null && existing.MemberCount != group.MemberCount;
         var item = Upsert(group);
 
-        // Alguém entrou no grupo enquanto o popup está aberto: recarrega a lista de integrantes.
-        if (countChanged && item.IsMembersOpen && !item.IsLoadingMembers && item.Members.Count != group.MemberCount)
+        // Alguém entrou ou saiu: recarrega os integrantes, mesmo com o popup fechado, porque a janela de convite usa a
+        // lista guardada (e abre fechando o popup) para mostrar quem já está no grupo.
+        if (countChanged && !item.IsLoadingMembers && HasStaleMembers(item, group.MemberCount))
         {
             _ = LoadMembersAsync(item);
         }
     }
+
+    private static bool HasStaleMembers(GroupItemViewModel group, int memberCount) =>
+        group.HasLoadedMembers && group.Members.Count != memberCount;
 
     private async Task RefreshGroupsAsync(CancellationToken cancellationToken)
     {

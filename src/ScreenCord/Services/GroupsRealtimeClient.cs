@@ -36,6 +36,9 @@ public interface IGroupsRealtime
     /// <summary>Amigos ou solicitações de amizade do usuário mudaram no servidor.</summary>
     event EventHandler? FriendsChanged;
 
+    /// <summary>Os limites do compartilhamento pelo servidor mudaram no painel.</summary>
+    event EventHandler<ServerLimitsDto>? LimitsChanged;
+
     /// <summary>Abre a conexão em segundo plano, tentando de novo até conseguir ou até <see cref="StopAsync"/>.</summary>
     void Start();
 
@@ -97,6 +100,8 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
 
     public event EventHandler? FriendsChanged;
 
+    public event EventHandler<ServerLimitsDto>? LimitsChanged;
+
     public RealtimeState State => _state;
 
     public void Start()
@@ -130,6 +135,7 @@ public sealed class GroupsRealtimeClient : IGroupsRealtime
             });
             connection.On<Guid>(GroupsHubContract.GroupRemoved, groupId => GroupRemoved?.Invoke(this, groupId));
             connection.On(GroupsHubContract.FriendsChanged, () => FriendsChanged?.Invoke(this, EventArgs.Empty));
+            connection.On<ServerLimitsDto>(GroupsHubContract.LimitsChanged, limits => LimitsChanged?.Invoke(this, limits));
 
             _lifetime = new CancellationTokenSource();
             lifetime = _lifetime.Token;

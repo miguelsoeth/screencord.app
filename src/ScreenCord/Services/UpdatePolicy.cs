@@ -62,6 +62,18 @@ public static class UpdatePolicy
 
         return skipped is not null && update.Version <= skipped ? UpdateAction.None : UpdateAction.Ask;
     }
+
+    /// <summary>
+    /// A checagem com o app aberto (a cada algumas horas), sem interromper ninguém: não pergunta a atualização
+    /// opcional (isso fica para o Sobre e para a próxima abertura) e não mexe em nada durante uma transmissão.
+    /// Só instala sozinho (automático ligado) ou exige (a API não aceita mais esta versão).
+    /// </summary>
+    /// <param name="busy">Há tela ou câmera no ar: tenta de novo na próxima checagem.</param>
+    public static UpdateAction DecidePeriodic(AppUpdate? update, bool required, bool autoUpdate, Version? skipped, Version? failed, bool busy)
+    {
+        var action = Decide(update, required, autoUpdate, skipped, failed);
+        return busy || action == UpdateAction.Ask ? UpdateAction.None : action;
+    }
 }
 
 /// <summary>Resultado do "Procurar atualizações" da tela Sobre.</summary>

@@ -204,6 +204,50 @@ public class ScreenShareViewModelTests
     }
 
     [Fact]
+    public async Task Seletor_AcompanhaAsJanelas_MantendoAEscolhaEAOrdem()
+    {
+        var a = new CaptureSource(CaptureSourceKind.Window, 1, "A", "a", 800, 600, 1);
+        var b = new CaptureSource(CaptureSourceKind.Window, 2, "B", "b", 800, 600, 2);
+        var c = new CaptureSource(CaptureSourceKind.Window, 3, "C", "c", 800, 600, 3);
+        IReadOnlyList<CaptureSource> windows = [a, b];
+        var picker = new SharePickerViewModel(ShareSettings.Default, () => [FakeScreenShareUi.Screen], () => windows);
+        picker.IsWindowKind = true;
+        picker.SelectedSource = b;
+
+        // Só o foco mudou: nada pula de lugar na lista.
+        windows = [b, a];
+        await picker.RefreshAsync();
+        Assert.Equal([a, b], picker.Sources);
+
+        // Abriu uma, fechou outra e o título da escolhida mudou.
+        var renamed = b with { Title = "B novo" };
+        windows = [c, renamed];
+        await picker.RefreshAsync();
+        Assert.Equal([c, renamed], picker.Sources);
+        Assert.Equal(renamed, picker.SelectedSource);
+
+        // A escolhida fechou.
+        windows = [c];
+        await picker.RefreshAsync();
+        Assert.Null(picker.SelectedSource);
+        Assert.False(picker.CanShare);
+    }
+
+    [Fact]
+    public async Task Seletor_TelaRemovida_MarcaAQueSobrou()
+    {
+        var second = new CaptureSource(CaptureSourceKind.Screen, 9, "Tela 2", "", 1920, 1080, 0);
+        IReadOnlyList<CaptureSource> screens = [FakeScreenShareUi.Screen, second];
+        var picker = new SharePickerViewModel(ShareSettings.Default, () => screens, () => []);
+        picker.SelectedSource = second;
+
+        screens = [FakeScreenShareUi.Screen];
+        await picker.RefreshAsync();
+
+        Assert.Equal(FakeScreenShareUi.Screen, picker.SelectedSource);
+    }
+
+    [Fact]
     public async Task Compartilhar_SoNaSalaEConectado()
     {
         var vm = new GroupsViewModel(_groups, _realtime, _share, _ui);

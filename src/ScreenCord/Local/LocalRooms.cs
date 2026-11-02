@@ -1,6 +1,7 @@
 using ScreenCord.Localization;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.NetworkInformation;
 using ScreenCord.Contracts;
 using ScreenCord.Media;
 using ScreenCord.Models;
@@ -237,10 +238,21 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
 
         _started = true;
         _discovery.Start();
+        NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+    }
+
+    /// <summary>A rede mudou (outro Wi-Fi, VPN ligada): a linha da sala hospedada aqui mostra os endereços de agora.</summary>
+    public void RefreshAddresses()
+    {
+        if (_hosted is { } hosted)
+        {
+            RoomChanged?.Invoke(hosted.Snapshot().ToGroup());
+        }
     }
 
     public async Task StopAsync()
     {
+        NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
         await LeaveAsync();
         if (_pending is { } pending)
         {
@@ -268,6 +280,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     /// </summary>
     public void Dispose()
     {
+        NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
         _discovery.Stop();
         foreach (var media in _media.Values)
         {
@@ -692,8 +705,10 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         new(LocalNetwork.FormatAddress(host, port), IPAddress.TryParse(host, out var ip) ? LocalNetwork.NetworkName(ip) : Strings.ComputerName);
 
     private static GroupDto ToGroup(RoomBeacon beacon) =>
-        new(beacon.RoomId, beacon.Name, beacon.Members.Count, beacon.Members.Select(m => m.ToPresence()).ToList(), beacon.Version, []);
+        new(beacon.RoomId, beacon.Name, beacon.Members.Count, beacon.Members.Select(m => m.ToPresence()).ToList(), beacon.Version, beacon.Shares ?? []);
 
     private RoomBeacon ToBeacon(LocalRoomState state) =>
-        new(state.Id, state.Name, _server?.Port ?? _port, state.Version, state.Members, _certificate!.Fingerprint);
+        new(state.Id, state.Name, _server?.Port ?? _port, state.Version, state.Members, _certificate!.Fingerprint, Shares: state.Shares.Select(s => s.ToDto()).ToList());
+
+    private void OnNetworkAddressChanged(object? sender, EventArgs e) => RefreshAddresses();
 }

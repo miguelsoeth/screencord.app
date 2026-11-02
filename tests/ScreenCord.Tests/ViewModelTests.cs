@@ -54,6 +54,38 @@ public class FriendsViewModelTests
     }
 
     [Fact]
+    public async Task CargaFalhou_ConexaoVolta_RecarregaETiraOErro()
+    {
+        var realtime = new FakeGroupsRealtime();
+        var vm = new FriendsViewModel(_service, realtime);
+        _service.Failure = CentralError(DiscordErrorKind.Network);
+        await vm.LoadAsync();
+        Assert.True(vm.HasError);
+
+        _service.Failure = null;
+        _service.Friends.Add(_ana with { Relationship = RelationshipStatus.Friend });
+        realtime.SetState(RealtimeState.Connected);
+
+        Assert.False(vm.HasError);
+        Assert.Single(vm.Friends);
+    }
+
+    [Fact]
+    public async Task AvisoDoHub_NaoApagaOErroDeUmaAcao()
+    {
+        var realtime = new FakeGroupsRealtime();
+        var vm = new FriendsViewModel(_service, realtime);
+        await vm.LoadAsync();
+        _service.NextActionFailure = CentralError(DiscordErrorKind.Rejected, "recusado");
+        await vm.AddCommand.ExecuteAsync(_bruno);
+        Assert.True(vm.HasError);
+
+        realtime.RaiseFriendsChanged();
+
+        Assert.True(vm.HasError);
+    }
+
+    [Fact]
     public async Task Load_SemAmigos_MostraEstadoVazio()
     {
         var vm = new FriendsViewModel(_service);
@@ -338,6 +370,36 @@ public class MainViewModelTests
             NullLogger<MainViewModel>.Instance);
 
     [Fact]
+    public async Task PerfilFalhouAoAbrir_ConexaoVolta_CarregaSozinho()
+    {
+        _session.HasSession = true;
+        _profile.OnGet = () => Task.FromException<UserProfile>(new DiscordException(DiscordErrorKind.Network, "offline"));
+        var vm = Create();
+        await vm.InitializeAsync();
+        Assert.False(vm.HasProfile);
+        Assert.True(vm.HasError);
+
+        _profile.OnGet = () => Task.FromResult(FakeProfileService.SampleProfile);
+        _realtime.SetState(RealtimeState.Connected);
+
+        Assert.True(vm.HasProfile);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task ConexaoVolta_ComPerfilCarregado_NaoConsultaDeNovo()
+    {
+        _session.HasSession = true;
+        var vm = Create();
+        await vm.InitializeAsync();
+        var calls = _profile.Calls;
+
+        _realtime.SetState(RealtimeState.Connected);
+
+        Assert.Equal(calls, _profile.Calls);
+    }
+
+    [Fact]
     public async Task SemSessao_MostraTelaDeLogin()
     {
         var vm = Create();
@@ -424,6 +486,80 @@ public class MainViewModelTests
         Assert.False(vm.IsSigningIn);
         Assert.False(vm.IsConnected);
         Assert.False(vm.HasError);
+    }
+
+    private sealed class FakeProfileSync : IProfileSync
+    {
+        public int Calls { get; private set; }
+
+        public Exception? Failure { get; set; }
+
+        public Task SyncAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Failure is null ? Task.CompletedTask : Task.FromException(Failure);
+        }
+    }
+
+    private MainViewModel CreateWithSync(FakeProfileSync sync) =>
+        new(
+            _session,
+            _profile,
+            new FriendsViewModel(_friends),
+            new GroupsViewModel(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi()),
+            NullLogger<MainViewModel>.Instance,
+            profileSync: sync);
+
+    [Fact]
+    public async Task Atualizar_TrazOPerfilELevaAApi_SemRecarregarAmigosEGrupos()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync();
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        var renamed = FakeProfileService.SampleProfile with { GlobalName = "Nelly Nova" };
+        _profile.OnGet = () => Task.FromResult(renamed);
+        var starts = _realtime.StartCount;
+        _groups.Groups[Guid.NewGuid()] = ("Novo", []);
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(renamed, vm.Profile);
+        Assert.Equal(1, sync.Calls);
+        Assert.Empty(vm.Groups.Groups);
+        Assert.Equal(starts, _realtime.StartCount);
+    }
+
+    [Fact]
+    public async Task Atualizar_ApiFora_MantemOPerfilNovoSemErro()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync { Failure = new DiscordException(DiscordErrorKind.Network, "offline") };
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        var renamed = FakeProfileService.SampleProfile with { GlobalName = "Nelly Nova" };
+        _profile.OnGet = () => Task.FromResult(renamed);
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(renamed, vm.Profile);
+        Assert.False(vm.HasError);
+        Assert.False(vm.IsRefreshing);
+    }
+
+    [Fact]
+    public async Task Atualizar_DiscordFalhou_NaoChamaAApi()
+    {
+        _session.HasSession = true;
+        var sync = new FakeProfileSync();
+        var vm = CreateWithSync(sync);
+        await vm.InitializeAsync();
+        _profile.OnGet = () => Task.FromException<UserProfile>(new DiscordException(DiscordErrorKind.Network, "offline"));
+
+        await vm.RefreshProfileCommand.ExecuteAsync();
+
+        Assert.Equal(0, sync.Calls);
+        Assert.True(vm.HasError);
     }
 
     [Fact]

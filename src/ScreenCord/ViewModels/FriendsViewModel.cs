@@ -22,6 +22,8 @@ public sealed class FriendsViewModel : ObservableObject
     private readonly SynchronizationContext? _ui;
     private bool _isLoading;
     private bool _hasLoaded;
+    private bool _loadRequested;
+    private bool _loadFailed;
     private bool _isSearching;
     private bool _showSearchResults;
     private string? _errorMessage;
@@ -307,6 +309,8 @@ public sealed class FriendsViewModel : ObservableObject
     /// <summary>Carrega amigos e solicitações. O primeiro acesso também registra o usuário na API central.</summary>
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
+        _loadRequested = true;
+        _loadFailed = false;
         IsLoading = true;
         ErrorMessage = null;
         try
@@ -318,6 +322,7 @@ public sealed class FriendsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            _loadFailed = true;
             ErrorMessage = ErrorMessages.For(ex);
         }
         finally
@@ -345,6 +350,8 @@ public sealed class FriendsViewModel : ObservableObject
     {
         _friendsService.ForgetSession();
         _hasLoaded = false;
+        _loadRequested = false;
+        _loadFailed = false;
         Replace(Friends, []);
         Replace(IncomingRequests, []);
         Replace(OutgoingRequests, []);
@@ -424,6 +431,7 @@ public sealed class FriendsViewModel : ObservableObject
     /// <summary>Executa uma ação e recarrega tudo, para que cada item reflita a relação atual no servidor.</summary>
     private async Task RunActionAsync(Func<Task> action)
     {
+        _loadFailed = false;
         ErrorMessage = null;
         string? actionError = null;
         try
@@ -452,12 +460,13 @@ public sealed class FriendsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Aviso do servidor de que a relação com alguém mudou: recarrega em silêncio (sem o indicador de carregamento),
-    /// e só depois da primeira carga, para não registrar o usuário antes da hora.
+    /// Aviso do servidor de que a relação com alguém mudou, ou a conexão voltou: recarrega em silêncio (sem o indicador
+    /// de carregamento), e só depois de pedida a primeira carga, para não registrar o usuário antes da hora. Se a carga
+    /// tinha falhado, dar certo agora tira o erro da tela.
     /// </summary>
     private async Task RefreshFromServerAsync()
     {
-        if (!_hasLoaded)
+        if (!_loadRequested)
         {
             return;
         }
@@ -465,6 +474,12 @@ public sealed class FriendsViewModel : ObservableObject
         try
         {
             await RefreshListsAsync(CancellationToken.None);
+            if (_loadFailed)
+            {
+                _loadFailed = false;
+                ErrorMessage = null;
+            }
+
             if (ShowSearchResults && _activeQuery.Length > 0)
             {
                 await RunSearchAsync();
@@ -472,7 +487,7 @@ public sealed class FriendsViewModel : ObservableObject
         }
         catch (Exception)
         {
-            // Melhor esforço: a próxima mudança ou o "Atualizar" tentam de novo.
+            // Melhor esforço: a próxima mudança ou a reconexão tentam de novo.
         }
     }
 

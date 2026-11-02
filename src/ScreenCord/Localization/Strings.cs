@@ -110,7 +110,7 @@ public static class Strings
 
     // Cabeçalho da conta
     public static string Friends => T("Amigos", "Friends", "Amigos");
-    public static string RefreshProfile => T("Atualizar perfil", "Refresh profile", "Actualizar perfil");
+    public static string RefreshProfile => T("Atualizar com o Discord", "Update from Discord", "Actualizar desde Discord");
     public static string Disconnect => T("Desconectar", "Sign out", "Desconectar");
     public static string AccountConnected => T("Conta conectada", "Account connected", "Cuenta conectada");
     public static string NoAccountLocalOnly => T("Sem conta · só salas locais", "No account · local rooms only", "Sin cuenta · solo salas locales");
@@ -320,7 +320,6 @@ public static class Strings
     public static string OnlyHostChangesRoom => T("Só quem hospeda a sala pode mudar as configurações dela.", "Only the room's host can change its settings.", "Solo quien aloja la sala puede cambiar su configuración.");
     public static string ShareAScreen => T("Compartilhar uma tela", "Share a screen", "Compartir una pantalla");
     public static string ShareAWindow => T("Compartilhar uma janela", "Share a window", "Compartir una ventana");
-    public static string RefreshList => T("Atualizar lista", "Refresh list", "Actualizar lista");
     public static string WhatToShare => T("O que compartilhar", "What to share", "Qué compartir");
     public static string ResolutionHeader => T("RESOLUÇÃO", "RESOLUTION", "RESOLUCIÓN");
     public static string FrameRateHeader => T("TAXA DE QUADROS", "FRAME RATE", "FOTOGRAMAS POR SEGUNDO");

@@ -1,4 +1,5 @@
 using ScreenCord.Contracts;
+using ScreenCord.Infrastructure;
 using ScreenCord.Models;
 using ScreenCord.Services;
 using ScreenCord.Tests.Fakes;
@@ -416,6 +417,84 @@ public class GroupsViewModelTests
         Assert.Equal([$"join:{id}"], _realtime.Calls);
         Assert.Same(vm.Groups[0], vm.CurrentGroup);
         Assert.False(vm.HasRealtimeStatus);
+    }
+
+    [Fact]
+    public async Task Reconectado_ApiReiniciada_AceitaAPresencaComVersaoMenor()
+    {
+        var id = _groups.Add("Amigos");
+        _groups.PresenceVersion = 500;
+        var vm = await LoadedAsync();
+
+        // A contagem de versões fica na memória da API: reiniciar recomeça do zero.
+        _realtime.SetState(RealtimeState.Reconnecting);
+        _groups.PresenceVersion = 1;
+        _realtime.SetState(RealtimeState.Connected);
+        _realtime.RaisePresence(FakeGroupsService.Presence(id, 2, _bruno));
+
+        Assert.Equal("Bruno", Assert.Single(vm.Groups[0].ConnectedUsers).DisplayName);
+    }
+
+    [Fact]
+    public async Task LimitesMudaramNoPainel_ValemNaHora()
+    {
+        var limits = new FakeServerLimits();
+        var id = _groups.Add("Amigos");
+        var vm = new GroupsViewModel(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi(), serverLimits: limits);
+        await vm.LoadAsync();
+        var changed = new StreamLimits(1080, 60, 5000);
+
+        _realtime.RaiseLimitsChanged(changed);
+
+        Assert.Same(changed, vm.LimitsFor(id));
+    }
+
+    [Fact]
+    public async Task Reconectado_BuscaOsLimitesDeNovo()
+    {
+        var limits = new FakeServerLimits();
+        var vm = new GroupsViewModel(_groups, _realtime, new FakeScreenShareService(), new FakeScreenShareUi(), serverLimits: limits);
+        await vm.LoadAsync();
+        var calls = limits.RefreshCount;
+
+        _realtime.SetState(RealtimeState.Connected);
+
+        Assert.Equal(calls + 1, limits.RefreshCount);
+    }
+
+    [Fact]
+    public async Task ConvidarAberto_OutroIntegranteEntrou_AtualizaQuemJaEstaNoGrupo()
+    {
+        var id = _groups.Add("Amigos", _bruno);
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        group.IsMembersOpen = true;
+        group.InviteCommand.Execute(null);
+        Assert.False(group.IsMembersOpen);
+        Assert.DoesNotContain(_carla.UserId, group.MemberIds);
+
+        await _groups.AddMemberAsync(id, _carla.UserId);
+        _realtime.RaiseGroupChanged((await _groups.GetGroupsAsync()).Single());
+
+        Assert.Contains(_carla.UserId, group.MemberIds);
+    }
+
+    [Fact]
+    public async Task Reconectado_PopupDeIntegrantesAberto_RecarregaETiraOErro()
+    {
+        _groups.Add("Amigos", _bruno);
+        var vm = await LoadedAsync();
+        var group = vm.Groups[0];
+        _groups.Failure = new DiscordException(DiscordErrorKind.Network, "offline") { Source = ErrorSource.CentralApi };
+        group.IsMembersOpen = true;
+        Assert.True(group.HasMembersError);
+
+        _realtime.SetState(RealtimeState.Reconnecting);
+        _groups.Failure = null;
+        _realtime.SetState(RealtimeState.Connected);
+
+        Assert.False(group.HasMembersError);
+        Assert.Equal(2, group.Members.Count);
     }
 
     [Fact]

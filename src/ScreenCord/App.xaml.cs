@@ -6,6 +6,7 @@ using ScreenCord.Infrastructure;
 using ScreenCord.Local;
 using ScreenCord.Mockup;
 using ScreenCord.Services;
+using ScreenCord.ViewModels;
 using ScreenCord.Views;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,6 +119,13 @@ public partial class App : Application
         _instance.OnActivationRequested(() => Dispatcher.BeginInvoke(mainWindow.BringToFront));
 
         mainWindow.Show();
+
+        // O app passa dias na bandeja: confere a versão de tempos em tempos, sem interromper uma transmissão.
+        if (!mockup && updates.IsEnabled)
+        {
+            var groups = _host.Services.GetRequiredService<MainViewModel>().Groups;
+            updates.StartPeriodicChecks(() => groups.IsSharing || groups.IsCameraOn || groups.IsStartingShare || groups.IsStartingCamera);
+        }
     }
 
     /// <summary>Fecha o app de verdade (a janela principal, senão, só iria para a bandeja).</summary>

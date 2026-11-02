@@ -25,11 +25,22 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
         _api = api.Inner;
         _local = local;
         _state = Effective();
-        _api.StateChanged += (_, _) => RaiseStateIfChanged();
+        _api.StateChanged += (_, state) =>
+        {
+            // Numa sala local o estado segue "conectado", mas a volta da API ainda precisa atualizar os grupos dela.
+            if (state == RealtimeState.Connected && InLocalRoom)
+            {
+                StateChanged?.Invoke(this, state);
+                return;
+            }
+
+            RaiseStateIfChanged();
+        };
         _api.PresenceChanged += (_, presence) => PresenceChanged?.Invoke(this, presence);
         _api.GroupChanged += (_, group) => GroupChanged?.Invoke(this, group);
         _api.GroupRemoved += (_, groupId) => GroupRemoved?.Invoke(this, groupId);
         _api.FriendsChanged += (_, _) => FriendsChanged?.Invoke(this, EventArgs.Empty);
+        _api.LimitsChanged += (_, limits) => LimitsChanged?.Invoke(this, limits);
         _local.PresenceChanged += presence => PresenceChanged?.Invoke(this, presence);
         _local.RoomChanged += room => GroupChanged?.Invoke(this, room);
         _local.RoomRemoved += roomId =>
@@ -50,6 +61,8 @@ public sealed class RoutedGroupsRealtime : IGroupsRealtime
     public event EventHandler<Guid>? GroupRemoved;
 
     public event EventHandler? FriendsChanged;
+
+    public event EventHandler<ServerLimitsDto>? LimitsChanged;
 
     private bool InLocalRoom => _local.CurrentRoomId is not null;
 

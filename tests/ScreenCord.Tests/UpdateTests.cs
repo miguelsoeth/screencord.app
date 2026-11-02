@@ -263,6 +263,25 @@ public class UpdatePolicyTests
         Assert.Equal(required, UpdatePolicy.IsRequired(minClientVersion, current));
     }
 
+    [Theory]
+    [InlineData(false, false, false, UpdateAction.None)] // opcional, automático desligado: não pergunta com o app aberto
+    [InlineData(true, false, false, UpdateAction.Install)]
+    [InlineData(false, true, false, UpdateAction.Require)]
+    [InlineData(true, true, false, UpdateAction.Install)]
+    [InlineData(true, false, true, UpdateAction.None)] // transmitindo: espera a próxima checagem
+    [InlineData(false, true, true, UpdateAction.None)]
+    public void ChecagemPeriodica_NaoInterrompe(bool autoUpdate, bool required, bool busy, UpdateAction expected)
+    {
+        Assert.Equal(expected, UpdatePolicy.DecidePeriodic(Update, required, autoUpdate, skipped: null, failed: null, busy));
+    }
+
+    [Fact]
+    public void ChecagemPeriodica_VersaoQueJaFalhou_NaoTentaDeNovo()
+    {
+        Assert.Equal(UpdateAction.None, UpdatePolicy.DecidePeriodic(Update, required: false, autoUpdate: true, skipped: null, failed: new Version(0, 9, 0), busy: false));
+        Assert.Equal(UpdateAction.RequiredButFailed, UpdatePolicy.DecidePeriodic(Update, required: true, autoUpdate: true, skipped: null, failed: new Version(0, 9, 0), busy: false));
+    }
+
     [Fact]
     public void SemVersaoNova_SegueSemPerguntar()
     {

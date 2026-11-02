@@ -25,7 +25,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly ILocalRooms? _localRooms;
     private readonly ILocalIdentityStore? _localIdentity;
     private readonly IBrowserLauncher? _browser;
+    private readonly IProfileSync? _profileSync;
     private bool _isLocalSession;
+    private bool _isLoadingProfile;
     private bool _isLocalForm;
     private string _localName = "";
 
@@ -38,8 +40,10 @@ public sealed class MainViewModel : ObservableObject
         ILocalRooms? localRooms = null,
         ILocalIdentityStore? localIdentity = null,
         IBrowserLauncher? browser = null,
-        AboutViewModel? about = null)
+        AboutViewModel? about = null,
+        IProfileSync? profileSync = null)
     {
+        _profileSync = profileSync;
         _browser = browser;
         About = about;
         _localRooms = localRooms;
@@ -50,10 +54,11 @@ public sealed class MainViewModel : ObservableObject
         Friends = friends;
         Groups = groups;
         groups.InviteRequested += friends.OpenInvite;
+        groups.Reconnected += () => _ = RetryProfileAsync();
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync, () => !IsConnected && !IsInitializing);
         CancelConnectCommand = new RelayCommand(() => _signInCancellation?.Cancel(), () => IsSigningIn);
-        RefreshProfileCommand = new AsyncRelayCommand(RefreshProfileAsync, () => IsConnected && !IsRefreshing);
+        RefreshProfileCommand = new AsyncRelayCommand(RefreshProfileAsync, () => IsConnected && IsDiscordSession && !IsRefreshing);
         DisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = true, () => IsConnected && !IsConfirmingDisconnect);
         ConfirmDisconnectCommand = new AsyncRelayCommand(ConfirmDisconnectAsync, () => IsConnected);
         CancelDisconnectCommand = new RelayCommand(() => IsConfirmingDisconnect = false, () => IsConfirmingDisconnect);
@@ -209,7 +214,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>Verdadeiro enquanto perfil, amigos e grupos são carregados (o ícone de atualizar gira).</summary>
+    /// <summary>Verdadeiro enquanto os dados da conta são carregados (o ícone sobre a foto do perfil gira).</summary>
     public bool IsRefreshing
     {
         get => _isRefreshing;
@@ -315,7 +320,30 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private Task RefreshProfileAsync() => LoadConnectedDataAsync();
+    /// <summary>
+    /// Clique na foto do perfil: traz o nome e a foto do Discord e os leva à API, para os outros verem. Amigos e grupos
+    /// não entram aqui, porque já chegam sozinhos pelo hub. Se a API falhar, o perfil daqui já está certo.
+    /// </summary>
+    private async Task RefreshProfileAsync()
+    {
+        ErrorMessage = null;
+        IsRefreshing = true;
+        try
+        {
+            if (await LoadProfileAsync() && _profileSync is not null)
+            {
+                await _profileSync.SyncAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Falha ao levar o perfil à API central ({ExceptionType}).", ex.GetType().Name);
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
 
     private void StartLocal()
     {
@@ -394,17 +422,7 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            try
-            {
-                Profile = await _profileService.GetProfileAsync();
-                // Nas salas locais, quem tem conta aparece com o nome e a foto do Discord.
-                _localRooms?.SetIdentity(Profile.DisplayName, Profile.Id, Profile.AvatarHash);
-            }
-            catch (Exception ex)
-            {
-                HandleError(ex);
-            }
-
+            await LoadProfileAsync();
             if (IsConnected)
             {
                 await Task.WhenAll(Friends.LoadAsync(), Groups.LoadAsync());
@@ -414,6 +432,39 @@ public sealed class MainViewModel : ObservableObject
         {
             IsRefreshing = false;
         }
+    }
+
+    private async Task<bool> LoadProfileAsync()
+    {
+        _isLoadingProfile = true;
+        try
+        {
+            Profile = await _profileService.GetProfileAsync();
+            // Nas salas locais, quem tem conta aparece com o nome e a foto do Discord.
+            _localRooms?.SetIdentity(Profile.DisplayName, Profile.Id, Profile.AvatarHash);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return false;
+        }
+        finally
+        {
+            _isLoadingProfile = false;
+        }
+    }
+
+    /// <summary>O perfil falhou ao abrir (sem rede, por exemplo): a conexão de volta é a deixa para tentar de novo.</summary>
+    private async Task RetryProfileAsync()
+    {
+        if (!IsConnected || IsLocalSession || Profile is not null || _isLoadingProfile)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        await LoadProfileAsync();
     }
 
     private void HandleError(Exception exception)
