@@ -9,8 +9,8 @@ using Microsoft.Extensions.Logging;
 namespace ScreenCord.Views;
 
 /// <summary>
-/// A atualização com as janelas: ao abrir, quando a API recusa esta versão (426) e no "Procurar atualizações" do
-/// Sobre. É opcional enquanto a API aceitar esta versão (<see cref="UpdatePolicy"/>); quando não aceita mais, é
+/// A atualização com as janelas: ao abrir, de tempos em tempos com o app aberto, quando a API recusa esta versão
+/// (426) e no "Procurar atualizações" do Sobre. É opcional enquanto a API aceitar esta versão (<see cref="UpdatePolicy"/>); quando não aceita mais, é
 /// atualizar ou sair. Quando o app precisa fechar (para instalar, ou porque a pessoa preferiu sair), avisa por
 /// <see cref="ExitRequested"/>.
 /// </summary>
@@ -22,6 +22,9 @@ public sealed class UpdateFlow : IUpdateFlow
     private Version? _failed;
     private bool _busy;
     private DateTimeOffset _lastOutdatedCheck = DateTimeOffset.MinValue;
+    private System.Windows.Threading.DispatcherTimer? _periodic;
+
+    private static readonly TimeSpan PeriodicInterval = TimeSpan.FromHours(6);
 
     public UpdateFlow(IAppUpdater updater, IApiHealthCheck health, ILogger<UpdateFlow> logger)
     {
@@ -99,6 +102,70 @@ public sealed class UpdateFlow : IUpdateFlow
                     ShowMessage(message, owner);
                     return;
             }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Com o app aberto (na bandeja, por dias), confere de novo de tempos em tempos: instala sozinho se a atualização
+    /// automática estiver ligada, e exige a atualização se a API não aceitar mais esta versão. A atualização opcional
+    /// não pergunta aqui (fica para a próxima abertura e para o "Procurar atualizações" do Sobre).
+    /// </summary>
+    /// <param name="isBusy">Há transmissão no ar: não fecha o app agora, tenta na próxima checagem.</param>
+    public void StartPeriodicChecks(Func<bool> isBusy)
+    {
+        if (!IsEnabled || _periodic is not null)
+        {
+            return;
+        }
+
+        _periodic = new System.Windows.Threading.DispatcherTimer { Interval = PeriodicInterval };
+        _periodic.Tick += async (_, _) =>
+        {
+            // Os aplicativos não consultam o GitHub todos no mesmo minuto.
+            _periodic.Interval = PeriodicInterval + TimeSpan.FromSeconds(Random.Shared.Next(0, 15 * 60));
+            await CheckInBackgroundAsync(isBusy);
+        };
+        _periodic.Start();
+    }
+
+    private async Task CheckInBackgroundAsync(Func<bool> isBusy)
+    {
+        if (_busy || isBusy())
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var updateTask = FindUpdateAsync(timeout.Token);
+            var requiredTask = IsRequiredAsync(timeout.Token);
+            var update = await updateTask;
+            var required = await requiredTask;
+
+            // Pode ter começado uma transmissão durante a consulta.
+            var action = UpdatePolicy.DecidePeriodic(update, required, UpdatePreference.AutoUpdate, UpdatePreference.SkippedVersion, _failed, isBusy());
+            switch (action)
+            {
+                case UpdateAction.Install:
+                    await InstallOrExitAsync(update!, required);
+                    break;
+                case UpdateAction.Require:
+                    await AskAsync(update!, required: true);
+                    break;
+                case UpdateAction.RequiredButFailed:
+                    ExitAfterFailure(update!);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("A checagem periódica de atualização falhou ({ExceptionType}).", ex.GetType().Name);
         }
         finally
         {
