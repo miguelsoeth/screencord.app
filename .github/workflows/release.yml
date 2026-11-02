@@ -41,7 +41,7 @@ jobs:
           mkdir -p dist
           cp installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.msi "dist/ScreenCord-Setup-$VERSION-x64.msi"
 
-      # Assina o MSI com a chave privada do secret RELEASE_SIGNING_KEY (ECDSA P-256; só este repo privado a tem, o
+      # Assina o MSI com a chave privada do secret RELEASE_SIGNING_KEY (ECDSA P-256; só este repo a tem, o
       # PUBLIC_RELEASES_TOKEN não alcança). O app instalado só aceita o MSI cuja assinatura (arquivo .sig na release)
       # confere com a chave pública embutida em ReleaseSignature.cs. A mensagem assinada é a de ReleaseSignature.Message.
       # Se a chave do secret não for a embutida no código, a release para aqui: sairia um MSI que ninguém consegue instalar.
