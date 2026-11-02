@@ -41,6 +41,31 @@ jobs:
           mkdir -p dist
           cp installer/ScreenCord.Installer/bin/Release/ScreenCord-Setup.msi "dist/ScreenCord-Setup-$VERSION-x64.msi"
 
+      # Assina o MSI com a chave privada do secret RELEASE_SIGNING_KEY (ECDSA P-256; só este repo privado a tem, o
+      # PUBLIC_RELEASES_TOKEN não alcança). O app instalado só aceita o MSI cuja assinatura (arquivo .sig na release)
+      # confere com a chave pública embutida em ReleaseSignature.cs. A mensagem assinada é a de ReleaseSignature.Message.
+      # Se a chave do secret não for a embutida no código, a release para aqui: sairia um MSI que ninguém consegue instalar.
+      - name: Assinar o instalador
+        run: |
+          msi=$(ls dist/*.msi)
+          name=$(basename "$msi")
+          sha=$(sha256sum "$msi" | cut -d' ' -f1)
+          printf 'screencord-release-v1\n%s\n%s' "$name" "$sha" > "$RUNNER_TEMP/message.txt"
+          printf '%s\n' "$SIGNING_KEY" > "$RUNNER_TEMP/key.pem"
+          pub=$(openssl ec -in "$RUNNER_TEMP/key.pem" -pubout -outform DER | base64 -w0)
+          if ! grep -qF "$pub" src/ScreenCord/Security/ReleaseSignature.cs; then
+            echo "::error::A chave do secret RELEASE_SIGNING_KEY não é nenhuma das chaves públicas de ReleaseSignature.cs."
+            rm -f "$RUNNER_TEMP/key.pem"
+            exit 1
+          fi
+          openssl dgst -sha256 -sign "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/sig.bin" "$RUNNER_TEMP/message.txt"
+          openssl ec -in "$RUNNER_TEMP/key.pem" -pubout -out "$RUNNER_TEMP/pub.pem"
+          rm -f "$RUNNER_TEMP/key.pem"
+          openssl dgst -sha256 -verify "$RUNNER_TEMP/pub.pem" -signature "$RUNNER_TEMP/sig.bin" "$RUNNER_TEMP/message.txt"
+          base64 -w0 "$RUNNER_TEMP/sig.bin" > "$msi.sig"
+        env:
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+
       # Envia o MSI para o VirusTotal analisar, para o link das notas já abrir o relatório. Sem a chave
       # (secret VIRUSTOTAL_API_KEY, da conta gratuita) ou com o VirusTotal fora do ar, a release segue sem o envio.
       - name: Enviar ao VirusTotal
@@ -57,7 +82,7 @@ jobs:
           VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
 
       - name: Criar a GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" dist/*.msi --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/*.msi dist/*.msi.sig --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -84,6 +109,6 @@ jobs:
       # É a release "latest" de lá que o app instalado baixa na atualização automática.
       - name: Publicar no repo público de downloads
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.msi --repo miguelsoeth/screencord --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
+          gh release create "$GITHUB_REF_NAME" dist/*.msi dist/*.msi.sig --repo miguelsoeth/screencord --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}

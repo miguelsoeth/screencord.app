@@ -12,11 +12,19 @@ public class AppUpdaterTests
 {
     private const string Download = "https://github.com/miguelsoeth/screencord/releases/download";
 
-    private static GitHubRelease Release(string tag, string? assetName = null, string? url = null, long size = 1000) => new()
+    private static GitHubRelease Release(string tag, string? assetName = null, string? url = null, long size = 1000, bool signed = true) => new()
     {
         TagName = tag,
         Assets =
         [
+            .. signed
+                ? [new GitHubReleaseAsset
+                {
+                    Name = $"ScreenCord-Setup-{tag.TrimStart('v')}-x64.msi.sig",
+                    Size = 100,
+                    BrowserDownloadUrl = $"{Download}/{tag}/ScreenCord-Setup-{tag.TrimStart('v')}-x64.msi.sig",
+                }]
+                : Array.Empty<GitHubReleaseAsset>(),
             new GitHubReleaseAsset
             {
                 Name = assetName ?? $"ScreenCord-Setup-{tag.TrimStart('v')}-x64.msi",
@@ -81,6 +89,21 @@ public class AppUpdaterTests
     }
 
     [Fact]
+    public void ReleaseSemAssinatura_NaoEOferecida()
+    {
+        Assert.NotNull(AppUpdater.SelectUpdate(Release("v0.2.0"), "0.1.0"));
+        Assert.Null(AppUpdater.SelectUpdate(Release("v0.2.0", signed: false), "0.1.0"));
+    }
+
+    [Fact]
+    public void AssinaturaGuardaOEnderecoDaProprioRepo()
+    {
+        var update = AppUpdater.SelectUpdate(Release("v0.2.0"), "0.1.0");
+
+        Assert.Equal(new Uri($"{Download}/v0.2.0/ScreenCord-Setup-0.2.0-x64.msi.sig"), update?.SignatureUrl);
+    }
+
+    [Fact]
     public void InstaladorVazio_ERecusado()
     {
         Assert.Null(AppUpdater.SelectUpdate(Release("v0.2.0", size: 0), "0.1.0"));
@@ -90,7 +113,7 @@ public class AppUpdaterTests
     public async Task ConsultaAUltimaReleaseDoRepoPublico()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, $$"""
-            {"tag_name":"v0.3.0","draft":false,"prerelease":false,"assets":[{"name":"ScreenCord-Setup-0.3.0-x64.msi","size":5000,"browser_download_url":"{{Download}}/v0.3.0/ScreenCord-Setup-0.3.0-x64.msi"}]}
+            {"tag_name":"v0.3.0","draft":false,"prerelease":false,"assets":[{"name":"ScreenCord-Setup-0.3.0-x64.msi","size":5000,"browser_download_url":"{{Download}}/v0.3.0/ScreenCord-Setup-0.3.0-x64.msi"},{"name":"ScreenCord-Setup-0.3.0-x64.msi.sig","size":100,"browser_download_url":"{{Download}}/v0.3.0/ScreenCord-Setup-0.3.0-x64.msi.sig"}]}
             """);
         var updater = new AppUpdater(new StubHttpClientFactory(handler), NullLogger<AppUpdater>.Instance, "0.2.0");
 

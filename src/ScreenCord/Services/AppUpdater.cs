@@ -6,12 +6,13 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ScreenCord.Infrastructure;
+using ScreenCord.Security;
 using Microsoft.Extensions.Logging;
 
 namespace ScreenCord.Services;
 
-/// <summary>Versão nova publicada nas GitHub Releases do repositório público.</summary>
-public sealed record AppUpdate(Version Version, Uri InstallerUrl, long Size);
+/// <summary>Versão nova publicada nas GitHub Releases do repositório público, com a assinatura do instalador (<see cref="ReleaseSignature"/>).</summary>
+public sealed record AppUpdate(Version Version, Uri InstallerUrl, long Size, Uri? SignatureUrl = null);
 
 public interface IAppUpdater
 {
@@ -56,17 +57,19 @@ public sealed class AppUpdater : IAppUpdater
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AppUpdater> _logger;
     private readonly string _currentVersion;
+    private readonly IReadOnlyList<string> _trustedKeys;
 
     public AppUpdater(IHttpClientFactory httpClientFactory, ILogger<AppUpdater> logger)
         : this(httpClientFactory, logger, AppVersion.Current)
     {
     }
 
-    public AppUpdater(IHttpClientFactory httpClientFactory, ILogger<AppUpdater> logger, string currentVersion)
+    public AppUpdater(IHttpClientFactory httpClientFactory, ILogger<AppUpdater> logger, string currentVersion, IReadOnlyList<string>? trustedKeys = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _currentVersion = currentVersion;
+        _trustedKeys = trustedKeys ?? ReleaseSignature.TrustedKeys;
     }
 
     public bool IsEnabled => AppVersion.TryParse(_currentVersion, out var version) && version != new Version(0, 0, 0);
@@ -123,16 +126,27 @@ public sealed class AppUpdater : IAppUpdater
 
         var expectedName = InstallerName(latest);
         var asset = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, expectedName, StringComparison.OrdinalIgnoreCase));
+        var signature = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, SignatureName(latest), StringComparison.OrdinalIgnoreCase));
+
+        // Release sem a assinatura (ou com ela fora do tamanho esperado) não é oferecida: o app não instala o que não confere.
         if (asset is null || asset.Size <= 0 || asset.Size > MaxInstallerSize ||
-            !Uri.TryCreate(asset.BrowserDownloadUrl, UriKind.Absolute, out var url) ||
-            url.Scheme != Uri.UriSchemeHttps || !url.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ||
-            !url.AbsolutePath.StartsWith($"/{Repository}/releases/download/", StringComparison.OrdinalIgnoreCase))
+            signature is null || signature.Size <= 0 || signature.Size > ReleaseSignature.MaxSignatureFileBytes ||
+            !IsReleaseDownload(asset.BrowserDownloadUrl, out var url) ||
+            !IsReleaseDownload(signature.BrowserDownloadUrl, out var signatureUrl))
         {
             return null;
         }
 
-        return new AppUpdate(latest, url, asset.Size);
+        return new AppUpdate(latest, url, asset.Size, signatureUrl);
     }
+
+    /// <summary>Nome do arquivo com a assinatura do MSI na release.</summary>
+    public static string SignatureName(Version version) => InstallerName(version) + ".sig";
+
+    private static bool IsReleaseDownload(string? address, out Uri url) =>
+        Uri.TryCreate(address, UriKind.Absolute, out url!) &&
+        url.Scheme == Uri.UriSchemeHttps && url.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
+        url.AbsolutePath.StartsWith($"/{Repository}/releases/download/", StringComparison.OrdinalIgnoreCase);
 
     public async Task DownloadAndScheduleInstallAsync(AppUpdate update, IProgress<double>? progress, CancellationToken cancellationToken = default)
     {
@@ -179,12 +193,37 @@ public sealed class AppUpdater : IAppUpdater
                 }
             }
 
+            // Só com a assinatura conferida o arquivo ganha o nome final (e pode ser instalado).
+            var signature = await DownloadSignatureAsync(update, cancellationToken).ConfigureAwait(false);
+            if (!ReleaseSignature.Verify(partial, InstallerName(update.Version), signature, _trustedKeys))
+            {
+                throw new InvalidDataException("A assinatura do instalador não confere: a atualização foi descartada.");
+            }
+
             File.Move(partial, path, overwrite: true);
         }
         finally
         {
             File.Delete(partial);
         }
+    }
+
+    private async Task<string> DownloadSignatureAsync(AppUpdate update, CancellationToken cancellationToken)
+    {
+        if (update.SignatureUrl is null)
+        {
+            throw new InvalidDataException("A release não traz a assinatura do instalador.");
+        }
+
+        using var response = await _httpClientFactory.CreateClient(ClientName).GetAsync(update.SignatureUrl, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (bytes.Length is 0 or > ReleaseSignature.MaxSignatureFileBytes)
+        {
+            throw new InvalidDataException("A assinatura do instalador tem um tamanho inesperado.");
+        }
+
+        return Encoding.UTF8.GetString(bytes);
     }
 
     /// <summary>
