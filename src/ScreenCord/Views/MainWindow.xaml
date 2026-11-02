@@ -145,7 +145,7 @@
                         <!-- Rodapé com altura reservada para até três linhas de erro; sem erro, mostra um texto de apoio. -->
                         <Grid Margin="0,18,0,0" MinHeight="76">
                             <TextBlock Style="{StaticResource MutedText}" TextAlignment="Center" VerticalAlignment="Center"
-                                       Text="{l:Tr LoginHint}"
+                                       Text="{Binding LoginHintText}"
                                        views:Motion.IsShown="{Binding HasError, Converter={StaticResource InverseBool}}" />
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="12" VerticalAlignment="Center"
                                     views:Motion.IsShown="{Binding HasError}" views:Motion.Kind="SlideDown">
@@ -482,8 +482,62 @@
                                                 <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"
                                                            Visibility="{Binding IsApiGroup, Converter={StaticResource BoolToVisibility}}" />
+                                                <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
+                                                        views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
+                                                    <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
+                                                </Border>
+
+                                                <TextBlock Text="{l:Tr MembersHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,2" />
+                                                <TextBlock Text="{l:Tr Loading}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4"
+                                                           Visibility="{Binding IsLoadingMembers, Converter={StaticResource BoolToVisibility}}" />
+                                                <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <ItemsControl ItemsSource="{Binding Members}" ItemTemplate="{StaticResource GroupMemberTemplate}" />
+                                                </ScrollViewer>
+
+                                                <!-- O que o grupo aceita transmitir: só quem criou o grupo (ou hospeda a sala) muda; os outros veem. -->
+                                                <TextBlock Text="{l:Tr GroupAllowsHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,4" />
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowScreenShare}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowScreenShareOption}" Margin="0,4" />
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowCamera}" IsEnabled="{Binding CanEditSettings}"
+                                                          Content="{l:Tr AllowCameraOption}" Margin="0,4" />
+
+                                                <!-- Sala hospedada aqui: convite pela internet (link screencord://). Uma linha sobre a porta; o resto fica no ícone de informação. -->
+                                                <!-- O link não aparece na tela (ela pode estar sendo transmitida): só vai para a área de transferência. -->
+                                                <StackPanel Margin="0,12,0,0" Visibility="{Binding IsLocalHost, Converter={StaticResource BoolToVisibility}}">
+                                                    <DockPanel Margin="0,0,0,4">
+                                                        <Border DockPanel.Dock="Right" Background="Transparent" VerticalAlignment="Center"
+                                                                ToolTipService.InitialShowDelay="100" ToolTipService.ShowDuration="60000"
+                                                                AutomationProperties.Name="{Binding InviteDetails}">
+                                                            <Border.ToolTip>
+                                                                <ToolTip>
+                                                                    <TextBlock Text="{Binding InviteDetails}" TextWrapping="Wrap" MaxWidth="300" />
+                                                                </ToolTip>
+                                                            </Border.ToolTip>
+                                                            <Path Data="{StaticResource InfoIcon}" Style="{StaticResource IconPath}" Width="14" Height="14"
+                                                                  Fill="{StaticResource MutedTextBrush}" />
+                                                        </Border>
+                                                        <TextBlock Text="{l:Tr InviteFromInternetHeader}" Style="{StaticResource SidebarHeader}" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding PortForwardHint}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <Button Content="{l:Tr CopyInvite}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                                Command="{Binding CopyInviteCommand}" />
+                                                        <Button Content="{l:Tr RenewInvite}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                                Command="{Binding RenewInviteCommand}" ToolTip="{l:Tr RenewInviteTooltip}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{l:Tr CreatingInvite}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,6,0,0"
+                                                               Visibility="{Binding IsCreatingInvite, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="8,6" Margin="0,8,0,0"
+                                                            views:Motion.IsShown="{Binding HasInviteNotice}" views:Motion.Kind="SlideDown">
+                                                        <TextBlock Text="{Binding InviteNotice}" TextWrapping="Wrap" FontSize="12" />
+                                                    </Border>
+                                                    <!-- Liberar a porta para qualquer endereço é escolha de quem hospeda, nunca o padrão. -->
+                                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding InternetGuestsAllowed}" Margin="0,8,0,0"
+                                                              Content="{l:Tr AllowInternetGuests}" ToolTip="{Binding AllowInternetGuestsTooltip}" />
+                                                </StackPanel>
+
                                                 <!-- Sala local: os IPs para entrar, um por linha, selecionáveis e com botão de copiar. -->
-                                                <StackPanel Margin="0,4,0,0" Visibility="{Binding HasLocalAddresses, Converter={StaticResource BoolToVisibility}}">
+                                                <StackPanel Margin="0,12,0,0" Visibility="{Binding HasLocalAddresses, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="{Binding LocalAddressesHeader}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
                                                     <ItemsControl ItemsSource="{Binding LocalAddresses}" Focusable="False" Margin="0,4,0,0">
                                                         <ItemsControl.ItemTemplate>
@@ -515,25 +569,6 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                 </StackPanel>
-
-                                                <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,10,0,0"
-                                                        views:Motion.IsShown="{Binding HasMembersError}" views:Motion.Kind="SlideDown">
-                                                    <TextBlock Text="{Binding MembersError}" TextWrapping="Wrap" FontSize="12" />
-                                                </Border>
-
-                                                <TextBlock Text="{l:Tr MembersHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,2" />
-                                                <TextBlock Text="{l:Tr Loading}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4"
-                                                           Visibility="{Binding IsLoadingMembers, Converter={StaticResource BoolToVisibility}}" />
-                                                <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                                    <ItemsControl ItemsSource="{Binding Members}" ItemTemplate="{StaticResource GroupMemberTemplate}" />
-                                                </ScrollViewer>
-
-                                                <!-- O que o grupo aceita transmitir: só quem criou o grupo (ou hospeda a sala) muda; os outros veem. -->
-                                                <TextBlock Text="{l:Tr GroupAllowsHeader}" Style="{StaticResource SidebarHeader}" Margin="0,12,0,4" />
-                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowScreenShare}" IsEnabled="{Binding CanEditSettings}"
-                                                          Content="{l:Tr AllowScreenShareOption}" Margin="0,4" />
-                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AllowCamera}" IsEnabled="{Binding CanEditSettings}"
-                                                          Content="{l:Tr AllowCameraOption}" Margin="0,4" />
 
                                                 <!-- Convidar (abre a janela de amigos), sair do grupo e excluir o grupo (só quem criou), à direita -->
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
@@ -747,6 +782,23 @@
                                         <Button Content="{l:Tr NotNow}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
                                                 Command="{Binding DismissFirewallWarningCommand}" />
                                     </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <!-- Convite recebido (link screencord://): só conecta depois de confirmar. -->
+                            <Border Background="{StaticResource InfoSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                    views:Motion.IsShown="{Binding HasPendingInvite}" views:Motion.Kind="SlideDown">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding InviteQuestion}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" />
+                                    <TextBlock Text="{l:Tr JoinInviteHint}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                                               Foreground="{StaticResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="{l:Tr Join}" Style="{StaticResource PrimaryButton}" Padding="10,4" FontSize="12"
+                                                Command="{Binding AcceptInviteCommand}" />
+                                        <Button Content="{l:Tr NotNow}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="12" Margin="6,0,0,0"
+                                                Command="{Binding DeclineInviteCommand}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{l:Tr Connecting}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,6,0,0"
+                                               Visibility="{Binding IsJoiningInvite, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
                             </Border>
                             <Border Background="{StaticResource DangerSurfaceBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,8"

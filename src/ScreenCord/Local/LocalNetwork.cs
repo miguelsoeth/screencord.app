@@ -52,6 +52,19 @@ public static class LocalNetwork
         };
     }
 
+    /// <summary>Rede de casa (10/8, 172.16/12, 192.168/16): para onde o roteador encaminha a porta. Não inclui as VPNs.</summary>
+    public static bool IsHomeNetwork(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        var b = address.GetAddressBytes();
+        return address.AddressFamily == AddressFamily.InterNetwork &&
+               (b[0] == 10 || (b[0] == 172 && b[1] is >= 16 and <= 31) || (b[0] == 192 && b[1] == 168));
+    }
+
     /// <summary>Nome da rede de um endereço, para exibição: "Hamachi", "Radmin", "Tailscale" ou "Rede local".</summary>
     public static string NetworkName(IPAddress address)
     {
@@ -78,9 +91,31 @@ public static class LocalNetwork
     public static string FormatAddress(string host, int port) => port == RoomPort ? host : $"{host}:{port}";
 
     /// <summary>Endereços IPv4 locais deste computador, com o broadcast da sub-rede de cada um.</summary>
-    public static IReadOnlyList<(IPAddress Address, IPAddress Broadcast)> Interfaces()
+    public static IReadOnlyList<(IPAddress Address, IPAddress Broadcast)> Interfaces() =>
+        AllInterfaces().Select(i => (i.Address, i.Broadcast)).ToList();
+
+    /// <summary>
+    /// Endereços para mostrar na sala e pôr no convite. Das VPNs, todos; da rede de casa, só os de interfaces com
+    /// gateway: os adaptadores virtuais (Hyper-V e WSL, VirtualBox, VMware) não têm e ninguém de fora os alcança. Se
+    /// nenhuma interface da rede de casa tiver gateway (dois computadores ligados direto por cabo), valem todas.
+    /// O primeiro da rede de casa é o IP para onde o roteador encaminha a porta.
+    /// </summary>
+    public static IReadOnlyList<IPAddress> RoomAddresses() => RoomAddresses(AllInterfaces());
+
+    internal static IReadOnlyList<IPAddress> RoomAddresses(IReadOnlyList<(IPAddress Address, IPAddress Broadcast, bool HasGateway)> interfaces)
     {
-        var result = new List<(IPAddress, IPAddress)>();
+        var anyHomeGateway = interfaces.Any(i => i.HasGateway && IsHomeNetwork(i.Address));
+        return interfaces
+            .Where(i => !IsHomeNetwork(i.Address) || i.HasGateway || !anyHomeGateway)
+            .OrderBy(i => IsHomeNetwork(i.Address) && i.HasGateway ? 0 : 1)
+            .Select(i => i.Address)
+            .Distinct()
+            .ToList();
+    }
+
+    private static IReadOnlyList<(IPAddress Address, IPAddress Broadcast, bool HasGateway)> AllInterfaces()
+    {
+        var result = new List<(IPAddress, IPAddress, bool)>();
         NetworkInterface[] interfaces;
         try
         {
@@ -98,7 +133,10 @@ public static class LocalNetwork
                 continue;
             }
 
-            foreach (var unicast in nic.GetIPProperties().UnicastAddresses)
+            var properties = nic.GetIPProperties();
+            var hasGateway = properties.GatewayAddresses.Any(g =>
+                g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any));
+            foreach (var unicast in properties.UnicastAddresses)
             {
                 var address = unicast.Address;
                 if (address.AddressFamily != AddressFamily.InterNetwork || !IsLocal(address) || IPAddress.IsLoopback(address))
@@ -106,7 +144,7 @@ public static class LocalNetwork
                     continue;
                 }
 
-                result.Add((address, BroadcastOf(address, unicast.PrefixLength)));
+                result.Add((address, BroadcastOf(address, unicast.PrefixLength), hasGateway));
             }
         }
 
@@ -123,7 +161,7 @@ public static class LocalNetwork
 
     /// <summary>Endereços em que este computador pode ser alcançado pelas salas locais (<c>ip:porta</c>).</summary>
     public static IReadOnlyList<string> Endpoints(int port = RoomPort) =>
-        Interfaces().Select(i => $"{i.Address}:{port}").Distinct().ToList();
+        RoomAddresses().Select(a => $"{a}:{port}").ToList();
 
     /// <summary>
     /// Lê "25.1.2.3", "25.1.2.3:47830" ou "nome-do-pc:47830". Sem porta, usa a das salas locais.

@@ -71,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => new LocalRooms(sp.GetRequiredService<ILocalIdentityStore>(), sp.GetRequiredService<ILogger<LocalRooms>>()));
         services.AddSingleton<ILocalRooms>(sp => sp.GetRequiredService<LocalRooms>());
         services.AddSingleton<IFirewallRule, FirewallRule>();
+        services.AddSingleton<IClipboard, WpfClipboard>();
         services.AddSingleton<IGroupsRealtime, RoutedGroupsRealtime>();
 
         // Atualização automática pelas GitHub Releases (o download segue o redirecionamento do GitHub para o CDN).

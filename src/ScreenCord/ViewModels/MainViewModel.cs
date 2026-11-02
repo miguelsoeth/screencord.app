@@ -30,6 +30,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isLoadingProfile;
     private bool _isLocalForm;
     private string _localName = "";
+    private string? _pendingInviteLink;
 
     public MainViewModel(
         ISessionManager session,
@@ -66,6 +67,37 @@ public sealed class MainViewModel : ObservableObject
         CancelLocalCommand = new RelayCommand(() => IsLocalForm = false);
         ConfirmLocalCommand = new AsyncRelayCommand(ConfirmLocalAsync);
         OpenSupportCommand = new RelayCommand(OpenSupport, () => _browser is not null);
+    }
+
+    /// <summary>
+    /// Link de convite de sala local recebido ao abrir o app ou de outra instância. Antes de escolher o modo (login do
+    /// Discord ou "Usar sem conta"), fica guardado e vai para a tela de grupos depois do login.
+    /// </summary>
+    public void HandleInviteLink(string link)
+    {
+        _pendingInviteLink = link;
+        OnPropertyChanged(nameof(HasPendingInvite));
+        OnPropertyChanged(nameof(LoginHintText));
+        DeliverPendingInvite();
+    }
+
+    /// <summary>Há um convite esperando o login (a tela inicial avisa).</summary>
+    public bool HasPendingInvite => _pendingInviteLink is not null;
+
+    /// <summary>Texto de apoio da tela inicial; com um convite esperando, diz que ele abre depois de entrar.</summary>
+    public string LoginHintText => HasPendingInvite ? Strings.PendingInviteLoginHint : Strings.LoginHint;
+
+    private void DeliverPendingInvite()
+    {
+        if (_pendingInviteLink is not { } link || !IsConnected || IsRefreshing)
+        {
+            return;
+        }
+
+        _pendingInviteLink = null;
+        OnPropertyChanged(nameof(HasPendingInvite));
+        OnPropertyChanged(nameof(LoginHintText));
+        Groups.OfferInvite(link);
     }
 
     /// <summary>Janela "Sobre", aberta pelo menu de configurações (no login e no cabeçalho).</summary>
@@ -431,6 +463,7 @@ public sealed class MainViewModel : ObservableObject
         finally
         {
             IsRefreshing = false;
+            DeliverPendingInvite();
         }
     }
 

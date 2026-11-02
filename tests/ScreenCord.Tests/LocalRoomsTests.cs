@@ -116,7 +116,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
         Assert.True(host.IsHost);
         Assert.All(host.Addresses, a => Assert.EndsWith($":{ana.ListeningPort}", a.Address));
         Assert.Equal(
-            LocalNetwork.Interfaces().Select(i => i.Address.ToString()).Distinct().Order(),
+            LocalNetwork.RoomAddresses().Select(a => a.ToString()).Order(),
             host.Addresses.Select(a => a.Address.Split(':')[0]).Order());
     }
 
@@ -727,6 +727,46 @@ public sealed class LocalLoginTests : IDisposable
 
         Assert.False(vm.IsConnected);
         Assert.True(vm.HasError);
+        await rooms.StopAsync();
+    }
+
+    [Fact]
+    public async Task ConviteAntesDeEscolherOModo_FicaGuardado_EApareceDepoisDoLogin()
+    {
+        var (vm, rooms, _) = Create();
+        await vm.InitializeAsync();
+        var invite = new RoomInvite(Guid.NewGuid(), "Jogatina", ["203.0.113.7:47830"], new string('a', LocalCertificate.FingerprintLength), RoomInvite.NewToken());
+
+        vm.HandleInviteLink(invite.ToLink());
+
+        Assert.True(vm.HasPendingInvite);
+        Assert.Contains("abriu um convite", vm.LoginHintText);
+        Assert.False(vm.Groups.HasPendingInvite);
+
+        vm.StartLocalCommand.Execute(null);
+        vm.LocalName = "Bruno";
+        await vm.ConfirmLocalCommand.ExecuteAsync();
+
+        Assert.False(vm.HasPendingInvite);
+        Assert.True(vm.Groups.HasPendingInvite);
+        Assert.Equal("Entrar na sala Jogatina em 203.0.113.7:47830?", vm.Groups.InviteQuestion);
+        Assert.Null(rooms.CurrentRoomId);
+        await rooms.StopAsync();
+    }
+
+    [Fact]
+    public async Task ConviteComOAppAberto_InvalidoMostraOErroNaTelaDeGrupos()
+    {
+        var (vm, rooms, _) = Create();
+        await vm.InitializeAsync();
+        vm.StartLocalCommand.Execute(null);
+        vm.LocalName = "Bruno";
+        await vm.ConfirmLocalCommand.ExecuteAsync();
+
+        vm.HandleInviteLink("screencord://join?v=9");
+
+        Assert.False(vm.Groups.HasPendingInvite);
+        Assert.Contains("versão mais nova", vm.Groups.ErrorMessage);
         await rooms.StopAsync();
     }
 

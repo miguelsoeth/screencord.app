@@ -209,9 +209,9 @@ public static class Strings
     public static string EnterGroupName => T("Digite um nome para o grupo.", "Enter a name for the group.", "Escribe un nombre para el grupo.");
     public static string JoinByIpTitle => T("Entrar numa sala local pelo IP", "Join a local room by IP", "Entrar a una sala local por IP");
     public static string JoinByIpHint => T(
-        "As salas da mesma rede aparecem sozinhas na lista. Se a sua não aparecer, peça o IP a quem hospeda.",
-        "Rooms on the same network show up in the list on their own. If yours doesn't, ask the host for their IP.",
-        "Las salas de la misma red aparecen solas en la lista. Si la tuya no aparece, pide la IP a quien la aloja.");
+        "As salas da mesma rede aparecem sozinhas na lista. Se a sua não aparecer, peça o IP a quem hospeda. Também dá para colar aqui o link de convite (screencord://).",
+        "Rooms on the same network show up in the list on their own. If yours doesn't, ask the host for their IP. You can also paste an invite link (screencord://) here.",
+        "Las salas de la misma red aparecen solas en la lista. Si la tuya no aparece, pide la IP a quien la aloja. También puedes pegar aquí el enlace de invitación (screencord://).");
     public static string JoinByIpPlaceholder => T("Ex.: 25.1.2.3 ou 192.168.0.10", "E.g. 25.1.2.3 or 192.168.0.10", "Ej.: 25.1.2.3 o 192.168.0.10");
     public static string HostIp => T("IP de quem hospeda a sala", "IP of the room's host", "IP de quien aloja la sala");
 
@@ -519,4 +519,105 @@ public static class Strings
         "Port {0} on this computer is in use by another program, so ScreenCord can't open the local room.",
         "El puerto {0} de esta computadora está en uso por otro programa y ScreenCord no puede abrir la sala local.");
     public static string LocalOnlyWithoutAccount => T("Sem conta do Discord, só as salas locais estão disponíveis.", "Without a Discord account, only local rooms are available.", "Sin cuenta de Discord, solo están disponibles las salas locales.");
+
+    // Convite das salas locais (link screencord://, para quem está fora da rede)
+    public static string PendingInviteLoginHint => T(
+        "Você abriu um convite para uma sala local. Conecte com o Discord ou use sem conta para entrar nela.",
+        "You opened an invite to a local room. Connect with Discord or use without an account to join it.",
+        "Abriste una invitación a una sala local. Conéctate con Discord o úsalo sin cuenta para entrar.");
+    public static string InviteFromInternetHeader => T("CONVIDAR PELA INTERNET", "INVITE OVER THE INTERNET", "INVITAR POR INTERNET");
+    public static string CopyInvite => T("Copiar convite", "Copy invite", "Copiar invitación");
+    public static string RenewInvite => T("Gerar novo", "New invite", "Nueva");
+    public static string RenewInviteTooltip => T(
+        "Troca o link: o convite anterior deixa de funcionar (quem já está na sala continua).",
+        "Changes the link: the previous invite stops working (people already in the room stay).",
+        "Cambia el enlace: la invitación anterior deja de funcionar (quienes ya están en la sala siguen).");
+    public static string CreatingInvite => T("Gerando o convite…", "Creating the invite…", "Creando la invitación…");
+    public static string PortForwardHintFormat => T(
+        "Encaminhe a porta TCP {0} no roteador para {1}. Não funciona atrás de CGNAT.",
+        "Forward TCP port {0} on your router to {1}. Doesn't work behind CGNAT.",
+        "Redirige el puerto TCP {0} del router a {1}. No funciona detrás de CGNAT.");
+    public static string InviteDetailsFormat => T(
+        "Para quem está fora da sua rede: encaminhe a porta TCP {0} no roteador para este computador e ligue \"Aceitar convidados de fora da rede\", que libera essa porta no Firewall do Windows para qualquer endereço (o Windows pede permissão). Quem vem de fora só entra com o convite.\n\nA UDP {1} (descoberta) só vale na rede local e não precisa ser aberta.\n\nAtrás de CGNAT (provedor sem IP público próprio) isso não funciona: use Tailscale, Radmin ou Hamachi.",
+        "For people outside your network: forward TCP port {0} on your router to this computer and turn on \"Accept guests from outside the network\", which opens that port in Windows Firewall to any address (Windows asks for permission). People from outside can only join with the invite.\n\nUDP {1} (discovery) only works on the local network and doesn't need to be opened.\n\nBehind CGNAT (an ISP without your own public IP) this doesn't work: use Tailscale, Radmin or Hamachi.",
+        "Para quienes están fuera de tu red: redirige el puerto TCP {0} del router a esta computadora y activa \"Aceptar invitados de fuera de la red\", que abre ese puerto en el Firewall de Windows para cualquier dirección (Windows pide permiso). Quienes vienen de fuera solo entran con la invitación.\n\nEl UDP {1} (descubrimiento) solo sirve en la red local y no hace falta abrirlo.\n\nDetrás de CGNAT (proveedor sin IP pública propia) esto no funciona: usa Tailscale, Radmin o Hamachi.");
+    public static string LocalIpUnknown => T("este computador", "this computer", "esta computadora");
+    public static string InviteCopied => T(
+        "Copiado. O link tem o seu IP público: mande só para quem você quer na sala.",
+        "Copied. The link has your public IP: send it only to people you want in the room.",
+        "Copiada. El enlace tiene tu IP pública: envíala solo a quienes quieres en la sala.");
+    public static string InviteCopiedNoPublicIp => T(
+        "Copiado, mas sem o IP público (sem internet?): só funciona na rede local e nas VPNs.",
+        "Copied, but without your public IP (no internet?): it only works on the local network and VPNs.",
+        "Copiada, pero sin la IP pública (¿sin internet?): solo funciona en la red local y en las VPN.");
+    public static string InviteRenewed => T(
+        "Novo convite copiado. O anterior não funciona mais.",
+        "New invite copied. The previous one no longer works.",
+        "Nueva invitación copiada. La anterior ya no funciona.");
+    public static string InviteCopyFailed => T(
+        "Não foi possível copiar: a área de transferência está em uso. Tente de novo.",
+        "Couldn't copy: the clipboard is in use. Try again.",
+        "No se pudo copiar: el portapapeles está en uso. Inténtalo de nuevo.");
+    public static string OnlyHostInvites => T("Só quem hospeda a sala pode gerar o convite.", "Only the room's host can create the invite.", "Solo quien aloja la sala puede crear la invitación.");
+    public static string AllowInternetGuests => T("Aceitar convidados de fora da rede", "Accept guests from outside the network", "Aceptar invitados de fuera de la red");
+    public static string AllowInternetGuestsTooltipFormat => T(
+        "Libera a porta TCP {0} no Firewall do Windows para qualquer endereço (o Windows pede permissão). Desligado, só a rede local e as VPNs.",
+        "Opens TCP port {0} in Windows Firewall to any address (Windows asks for permission). Off, only the local network and VPNs.",
+        "Abre el puerto TCP {0} en el Firewall de Windows para cualquier dirección (Windows pide permiso). Desactivado, solo la red local y las VPN.");
+    public static string InternetFirewallNotChanged => T(
+        "O firewall não foi alterado. Aceite o pedido de permissão do Windows para mudar quem pode entrar.",
+        "The firewall wasn't changed. Accept the Windows permission prompt to change who can join.",
+        "No se cambió el firewall. Acepta la solicitud de permiso de Windows para cambiar quién puede entrar.");
+    public static string JoinInviteQuestionFormat => T(
+        "Entrar na sala {0} em {1}?",
+        "Join the room {0} at {1}?",
+        "¿Entrar a la sala {0} en {1}?");
+    public static string JoinInviteHint => T(
+        "Você recebeu um convite para uma sala local. Só entre se conhece quem mandou o link: quem hospeda vê o seu IP.",
+        "You received an invite to a local room. Only join if you know who sent the link: the host sees your IP.",
+        "Recibiste una invitación a una sala local. Entra solo si conoces a quien envió el enlace: quien la aloja ve tu IP.");
+    public static string InviteInvalid => T(
+        "O link de convite está incompleto ou foi alterado. Peça um convite novo para quem hospeda a sala.",
+        "The invite link is incomplete or was changed. Ask the room's host for a new invite.",
+        "El enlace de invitación está incompleto o fue modificado. Pide una nueva invitación a quien aloja la sala.");
+    public static string InviteNewerVersion => T(
+        "Este convite é de uma versão mais nova do ScreenCord. Atualize o app (Sobre → Procurar atualizações) e abra o link de novo.",
+        "This invite is from a newer version of ScreenCord. Update the app (About → Check for updates) and open the link again.",
+        "Esta invitación es de una versión más nueva de ScreenCord. Actualiza la aplicación (Acerca de → Buscar actualizaciones) y abre el enlace de nuevo.");
+    public static string InviteNewerProtocol => T(
+        "A sala do convite usa uma versão mais nova do ScreenCord. Atualize o app (Sobre → Procurar atualizações) e abra o link de novo.",
+        "The invite's room uses a newer version of ScreenCord. Update the app (About → Check for updates) and open the link again.",
+        "La sala de la invitación usa una versión más nueva de ScreenCord. Actualiza la aplicación (Acerca de → Buscar actualizaciones) y abre el enlace de nuevo.");
+    public static string InviteOlderProtocol => T(
+        "Quem convidou usa uma versão mais antiga do ScreenCord. Peça para atualizar o app e mandar um convite novo.",
+        "The person who invited you uses an older version of ScreenCord. Ask them to update the app and send a new invite.",
+        "Quien te invitó usa una versión más antigua de ScreenCord. Pídele que actualice la aplicación y envíe una nueva invitación.");
+    public static string InviteUnreachableFormat => T(
+        "Não foi possível conectar à sala em {0}. Quem hospeda precisa encaminhar a porta TCP {1} no roteador para o computador dele e permitir convidados de fora da rede no firewall. Atrás de CGNAT (provedor sem IP público próprio) isso não funciona: usem Tailscale, Radmin ou Hamachi.",
+        "Couldn't connect to the room at {0}. The host needs to forward TCP port {1} on their router to their computer and allow guests from outside the network in the firewall. Behind CGNAT (an ISP without your own public IP) this doesn't work: use Tailscale, Radmin or Hamachi.",
+        "No se pudo conectar a la sala en {0}. Quien la aloja debe redirigir el puerto TCP {1} del router a su computadora y permitir invitados de fuera de la red en el firewall. Detrás de CGNAT (proveedor sin IP pública propia) esto no funciona: usen Tailscale, Radmin o Hamachi.");
+    public static string InviteCertificateMismatchFormat => T(
+        "O computador em {0} não é o da sala do convite (o certificado não confere). Se quem hospeda reabriu o ScreenCord, o convite antigo deixou de valer: peça um novo.",
+        "The computer at {0} isn't the one from the invite (the certificate doesn't match). If the host reopened ScreenCord, the old invite no longer works: ask for a new one.",
+        "La computadora en {0} no es la de la invitación (el certificado no coincide). Si quien aloja reabrió ScreenCord, la invitación anterior ya no vale: pide una nueva.");
+    public static string InviteTokenRejected => T(
+        "O convite não vale mais: quem hospeda gerou um convite novo. Peça o link atual.",
+        "The invite is no longer valid: the host created a new one. Ask for the current link.",
+        "La invitación ya no vale: quien aloja creó una nueva. Pide el enlace actual.");
+    public static string InviteRequired => T(
+        "A sala recusou a entrada pelo IP: de fora da rede local de quem hospeda, só se entra pelo link de convite. Peça o convite (Copiar convite, na sala).",
+        "The room refused joining by IP: from outside the host's local network, you can only join with the invite link. Ask for the invite (Copy invite, in the room).",
+        "La sala rechazó la entrada por IP: desde fuera de la red local de quien la aloja, solo se entra con el enlace de invitación. Pide la invitación (Copiar invitación, en la sala).");
+    public static string InviteRoomClosed => T(
+        "A sala do convite foi encerrada. Peça um convite novo para quem hospeda.",
+        "The invite's room was ended. Ask the host for a new invite.",
+        "La sala de la invitación se finalizó. Pide una nueva invitación a quien la aloja.");
+    public static string InviteBlocked => T(
+        "Tentativas demais com um convite inválido: a sala recusa este endereço por alguns minutos. Peça o link atual e tente mais tarde.",
+        "Too many attempts with an invalid invite: the room refuses this address for a few minutes. Ask for the current link and try later.",
+        "Demasiados intentos con una invitación no válida: la sala rechaza esta dirección por unos minutos. Pide el enlace actual e inténtalo más tarde.");
+    public static string InviteOwnRoom => T(
+        "Esse é o convite da sala que você está hospedando. Mande o link para quem você quer convidar.",
+        "That's the invite to the room you're hosting. Send the link to the people you want to invite.",
+        "Esa es la invitación a la sala que estás alojando. Envía el enlace a quienes quieras invitar.");
 }

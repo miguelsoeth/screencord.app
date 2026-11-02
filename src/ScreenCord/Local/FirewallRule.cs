@@ -11,6 +11,15 @@ public interface IFirewallRule
 
     /// <summary>Cria a regra pedindo a permissão do Windows (UAC). Retorna se ela passou a existir.</summary>
     Task<bool> ConfigureAsync();
+
+    /// <summary>A regra que aceita convidados de qualquer endereço da internet existe.</summary>
+    Task<bool> IsInternetAllowedAsync();
+
+    /// <summary>
+    /// Cria ou apaga a regra dos convidados de fora da rede, pedindo a permissão do Windows (UAC). Só por ação
+    /// explícita de quem hospeda. Retorna se o firewall ficou como pedido.
+    /// </summary>
+    Task<bool> SetInternetAllowedAsync(bool allowed);
 }
 
 /// <summary>
@@ -18,21 +27,46 @@ public interface IFirewallRule
 /// aparecer como rede "Pública"), mas só para endereços de rede local e das VPNs de jogo (<see cref="LocalNetwork.Ranges"/>):
 /// TCP <see cref="LocalNetwork.RoomPort"/> (salas e mídia) e UDP <see cref="LocalNetwork.DiscoveryPort"/> (anúncios).
 /// Quem cria é o próprio exe com <see cref="CommandLineFlag"/>, elevado; o instalador faz o mesmo na primeira instalação.
+/// <para>
+/// Para o convite pela internet há uma terceira regra, nunca criada por padrão: TCP <see cref="LocalNetwork.RoomPort"/>
+/// de qualquer endereço (<see cref="InternetRuleName"/>), com <see cref="CommandLineFlag"/> e <see cref="AllowInternetFlag"/>.
+/// A UDP de descoberta continua só nas redes locais.
+/// </para>
 /// </summary>
 public sealed class FirewallRule : IFirewallRule
 {
     public const string CommandLineFlag = "--configure-firewall";
     public const string RemoveFlag = "--remove-firewall";
+
+    /// <summary>Junto com <see cref="CommandLineFlag"/>: cria também a regra dos convidados de fora da rede.</summary>
+    public const string AllowInternetFlag = "--allow-internet";
+
+    /// <summary>Junto com <see cref="CommandLineFlag"/>: apaga a regra dos convidados de fora da rede.</summary>
+    public const string LocalOnlyFlag = "--local-only";
+
     /// <summary>Vai junto com <see cref="RemoveFlag"/> no processo já elevado, para ele não pedir a permissão de novo.</summary>
     public const string ElevatedFlag = "--elevated";
     public const string RoomRuleName = "ScreenCord - salas locais";
     public const string DiscoveryRuleName = "ScreenCord - descoberta de salas";
+    public const string InternetRuleName = "ScreenCord - convidados de fora da rede";
 
     public async Task<bool> IsConfiguredAsync() =>
         await RunNetshAsync(["advfirewall", "firewall", "show", "rule", $"name={RoomRuleName}"]) == 0 &&
         await RunNetshAsync(["advfirewall", "firewall", "show", "rule", $"name={DiscoveryRuleName}"]) == 0;
 
-    public async Task<bool> ConfigureAsync()
+    public async Task<bool> IsInternetAllowedAsync() =>
+        await RunNetshAsync(["advfirewall", "firewall", "show", "rule", $"name={InternetRuleName}"]) == 0;
+
+    public async Task<bool> ConfigureAsync() => await RunElevatedAsync(CommandLineFlag) && await IsConfiguredAsync();
+
+    public async Task<bool> SetInternetAllowedAsync(bool allowed)
+    {
+        await RunElevatedAsync($"{CommandLineFlag} {(allowed ? AllowInternetFlag : LocalOnlyFlag)}");
+        return await IsInternetAllowedAsync() == allowed;
+    }
+
+    /// <summary>Roda o próprio exe elevado (pedindo a permissão do Windows) e espera; false se a pessoa recusou.</summary>
+    private static async Task<bool> RunElevatedAsync(string arguments)
     {
         var exe = Environment.ProcessPath;
         if (exe is null)
@@ -42,13 +76,14 @@ public sealed class FirewallRule : IFirewallRule
 
         try
         {
-            using var process = Process.Start(new ProcessStartInfo(exe, CommandLineFlag) { UseShellExecute = true, Verb = "runas" });
+            using var process = Process.Start(new ProcessStartInfo(exe, arguments) { UseShellExecute = true, Verb = "runas" });
             if (process is null)
             {
                 return false;
             }
 
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            return true;
         }
         catch (Win32Exception)
         {
@@ -59,15 +94,14 @@ public sealed class FirewallRule : IFirewallRule
         {
             return false;
         }
-
-        return await IsConfiguredAsync();
     }
 
     /// <summary>
     /// Cria (ou recria) as regras para <paramref name="exePath"/>. Roda no processo elevado iniciado por
-    /// <see cref="ConfigureAsync"/> ou pelo instalador; retorna o código de saída.
+    /// <see cref="ConfigureAsync"/>, por <see cref="SetInternetAllowedAsync"/> ou pelo instalador; retorna o código de saída.
     /// </summary>
-    public static int Apply(string exePath)
+    /// <param name="allowInternet">true cria a regra dos convidados de fora; false a apaga; null a deixa como está.</param>
+    public static int Apply(string exePath, bool? allowInternet = null)
     {
         var remote = string.Join(',', LocalNetwork.Ranges);
         var failed = false;
@@ -81,8 +115,26 @@ public sealed class FirewallRule : IFirewallRule
             ]) != 0;
         }
 
+        if (allowInternet is { } allowed)
+        {
+            RunNetsh(["advfirewall", "firewall", "delete", "rule", $"name={InternetRuleName}"]);
+            if (allowed)
+            {
+                // Só a TCP das salas e da mídia: quem vem de fora precisa do token do convite (ou da chave da transmissão).
+                failed |= RunNetsh(
+                [
+                    "advfirewall", "firewall", "add", "rule", $"name={InternetRuleName}", "dir=in", "action=allow", $"program={exePath}",
+                    "protocol=TCP", $"localport={LocalNetwork.RoomPort}", "remoteip=any", "profile=any", "enable=yes",
+                ]) != 0;
+            }
+        }
+
         return failed ? 1 : 0;
     }
+
+    /// <summary>A escolha sobre os convidados de fora que veio na linha de comando do processo elevado.</summary>
+    public static bool? InternetChoice(IReadOnlyCollection<string> args) =>
+        args.Contains(AllowInternetFlag) ? true : args.Contains(LocalOnlyFlag) ? false : null;
 
     /// <summary>
     /// Apaga as regras; o instalador chama o exe com <see cref="RemoveFlag"/> ao desinstalar, sem elevação. Sem
@@ -91,7 +143,7 @@ public sealed class FirewallRule : IFirewallRule
     /// </summary>
     public static int Remove(string exePath, bool elevated)
     {
-        string[] names = [RoomRuleName, DiscoveryRuleName];
+        string[] names = [RoomRuleName, DiscoveryRuleName, InternetRuleName];
         var existing = names.Where(name => RunNetsh(["advfirewall", "firewall", "show", "rule", $"name={name}"]) == 0).ToList();
         if (existing.Count == 0)
         {

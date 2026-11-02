@@ -18,7 +18,18 @@ public sealed record LocalAddress(string Address, string Network);
 /// Por onde entrar na sala pelo IP: para quem hospeda, todos os endereços de rede local e VPN deste computador;
 /// para os outros, o endereço em que a sala foi encontrada.
 /// </param>
-public sealed record LocalRoomInfo(bool IsHost, IReadOnlyList<LocalAddress> Addresses);
+/// <param name="LanAddress">
+/// Para quem hospeda: o IP deste computador na rede de casa (não o das VPNs), para onde o roteador deve encaminhar a
+/// porta quando há convidados de fora. Null se não houver.
+/// </param>
+public sealed record LocalRoomInfo(bool IsHost, IReadOnlyList<LocalAddress> Addresses, string? LanAddress = null);
+
+/// <summary>Convite gerado por quem hospeda.</summary>
+/// <param name="HasPublicAddress">O IP público entrou no convite; sem ele, o link só funciona na rede local e nas VPNs.</param>
+public sealed record LocalInvite(RoomInvite Invite, bool HasPublicAddress)
+{
+    public string Link => Invite.ToLink();
+}
 
 /// <summary>
 /// Salas locais: funcionam sem a API (e sem conta do Discord). Uma sala é hospedada no computador de quem a cria;
@@ -65,6 +76,18 @@ public interface ILocalRooms
     /// <summary>Encontra a sala hospedada em <paramref name="address"/> (ex.: "25.1.2.3") e a deixa pronta para entrar.</summary>
     Task<GroupDto> FindAsync(string address, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Convite para a sala hospedada aqui, com o IP público (descoberto por STUN, sem a API) e os endereços da rede
+    /// local e das VPNs. <paramref name="renew"/> troca o token: os convites anteriores deixam de valer.
+    /// </summary>
+    Task<LocalInvite> CreateInviteAsync(Guid roomId, bool renew = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Conecta à sala do convite (conferindo a impressão digital e apresentando o token) e a deixa pronta para
+    /// entrar, como <see cref="FindAsync"/>. Os erros dizem o que conferir (porta no roteador, convite trocado...).
+    /// </summary>
+    Task<GroupDto> FindInviteAsync(RoomInvite invite, CancellationToken cancellationToken = default);
+
     /// <summary>Entra na sala (saindo da sala local anterior; se ela era hospedada aqui, ela acaba).</summary>
     Task<GroupPresenceDto> JoinAsync(Guid roomId, CancellationToken cancellationToken = default);
 
@@ -98,6 +121,8 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     private readonly RoomDiscovery _discovery;
     private readonly int _port;
     private readonly Func<int, IReadOnlyList<string>> _endpoints;
+    private readonly IPublicAddressResolver _publicAddress;
+    private readonly Func<IPAddress, bool>? _isTrusted;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _lock = new();
     private LocalMember _me;
@@ -113,18 +138,24 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
 
     /// <param name="port">Porta TCP das salas; 0 escolhe uma livre (testes).</param>
     /// <param name="endpoints">Endereços anunciados para quem assiste, pela porta (padrão: os de rede local deste computador).</param>
+    /// <param name="publicAddress">Descobre o IP público para o convite (padrão: <see cref="StunClient"/>).</param>
+    /// <param name="isTrusted">Quem dispensa o token da sala (padrão: <see cref="LocalNetwork.IsLocal"/>); os testes simulam quem vem de fora.</param>
     public LocalRooms(
         ILocalIdentityStore identity,
         ILogger<LocalRooms> logger,
         RoomDiscovery? discovery = null,
         int port = LocalNetwork.RoomPort,
-        Func<int, IReadOnlyList<string>>? endpoints = null)
+        Func<int, IReadOnlyList<string>>? endpoints = null,
+        IPublicAddressResolver? publicAddress = null,
+        Func<IPAddress, bool>? isTrusted = null)
     {
         _identity = identity;
         _logger = logger;
         _discovery = discovery ?? new RoomDiscovery(logger);
         _port = port;
         _endpoints = endpoints ?? (p => LocalNetwork.Endpoints(p));
+        _publicAddress = publicAddress ?? new StunClient();
+        _isTrusted = isTrusted;
         var profile = identity.Load();
         _me = new LocalMember(profile.Id, profile.Name ?? "Você");
         _discovery.RoomSeen += room =>
@@ -210,12 +241,13 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         if (_hosted is { } hosted && hosted.Id == roomId)
         {
             var port = _server?.Port ?? _port;
-            var addresses = LocalNetwork.Interfaces()
-                .Select(i => i.Address)
-                .Distinct()
+            // Sem os adaptadores virtuais (Hyper-V, WSL, VirtualBox): ninguém os alcança, e só poluiriam a lista.
+            var roomAddresses = LocalNetwork.RoomAddresses();
+            var addresses = roomAddresses
                 .Select(a => new LocalAddress(LocalNetwork.FormatAddress(a.ToString(), port), LocalNetwork.NetworkName(a)))
                 .ToList();
-            return new LocalRoomInfo(true, addresses);
+            var lan = roomAddresses.FirstOrDefault(LocalNetwork.IsHomeNetwork);
+            return new LocalRoomInfo(true, addresses, lan?.ToString());
         }
 
         var client = _client?.State.Id == roomId ? _client : _pending?.State.Id == roomId ? _pending : null;
@@ -336,9 +368,86 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         if (client.State.Id == _hosted?.Id)
         {
             await client.DisposeAsync();
-            throw new LocalNetworkException(Strings.OwnRoomAddress);
+            throw new LocalNetworkException(Strings.OwnRoomAddress, failure: LocalFailure.OwnRoom);
         }
 
+        return await SetPendingAsync(client);
+    }
+
+    public async Task<LocalInvite> CreateInviteAsync(Guid roomId, bool renew = false, CancellationToken cancellationToken = default)
+    {
+        if (_hosted is not { } hosted || hosted.Id != roomId || _server is not { } server || _certificate is not { } certificate)
+        {
+            throw new LocalNetworkException(Strings.OnlyHostInvites);
+        }
+
+        var token = renew ? hosted.RenewToken() : hosted.Token;
+        if (renew)
+        {
+            _logger.LogInformation("Convite da sala local {Room} trocado; o anterior deixou de valer.", hosted.Id);
+        }
+
+        // O roteador encaminha a mesma porta em que a sala escuta; o IP público não vai para o log.
+        var publicAddress = await _publicAddress.ResolveAsync(cancellationToken);
+        var addresses = new List<string>();
+        if (publicAddress is not null)
+        {
+            addresses.Add($"{publicAddress}:{server.Port}");
+        }
+
+        addresses.AddRange(_endpoints(server.Port).Where(e => RoomInvite.TryParseEndpoint(e, out _, out _)));
+        addresses = addresses.Distinct().Take(RoomInvite.MaxAddresses).ToList();
+        if (addresses.Count == 0)
+        {
+            throw new LocalNetworkException(Strings.NoLocalNetwork);
+        }
+
+        var invite = new RoomInvite(hosted.Id, RoomInvite.SanitizeName(hosted.Name), addresses, certificate.Fingerprint, token);
+        _logger.LogInformation("Convite gerado para a sala local {Room} ({Count} endereços, com IP público: {HasPublic}).", hosted.Id, addresses.Count, publicAddress is not null);
+        return new LocalInvite(invite, publicAddress is not null);
+    }
+
+    public async Task<GroupDto> FindInviteAsync(RoomInvite invite, CancellationToken cancellationToken = default)
+    {
+        // O certificado é novo a cada execução: a mesma impressão digital só pode ser a deste computador.
+        if (invite.RoomId == _hosted?.Id || invite.Fingerprint == _certificate?.Fingerprint)
+        {
+            throw new LocalNetworkException(Strings.InviteOwnRoom, failure: LocalFailure.OwnRoom);
+        }
+
+        if (_currentRoomId == invite.RoomId && CurrentState() is { } current)
+        {
+            return current.ToGroup();
+        }
+
+        var endpoints = new List<(string Host, int Port)>();
+        foreach (var address in invite.Addresses)
+        {
+            if (RoomInvite.TryParseEndpoint(address, out var ip, out var port))
+            {
+                endpoints.Add((ip.ToString(), port));
+            }
+        }
+
+        if (endpoints.Count == 0)
+        {
+            throw new LocalNetworkException(Strings.InviteInvalid, failure: LocalFailure.InvalidInvite);
+        }
+
+        var client = await LocalRoomClient.ConnectAnyAsync(endpoints, _me, invite.Fingerprint, invite.Token, invite.RoomId, cancellationToken);
+        if (client.State.Id != invite.RoomId)
+        {
+            await client.DisposeAsync();
+            throw new LocalNetworkException(Strings.InviteRoomClosed, failure: LocalFailure.RoomClosed);
+        }
+
+        _logger.LogInformation("Sala local {Room} encontrada pelo convite.", invite.RoomId);
+        return await SetPendingAsync(client);
+    }
+
+    /// <summary>A sala encontrada (pelo IP ou pelo convite) fica pronta para entrar, no lugar da anterior.</summary>
+    private async Task<GroupDto> SetPendingAsync(LocalRoomClient client)
+    {
         var previous = Interlocked.Exchange(ref _pending, client);
         if (previous is not null)
         {
@@ -531,8 +640,20 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
 
         var name = state.Members.FirstOrDefault(m => m.Id == sharerId)?.Name ?? Strings.SomeoneSharing;
-        return await MediaSocket.ConnectDirectAsync(share.Endpoints, share.MediaId, share.Key, share.Fingerprint, share.BitrateKbps, name, cancellationToken);
+        var endpoints = share.Endpoints;
+        if (sharerId == state.HostId && _client is { } client && _client.State.Id == roomId)
+        {
+            // A mídia de quem hospeda sai pela mesma porta da sala: o endereço por onde se entrou (o IP público, para
+            // quem veio pelo convite) também serve, mesmo quando os da rede de quem hospeda não são alcançáveis daqui.
+            var roomAddress = $"{client.Host}:{client.Port}";
+            endpoints = endpoints.Contains(roomAddress) ? endpoints : [.. endpoints, roomAddress];
+        }
+
+        return await MediaSocket.ConnectDirectAsync(endpoints, share.MediaId, share.Key, share.Fingerprint, share.BitrateKbps, name, cancellationToken);
     }
+
+    /// <summary>Estado da sala atual, com os endereços e as chaves das transmissões (testes).</summary>
+    internal LocalRoomState? CurrentRoomState => CurrentState();
 
     private LocalRoomState? CurrentState() =>
         _hosted?.Id == _currentRoomId ? _hosted?.Snapshot() : _client?.State;
@@ -547,7 +668,7 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         }
 
         var certificate = LocalCertificate.Create();
-        var server = new LocalServer(Route, certificate.Certificate, _logger);
+        var server = new LocalServer(Route, certificate.Certificate, _logger, _isTrusted);
         try
         {
             server.Start(_port);
@@ -566,7 +687,25 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
     {
         if (request.Path == "/room")
         {
-            return _hosted is { } hosted ? LocalRoute.Accept(hosted.HandleAsync) : LocalRoute.NotFound;
+            if (_hosted is not { } hosted)
+            {
+                return LocalRoute.NotFound;
+            }
+
+            // Quem vem pelo convite diz qual sala espera: outra sala (a do convite acabou) responde como encerrada.
+            if (request.Header(LocalRoomHost.RoomHeader) is { } expected && !(Guid.TryParseExact(expected, "N", out var id) && id == hosted.Id))
+            {
+                return LocalRoute.NotFound;
+            }
+
+            // De fora das redes locais e das VPNs, só com o token do convite. O token não vai para o log.
+            if (!request.IsTrusted && !hosted.AcceptsToken(request.Header(LocalRoomHost.TokenHeader)))
+            {
+                _logger.LogInformation("Entrada na sala local recusada: token inválido.");
+                return LocalRoute.Forbidden;
+            }
+
+            return LocalRoute.Accept(hosted.HandleAsync);
         }
 
         const string media = "/media/";
