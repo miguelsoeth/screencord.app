@@ -116,7 +116,7 @@ public sealed class LocalRoomsTests : IAsyncLifetime
         Assert.True(host.IsHost);
         Assert.All(host.Addresses, a => Assert.EndsWith($":{ana.ListeningPort}", a.Address));
         Assert.Equal(
-            LocalNetwork.Interfaces().Select(i => i.Address.ToString()).Distinct().Order(),
+            LocalNetwork.RoomAddresses().Select(a => a.ToString()).Order(),
             host.Addresses.Select(a => a.Address.Split(':')[0]).Order());
     }
 

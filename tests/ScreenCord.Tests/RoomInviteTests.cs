@@ -189,6 +189,25 @@ public class RoomInviteFormatTests
         Assert.False(FirewallRule.InternetChoice([FirewallRule.CommandLineFlag, FirewallRule.LocalOnlyFlag]));
     }
 
+    [Fact]
+    public void Enderecos_SemAdaptadoresVirtuais_EARedeDeCasaPrimeiro()
+    {
+        var none = IPAddress.None;
+        (IPAddress, IPAddress, bool) Nic(string address, bool gateway) => (IPAddress.Parse(address), none, gateway);
+
+        // Hyper-V/WSL (172.x) e VirtualBox (192.168.56.x) não têm gateway; Radmin e Tailscale entram sempre.
+        var addresses = LocalNetwork.RoomAddresses(
+        [
+            Nic("26.25.112.14", false), Nic("100.110.145.106", false), Nic("172.31.16.1", false),
+            Nic("192.168.0.113", true), Nic("192.168.56.1", false),
+        ]);
+
+        Assert.Equal(["192.168.0.113", "26.25.112.14", "100.110.145.106"], addresses.Select(a => a.ToString()));
+
+        // Sem nenhum gateway na rede de casa (cabo direto entre dois computadores), nada some.
+        Assert.Equal(2, LocalNetwork.RoomAddresses([Nic("192.168.1.2", false), Nic("10.0.0.2", false)]).Count);
+    }
+
     /// <summary>Troca o valor de um campo do link (sem escapar: o teste escolhe o texto exato).</summary>
     internal static string Replace(string link, string field, string value)
     {
@@ -731,7 +750,8 @@ public sealed class RoomInviteTests : IAsyncLifetime
 
         Assert.True(item.IsLocalHost);
         Assert.Contains($"porta TCP {LocalNetwork.RoomPort}", item.PortForwardHint);
-        Assert.Contains($"UDP {LocalNetwork.DiscoveryPort}", item.PortForwardHint);
+        Assert.Contains($"UDP {LocalNetwork.DiscoveryPort}", item.InviteDetails);
+        Assert.Contains("Tailscale", item.InviteDetails);
         Assert.Contains("CGNAT", item.PortForwardHint);
 
         await item.CopyInviteCommand.ExecuteAsync();

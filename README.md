@@ -342,8 +342,8 @@ Salas que não dependem da API: o computador de quem cria a sala é o anfitrião
 Para chamar alguém que não está na sua rede nem numa VPN em comum, sem depender da API:
 
 1. Na sala que você hospeda, abra os integrantes (a contagem ao lado do nome) e clique em **Copiar convite**. O link vai para a área de transferência (fora do histórico do Windows, Win+V) e não aparece na tela, que pode estar sendo transmitida. Mande-o só para quem você quer na sala: ele contém o seu IP público.
-2. No roteador, **encaminhe a porta TCP 47830** para o seu computador (o IP local aparece na sala). A UDP 47831 (descoberta) só vale na rede local e não precisa ser aberta.
-3. Clique em **Permitir convidados de fora da rede**: cria a regra "ScreenCord - convidados de fora da rede" no Firewall do Windows, para a TCP 47830 e qualquer endereço (o Windows pede permissão; é o `ScreenCord.exe --configure-firewall --allow-internet`). Nunca é o padrão; **Voltar a só a rede local** apaga a regra (`--local-only`).
+2. No roteador, **encaminhe a porta TCP 47830** para o seu computador (o IP aparece na seção do convite; adaptadores virtuais como Hyper-V, WSL e VirtualBox ficam fora da lista de endereços). A UDP 47831 (descoberta) só vale na rede local e não precisa ser aberta.
+3. Ligue **Aceitar convidados de fora da rede**: cria a regra "ScreenCord - convidados de fora da rede" no Firewall do Windows, para a TCP 47830 e qualquer endereço (o Windows pede permissão; é o `ScreenCord.exe --configure-firewall --allow-internet`). Nunca é o padrão; desligar apaga a regra (`--local-only`).
 4. Quem recebe clica no link (o instalador registra o `screencord://` por usuário; builds fora do MSI registram ao abrir) ou cola o link em "Entrar numa sala local pelo IP". O app abre (ou a instância aberta recebe o link), confirma "Entrar na sala X em <endereço>?" e só então conecta. Se a pessoa ainda não entrou (Discord ou "Usar sem conta"), o convite espera o login.
 
 **Atrás de CGNAT** (provedor sem IP público próprio, comum em internet móvel e em alguns provedores de fibra), encaminhar a porta não adianta: use Tailscale, Radmin ou Hamachi. UPnP, IPv6, hole punching e relay não estão implementados.
@@ -359,7 +359,7 @@ Segurança do convite:
 - **O link é dado não confiável**: todos os campos são validados (IPv4 por extenso com porta, impressão digital de 64 caracteres hexadecimais, token base64url de 22 a 128 caracteres, nome limpo de caracteres de controle e de direção do texto, até 2048 caracteres no total), nada é executado a partir dele e sempre há confirmação. Aberto por um link, o app ignora qualquer outro argumento da linha de comando.
 - Tokens e links nunca vão para o log nem para o relatório de erros; só o resultado ("entrada recusada: token inválido").
 
-Riscos de expor a porta: qualquer um na internet pode tentar conectar na TCP 47830 enquanto o app está aberto (sem o token não passa do pedido de conexão), e quem tem o link vê o seu IP público e pode entrar enquanto a sala existir. Gere um convite novo se o link vazar, e use **Voltar a só a rede local** quando não precisar mais.
+Riscos de expor a porta: qualquer um na internet pode tentar conectar na TCP 47830 enquanto o app está aberto (sem o token não passa do pedido de conexão), e quem tem o link vê o seu IP público e pode entrar enquanto a sala existir. Gere um convite novo se o link vazar, e desligue **Aceitar convidados de fora da rede** quando não precisar mais.
 
 ## Arquitetura
 

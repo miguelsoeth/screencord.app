@@ -51,8 +51,6 @@ public sealed class GroupItemViewModel : ObservableObject
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
         CopyInviteCommand = new AsyncRelayCommand(() => _owner.CopyInviteAsync(this, renew: false), () => !IsCreatingInvite);
         RenewInviteCommand = new AsyncRelayCommand(() => _owner.CopyInviteAsync(this, renew: true), () => !IsCreatingInvite);
-        AllowInternetGuestsCommand = new AsyncRelayCommand(() => _owner.SetInternetGuestsAsync(this, allowed: true));
-        RestrictToLocalNetworkCommand = new AsyncRelayCommand(() => _owner.SetInternetGuestsAsync(this, allowed: false));
     }
 
     /// <summary>Copia o link <c>screencord://</c> da sala hospedada aqui, para convidar quem está fora da rede.</summary>
@@ -60,11 +58,6 @@ public sealed class GroupItemViewModel : ObservableObject
 
     /// <summary>Troca o token (o convite anterior deixa de valer) e copia o novo link.</summary>
     public AsyncRelayCommand RenewInviteCommand { get; }
-
-    /// <summary>Libera a porta das salas no firewall para qualquer endereço (pede a permissão do Windows).</summary>
-    public AsyncRelayCommand AllowInternetGuestsCommand { get; }
-
-    public AsyncRelayCommand RestrictToLocalNetworkCommand { get; }
 
     public bool IsCreatingInvite
     {
@@ -104,26 +97,37 @@ public sealed class GroupItemViewModel : ObservableObject
 
     public bool HasInviteNotice => _inviteNotice != ViewModels.InviteNotice.None;
 
-    /// <summary>A regra do firewall para convidados de fora da rede existe.</summary>
+    /// <summary>
+    /// A regra do firewall para convidados de fora da rede existe. Ligar ou desligar o interruptor cria ou apaga a
+    /// regra (pede a permissão do Windows); se a pessoa recusar, ele volta ao que vale.
+    /// </summary>
     public bool InternetGuestsAllowed
     {
         get => _internetGuestsAllowed;
-        internal set
+        set
         {
-            if (SetProperty(ref _internetGuestsAllowed, value))
+            if (value != _internetGuestsAllowed)
             {
-                OnPropertyChanged(nameof(InternetGuestsBlocked));
+                _ = _owner.SetInternetGuestsAsync(this, value);
             }
         }
     }
 
-    public bool InternetGuestsBlocked => !InternetGuestsAllowed;
+    /// <summary>O que o firewall tem de fato; avisa a interface mesmo sem mudança, para desfazer o clique recusado.</summary>
+    internal void ApplyInternetGuests(bool allowed)
+    {
+        _internetGuestsAllowed = allowed;
+        OnPropertyChanged(nameof(InternetGuestsAllowed));
+    }
 
-    /// <summary>Qual porta encaminhar no roteador e para qual IP, o que não precisa ser aberto e o caso do CGNAT.</summary>
+    /// <summary>Qual porta encaminhar no roteador, para qual IP, e o caso do CGNAT, numa linha.</summary>
     public string PortForwardHint => string.Format(
-        Loc.Culture, Strings.PortForwardHintFormat, LocalNetwork.RoomPort, _lanAddress ?? Strings.LocalIpUnknown, LocalNetwork.DiscoveryPort);
+        Loc.Culture, Strings.PortForwardHintFormat, LocalNetwork.RoomPort, _lanAddress ?? Strings.LocalIpUnknown);
 
-    public string AllowInternetGuestsHint => string.Format(Loc.Culture, Strings.AllowInternetGuestsHintFormat, LocalNetwork.RoomPort);
+    /// <summary>A explicação completa (o ícone de informação): firewall, a UDP que não precisa ser aberta e o CGNAT.</summary>
+    public string InviteDetails => string.Format(Loc.Culture, Strings.InviteDetailsFormat, LocalNetwork.RoomPort, LocalNetwork.DiscoveryPort);
+
+    public string AllowInternetGuestsTooltip => string.Format(Loc.Culture, Strings.AllowInternetGuestsTooltipFormat, LocalNetwork.RoomPort);
 
     internal void SetLanAddress(string? address)
     {

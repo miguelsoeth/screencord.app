@@ -527,44 +527,43 @@ public static class Strings
         "Abriste una invitación a una sala local. Conéctate con Discord o úsalo sin cuenta para entrar.");
     public static string InviteFromInternetHeader => T("CONVIDAR PELA INTERNET", "INVITE OVER THE INTERNET", "INVITAR POR INTERNET");
     public static string CopyInvite => T("Copiar convite", "Copy invite", "Copiar invitación");
-    public static string RenewInvite => T("Gerar novo convite", "New invite", "Nueva invitación");
+    public static string RenewInvite => T("Gerar novo", "New invite", "Nueva");
     public static string RenewInviteTooltip => T(
         "Troca o link: o convite anterior deixa de funcionar (quem já está na sala continua).",
         "Changes the link: the previous invite stops working (people already in the room stay).",
         "Cambia el enlace: la invitación anterior deja de funcionar (quienes ya están en la sala siguen).");
     public static string CreatingInvite => T("Gerando o convite…", "Creating the invite…", "Creando la invitación…");
     public static string PortForwardHintFormat => T(
-        "Para convidar quem está fora da sua rede, encaminhe a porta TCP {0} no roteador para este computador (IP local {1}). A UDP {2} (descoberta) só vale na rede local e não precisa ser aberta. Atrás de CGNAT (provedor sem IP público próprio) isso não funciona: use Tailscale, Radmin ou Hamachi.",
-        "To invite people outside your network, forward TCP port {0} on your router to this computer (local IP {1}). UDP {2} (discovery) only works on the local network and doesn't need to be opened. Behind CGNAT (an ISP without your own public IP) this doesn't work: use Tailscale, Radmin or Hamachi.",
-        "Para invitar a quienes están fuera de tu red, redirige el puerto TCP {0} del router a esta computadora (IP local {1}). El UDP {2} (descubrimiento) solo sirve en la red local y no hace falta abrirlo. Detrás de CGNAT (proveedor sin IP pública propia) esto no funciona: usa Tailscale, Radmin o Hamachi.");
-    public static string LocalIpUnknown => T("não encontrado", "not found", "no encontrada");
+        "Encaminhe a porta TCP {0} no roteador para {1}. Não funciona atrás de CGNAT.",
+        "Forward TCP port {0} on your router to {1}. Doesn't work behind CGNAT.",
+        "Redirige el puerto TCP {0} del router a {1}. No funciona detrás de CGNAT.");
+    public static string InviteDetailsFormat => T(
+        "Para quem está fora da sua rede: encaminhe a porta TCP {0} no roteador para este computador e ligue \"Aceitar convidados de fora da rede\", que libera essa porta no Firewall do Windows para qualquer endereço (o Windows pede permissão). Quem vem de fora só entra com o convite.\n\nA UDP {1} (descoberta) só vale na rede local e não precisa ser aberta.\n\nAtrás de CGNAT (provedor sem IP público próprio) isso não funciona: use Tailscale, Radmin ou Hamachi.",
+        "For people outside your network: forward TCP port {0} on your router to this computer and turn on \"Accept guests from outside the network\", which opens that port in Windows Firewall to any address (Windows asks for permission). People from outside can only join with the invite.\n\nUDP {1} (discovery) only works on the local network and doesn't need to be opened.\n\nBehind CGNAT (an ISP without your own public IP) this doesn't work: use Tailscale, Radmin or Hamachi.",
+        "Para quienes están fuera de tu red: redirige el puerto TCP {0} del router a esta computadora y activa \"Aceptar invitados de fuera de la red\", que abre ese puerto en el Firewall de Windows para cualquier dirección (Windows pide permiso). Quienes vienen de fuera solo entran con la invitación.\n\nEl UDP {1} (descubrimiento) solo sirve en la red local y no hace falta abrirlo.\n\nDetrás de CGNAT (proveedor sin IP pública propia) esto no funciona: usa Tailscale, Radmin o Hamachi.");
+    public static string LocalIpUnknown => T("este computador", "this computer", "esta computadora");
     public static string InviteCopied => T(
-        "Convite copiado. O link contém o seu IP público: mande só para quem você quer na sala. Ele vale enquanto a sala existir; \"Gerar novo convite\" invalida o anterior.",
-        "Invite copied. The link contains your public IP: send it only to people you want in the room. It works while the room exists; \"New invite\" cancels the previous one.",
-        "Invitación copiada. El enlace contiene tu IP pública: envíala solo a quienes quieres en la sala. Vale mientras exista la sala; \"Nueva invitación\" anula la anterior.");
+        "Copiado. O link tem o seu IP público: mande só para quem você quer na sala.",
+        "Copied. The link has your public IP: send it only to people you want in the room.",
+        "Copiada. El enlace tiene tu IP pública: envíala solo a quienes quieres en la sala.");
     public static string InviteCopiedNoPublicIp => T(
-        "Convite copiado, mas sem o IP público: não foi possível descobri-lo agora (sem internet ou UDP bloqueado). Assim ele só funciona na rede local e nas VPNs. Para convidar quem está fora, confira a internet e copie de novo.",
-        "Invite copied, but without your public IP: it couldn't be found right now (no internet or UDP blocked). It only works on the local network and VPNs. To invite people outside, check your connection and copy again.",
-        "Invitación copiada, pero sin la IP pública: no se pudo averiguar ahora (sin internet o UDP bloqueado). Solo funciona en la red local y en las VPN. Para invitar a quienes están fuera, revisa la conexión y cópiala de nuevo.");
+        "Copiado, mas sem o IP público (sem internet?): só funciona na rede local e nas VPNs.",
+        "Copied, but without your public IP (no internet?): it only works on the local network and VPNs.",
+        "Copiada, pero sin la IP pública (¿sin internet?): solo funciona en la red local y en las VPN.");
     public static string InviteRenewed => T(
-        "Novo convite copiado. O anterior não funciona mais. O link contém o seu IP público: mande só para quem você quer na sala.",
-        "New invite copied. The previous one no longer works. The link contains your public IP: send it only to people you want in the room.",
-        "Nueva invitación copiada. La anterior ya no funciona. El enlace contiene tu IP pública: envíala solo a quienes quieres en la sala.");
+        "Novo convite copiado. O anterior não funciona mais.",
+        "New invite copied. The previous one no longer works.",
+        "Nueva invitación copiada. La anterior ya no funciona.");
     public static string InviteCopyFailed => T(
-        "Não foi possível copiar: a área de transferência está em uso por outro programa. Tente de novo.",
-        "Couldn't copy: the clipboard is in use by another program. Try again.",
-        "No se pudo copiar: el portapapeles está en uso por otro programa. Inténtalo de nuevo.");
+        "Não foi possível copiar: a área de transferência está em uso. Tente de novo.",
+        "Couldn't copy: the clipboard is in use. Try again.",
+        "No se pudo copiar: el portapapeles está en uso. Inténtalo de nuevo.");
     public static string OnlyHostInvites => T("Só quem hospeda a sala pode gerar o convite.", "Only the room's host can create the invite.", "Solo quien aloja la sala puede crear la invitación.");
-    public static string AllowInternetGuests => T("Permitir convidados de fora da rede", "Allow guests from outside the network", "Permitir invitados de fuera de la red");
-    public static string AllowInternetGuestsHintFormat => T(
-        "Libera a porta TCP {0} no Firewall do Windows para qualquer endereço da internet (o Windows vai pedir permissão). Quem vem de fora só entra com o convite.",
-        "Opens TCP port {0} in Windows Firewall to any internet address (Windows will ask for permission). People from outside can only join with the invite.",
-        "Abre el puerto TCP {0} en el Firewall de Windows para cualquier dirección de internet (Windows pedirá permiso). Quienes vienen de fuera solo entran con la invitación.");
-    public static string InternetGuestsAllowed => T(
-        "O firewall aceita convidados de fora da rede.",
-        "The firewall accepts guests from outside the network.",
-        "El firewall acepta invitados de fuera de la red.");
-    public static string RestrictToLocalNetwork => T("Voltar a só a rede local", "Back to local network only", "Volver a solo la red local");
+    public static string AllowInternetGuests => T("Aceitar convidados de fora da rede", "Accept guests from outside the network", "Aceptar invitados de fuera de la red");
+    public static string AllowInternetGuestsTooltipFormat => T(
+        "Libera a porta TCP {0} no Firewall do Windows para qualquer endereço (o Windows pede permissão). Desligado, só a rede local e as VPNs.",
+        "Opens TCP port {0} in Windows Firewall to any address (Windows asks for permission). Off, only the local network and VPNs.",
+        "Abre el puerto TCP {0} en el Firewall de Windows para cualquier dirección (Windows pide permiso). Desactivado, solo la red local y las VPN.");
     public static string InternetFirewallNotChanged => T(
         "O firewall não foi alterado. Aceite o pedido de permissão do Windows para mudar quem pode entrar.",
         "The firewall wasn't changed. Accept the Windows permission prompt to change who can join.",

@@ -241,12 +241,12 @@ public sealed class LocalRooms : ILocalRooms, IAsyncDisposable, IDisposable
         if (_hosted is { } hosted && hosted.Id == roomId)
         {
             var port = _server?.Port ?? _port;
-            var addresses = LocalNetwork.Interfaces()
-                .Select(i => i.Address)
-                .Distinct()
+            // Sem os adaptadores virtuais (Hyper-V, WSL, VirtualBox): ninguém os alcança, e só poluiriam a lista.
+            var roomAddresses = LocalNetwork.RoomAddresses();
+            var addresses = roomAddresses
                 .Select(a => new LocalAddress(LocalNetwork.FormatAddress(a.ToString(), port), LocalNetwork.NetworkName(a)))
                 .ToList();
-            var lan = LocalNetwork.Interfaces().Select(i => i.Address).FirstOrDefault(LocalNetwork.IsHomeNetwork);
+            var lan = roomAddresses.FirstOrDefault(LocalNetwork.IsHomeNetwork);
             return new LocalRoomInfo(true, addresses, lan?.ToString());
         }
 

@@ -235,6 +235,7 @@ public sealed class GroupsViewModel : ObservableObject
     {
         if (_firewall is null || IsConfiguringFirewall)
         {
+            group.ApplyInternetGuests(_internetGuestsAllowed); // desfaz o clique no interruptor
             return;
         }
 
@@ -260,7 +261,7 @@ public sealed class GroupsViewModel : ObservableObject
         _internetGuestsAllowed = allowed;
         foreach (var group in Groups.Where(g => g.IsLocalHost))
         {
-            group.InternetGuestsAllowed = allowed;
+            group.ApplyInternetGuests(allowed);
         }
     }
 
@@ -1162,7 +1163,7 @@ public sealed class GroupsViewModel : ObservableObject
         {
             item.SetLocal(info.IsHost, info.Addresses);
             item.SetLanAddress(info.LanAddress);
-            item.InternetGuestsAllowed = info.IsHost && _internetGuestsAllowed;
+            item.ApplyInternetGuests(info.IsHost && _internetGuestsAllowed);
         }
     }
 
