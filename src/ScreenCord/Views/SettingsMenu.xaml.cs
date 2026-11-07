@@ -10,7 +10,7 @@ namespace ScreenCord.Views;
 
 /// <summary>
 /// Menu da engrenagem: idioma (troca na hora e salva a escolha), envio dos relatórios de erro
-/// (<see cref="TelemetryPreference"/>), a atualização automática (<see cref="UpdatePreference"/>) e a janela "Sobre".
+/// (<see cref="TelemetryPreference"/>), o encoder de hardware (<see cref="HardwareAccelerationPreference"/>), a atualização automática (<see cref="UpdatePreference"/>) e a janela "Sobre".
 /// </summary>
 public partial class SettingsMenu : UserControl
 {
@@ -50,6 +50,7 @@ public partial class SettingsMenu : UserControl
         EnglishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.English);
         SpanishCheck.Visibility = CheckVisibility(Loc.Language == AppLanguage.Spanish);
         ErrorReportsCheck.Visibility = CheckVisibility(TelemetryPreference.Enabled);
+        HardwareEncodingCheck.Visibility = CheckVisibility(HardwareAccelerationPreference.Enabled);
         AutoUpdateCheck.Visibility = CheckVisibility(UpdatePreference.AutoUpdate);
     }
 
@@ -70,6 +71,12 @@ public partial class SettingsMenu : UserControl
     private void OnErrorReportsClick(object sender, RoutedEventArgs e)
     {
         TelemetryPreference.Set(!TelemetryPreference.Enabled);
+        ShowState();
+    }
+
+    private void OnHardwareEncodingClick(object sender, RoutedEventArgs e)
+    {
+        HardwareAccelerationPreference.Set(!HardwareAccelerationPreference.Enabled);
         ShowState();
     }
 

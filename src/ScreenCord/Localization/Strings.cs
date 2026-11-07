@@ -48,7 +48,15 @@ public static class Strings
         "Installs the new version on startup. When off, the app asks first. A version the server no longer accepts must be installed to continue.",
         "Instala la nueva versión al abrir. Desactivado, la aplicación pregunta antes. Una versión que el servidor ya no acepta debe instalarse para continuar.");
 
-    // Configurações (menu da engrenagem: idioma, privacidade, atualizações e "Sobre")
+    // Transmissão (menu da engrenagem)
+    public static string Streaming => T("Transmissão", "Streaming", "Transmisión");
+    public static string HardwareEncoding => T("Usar aceleração de hardware", "Use hardware acceleration", "Usar aceleración por hardware");
+    public static string HardwareEncodingHint => T(
+        "Codifica o vídeo na placa de vídeo. Desligue se a sua transmissão travar ou aparecer com defeito; usa mais o processador. Vale na próxima transmissão.",
+        "Encodes video on the graphics card. Turn it off if your stream freezes or looks corrupted; uses more CPU. Applies to the next stream.",
+        "Codifica el video en la tarjeta gráfica. Desactívalo si tu transmisión se congela o se ve con fallas; usa más el procesador. Se aplica en la próxima transmisión.");
+
+    // Configurações (menu da engrenagem: idioma, privacidade, transmissão, atualizações e "Sobre")
     public static string Settings => T("Configurações", "Settings", "Configuración");
 
     // Sobre
