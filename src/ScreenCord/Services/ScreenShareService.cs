@@ -114,7 +114,8 @@ public sealed class ScreenShareService : IScreenShareService
             // O tamanho final depende da proporção da tela ou janela, então a captura vem antes do anúncio.
             // Fora da thread da interface: a criação espera operações assíncronas do Windows.
             capture = await Task.Run(() => ScreenCapture.Create(request.Source, settings.Height, settings.Fps, _logger), cancellationToken);
-            encoder = await Task.Run(() => H264Encoder.Create(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps), cancellationToken);
+            var allowHardware = HardwareAccelerationPreference.Enabled;
+            encoder = await Task.Run(() => H264Encoder.Create(capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, allowHardware), cancellationToken);
             _logger.LogInformation(
                 "Compartilhando {Kind} ({Capture}) em {Width}x{Height}, {Fps} fps, {Kbps} kbps, encoder {Encoder}.",
                 request.Source.Kind, capture.Name, capture.Width, capture.Height, settings.Fps, settings.BitrateKbps, encoder.Name);

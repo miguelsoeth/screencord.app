@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:l="clr-namespace:ScreenCord.Localization"
              xmlns:views="clr-namespace:ScreenCord.Views">
-    <!-- Engrenagem no estilo das ações do cabeçalho: idioma, privacidade, atualizações e "Sobre" num só menu, que abre embaixo,
+    <!-- Engrenagem no estilo das ações do cabeçalho: idioma, privacidade, transmissão, atualizações e "Sobre" num só menu, que abre embaixo,
          alinhado à direita do botão. Usado no cabeçalho e no login (o DataContext é o MainViewModel). -->
     <UserControl.Resources>
         <views:InverseBooleanConverter x:Key="InverseBool" />
@@ -79,6 +79,20 @@
                         </DockPanel>
                     </Button>
                     <TextBlock Text="{l:Tr ErrorReportsHint}" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
+                               TextWrapping="Wrap" Margin="10,2,10,4" />
+
+                    <Rectangle Style="{StaticResource MenuSeparator}" />
+
+                    <!-- Transmissão: encoder da placa de vídeo ou por software (vale na próxima transmissão). -->
+                    <TextBlock Text="{l:Tr Streaming}" Style="{StaticResource MenuSection}" />
+                    <Button Style="{StaticResource MenuOption}" Click="OnHardwareEncodingClick"
+                            AutomationProperties.Name="{l:Tr HardwareEncoding}">
+                        <DockPanel>
+                            <Path x:Name="HardwareEncodingCheck" Style="{StaticResource MenuCheck}" />
+                            <TextBlock Text="{l:Tr HardwareEncoding}" />
+                        </DockPanel>
+                    </Button>
+                    <TextBlock Text="{l:Tr HardwareEncodingHint}" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
                                TextWrapping="Wrap" Margin="10,2,10,4" />
 
                     <Rectangle Style="{StaticResource MenuSeparator}" />
